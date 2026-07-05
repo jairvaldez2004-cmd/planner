@@ -1,0 +1,13 @@
+# CRÍTICO: no copiar node_modules local (binarios Windows) ni secretos al build.
+node_modules
+.next
+out
+dist
+.git
+.env*
+*.tsbuildinfo
+*.log
+.DS_Store
+Dockerfile
+.dockerignore
+README.md
