@@ -1,0 +1,9 @@
+node_modules/
+.next/
+out/
+dist/
+*.log
+.env*
+!.env.example
+.DS_Store
+# Secretos (.env, .env.local) NUNCA se versionan; .env.example sí (documenta variables, sin secretos).

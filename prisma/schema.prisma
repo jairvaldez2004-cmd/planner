@@ -1,0 +1,246 @@
+// Schema Prisma mínimo (alpha local). Persistencia PostgreSQL LOCAL.
+// R5D: las entidades del dominio se guardan como JSON (data) + id + version,
+// para NO duplicar/alterar los contratos FROZEN del dominio. Intercambiable con LocalRepository.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id      String @id
+  data    Json
+  version Int    @default(0)
+}
+
+model Proyecto {
+  id      String @id
+  data    Json
+  version Int    @default(0)
+}
+
+model Instancia {
+  id      String @id
+  data    Json
+  version Int    @default(0)
+}
+
+model Plano {
+  id      String @id
+  data    Json
+  version Int    @default(0)
+}
+
+model VersionSnapshot {
+  planoId   String
+  version   Int
+  publicado Boolean
+  timestamp String
+  data      Json
+
+  @@id([planoId, version])
+}
+
+model Documento {
+  id            String  @id
+  planoId       String
+  tipoPlano     String
+  tipoDocumento String
+  version       Int     @default(1)
+  contenido     Json
+  markup        String
+  pendientes    Int     @default(0)
+  publicado     Boolean @default(false)
+  creadoEn      String
+  actualizadoEn String
+}
+
+model VersionDocumento {
+  documentoId String
+  version     Int
+  markup      String
+  pendientes  Int
+  publicado   Boolean
+  timestamp   String
+  contenido   Json
+
+  @@id([documentoId, version])
+}
+
+// INC-1 · Catálogo maestro compartido (ADITIVO — no altera modelos FROZEN).
+model Catalogo {
+  id          String  @id
+  nombre      String
+  dueno       String
+  descripcion String?
+}
+
+model ProductoCatalogo {
+  id            String  @id
+  catalogoId    String
+  sku           String
+  nombre        String
+  categoria     String
+  restriccion   String
+  data          Json // pistas export opcionales (hsCode/incoterm/puerto/certificado)
+  activo        Boolean @default(true)
+  creadoEn      String
+  actualizadoEn String
+
+  @@index([catalogoId])
+}
+
+// Cabeza del Planner (ADITIVO): diagnóstico + blueprint por proyecto.
+model ProyectoDiagnostico {
+  proyectoId    String @id
+  diagnostico   Json
+  blueprint     Json
+  actualizadoEn String
+}
+
+// Curaduría del grafo (ADITIVO): aristas proyecto↔proyecto dentro de un workspace.
+model RelacionProyecto {
+  id          String  @id
+  workspaceId String
+  aId         String
+  bId         String
+  etiqueta    String?
+
+  @@index([workspaceId])
+}
+
+// Capa 2 (ADITIVO): campos capturados por plano dentro de un proyecto.
+model ProyectoPlanoEstado {
+  proyectoId    String
+  planoId       String
+  campos        Json   // Record<campoId, valor>
+  actualizadoEn String
+
+  @@id([proyectoId, planoId])
+  @@index([proyectoId])
+}
+
+// Ajustes superadmin (ADITIVO): clave/valor. Ej. modelo.curador → claude-sonnet-4-6.
+model Ajuste {
+  clave String @id
+  valor String
+}
+
+// Memoria del Curador (ADITIVO): historial de conversación persistido por alcance.
+// clave = "WS:<workspaceId>" (Curador del workspace) | "PROJ:<proyectoId>" (Curador del proyecto).
+model Conversacion {
+  clave         String @id
+  mensajes      Json   // MensajeChat[] = { role, content }
+  actualizadoEn String
+}
+
+// Módulo Espacios / UC (ADITIVO). Empresa = Transversal + Unidades Comerciales.
+model UnidadComercial {
+  id         String @id
+  proyectoId String
+  nombre     String
+  data       Json // tipo, descripcion, color, etc.
+
+  @@index([proyectoId])
+}
+
+model Sede {
+  id         String @id
+  proyectoId String
+  nombre     String
+  data       Json // direccion, lat, lng, medidas, renta, servicios
+
+  @@index([proyectoId])
+}
+
+model Espacio {
+  id         String  @id
+  proyectoId String
+  sedeId     String
+  padreId    String?
+  tipo       String // edificio | capa | habitacion | area
+  nombre     String
+  capa       Int     @default(0)
+  x          Float   @default(40)
+  y          Float   @default(40)
+  ancho      Float   @default(180)
+  alto       Float   @default(130)
+  data       Json // ucIds[] + campos por lente
+
+  @@index([sedeId])
+  @@index([proyectoId])
+}
+
+// Elementos arquitectónicos (muros, puertas, ventanas) — segmentos en metros por capa.
+model ElementoArq {
+  id         String @id
+  proyectoId String
+  sedeId     String
+  capa       Int    @default(0)
+  tipo       String // muro | puerta | ventana
+  x1         Float
+  y1         Float
+  x2         Float
+  y2         Float
+  data       Json
+
+  @@index([sedeId])
+  @@index([proyectoId])
+}
+
+model ObjetoFisico {
+  id         String @id
+  proyectoId String
+  sedeId     String
+  espacioId  String
+  nombre     String
+  categoria  String // mueble | herramienta | insumo | equipo
+  capa       Int    @default(0)
+  x          Float  @default(20)
+  y          Float  @default(20)
+  ancho      Float  @default(46)
+  alto       Float  @default(34)
+  data       Json // campos por lente (base/procesos/org/fin/tec)
+
+  @@index([sedeId])
+  @@index([proyectoId])
+}
+
+// Catálogo por UC (ADITIVO). Ref: PLANNER_CATALOG_TO_OFFERING_V1.md.
+// Oferta = {Entregable} + {Ruta base}. Presentación = SKU vendible que hereda la ruta.
+model Oferta {
+  id         String @id
+  proyectoId String
+  ucId       String
+  nombre     String
+  data       Json // tipoEntregable, categoria, descripcion, rutaBase[]
+
+  @@index([proyectoId])
+  @@index([ucId])
+}
+
+model Presentacion {
+  id         String @id
+  proyectoId String
+  ofertaId   String
+  nombre     String
+  data       Json // precio, unidad, minimo, composicion[], omitidos[], overrides{}, pasosExtra[]
+
+  @@index([proyectoId])
+  @@index([ofertaId])
+}
+
+// Capa 2 (ADITIVO): tablas maestras compartidas por proyecto (filas en JSON).
+model TablaProyecto {
+  proyectoId    String
+  tablaRef      String
+  filas         Json   // Array<Record<columnaId, valor>>
+  actualizadoEn String
+
+  @@id([proyectoId, tablaRef])
+  @@index([proyectoId])
+}
