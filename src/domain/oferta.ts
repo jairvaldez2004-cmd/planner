@@ -57,6 +57,7 @@ export interface Paso {
   entrada?: string | undefined;
   salida?: string | undefined;
   manual?: string | undefined;
+  disparadores?: Disparador[] | undefined; // triggers de inicio/fin de ESTE paso + redirección
 }
 
 // Oferta = lo que vende la UC (familia). Tiene su ruta base.
@@ -68,7 +69,6 @@ export interface Oferta {
   categoria?: string | undefined;
   descripcion?: string | undefined;
   rutaBase: Paso[];
-  disparadores: Disparador[];  // triggers de inicio/fin del proceso + redirección
 }
 
 // Presentación = la forma EXACTA en que se vende (SKU vendible).

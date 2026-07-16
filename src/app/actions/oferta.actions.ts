@@ -30,6 +30,7 @@ function normPaso(v: unknown): Paso {
     entrada: str(d.entrada) || undefined,
     salida: str(d.salida) || undefined,
     manual: str(d.manual) || undefined,
+    disparadores: arr<unknown>(d.disparadores).map(normDisparador),
   };
 }
 function normInsumo(v: unknown): Insumo {
@@ -55,7 +56,6 @@ function mapOferta(r: { id: string; ucId: string; nombre: string; data: unknown 
     categoria: str(d.categoria) || undefined,
     descripcion: str(d.descripcion) || undefined,
     rutaBase: arr<unknown>(d.rutaBase).map(normPaso),
-    disparadores: arr<unknown>(d.disparadores).map(normDisparador),
   };
 }
 
@@ -67,10 +67,10 @@ export async function obtenerOferta(id: string): Promise<Oferta | null> {
 }
 export async function crearOferta(proyectoId: string, ucId: string, nombre: string, tipoEntregable: TipoEntregable = 'servicio'): Promise<Oferta> {
   const id = nid('OF');
-  await prisma.oferta.create({ data: { id, proyectoId, ucId, nombre: nombre.trim() || 'Oferta', data: toJson({ tipoEntregable, rutaBase: [], disparadores: [] }) } });
-  return { id, ucId, nombre: nombre.trim() || 'Oferta', tipoEntregable, rutaBase: [], disparadores: [] };
+  await prisma.oferta.create({ data: { id, proyectoId, ucId, nombre: nombre.trim() || 'Oferta', data: toJson({ tipoEntregable, rutaBase: [] }) } });
+  return { id, ucId, nombre: nombre.trim() || 'Oferta', tipoEntregable, rutaBase: [] };
 }
-export interface OfertaPatch { nombre?: string; tipoEntregable?: TipoEntregable; categoria?: string; descripcion?: string; rutaBase?: Paso[]; disparadores?: Disparador[] }
+export interface OfertaPatch { nombre?: string; tipoEntregable?: TipoEntregable; categoria?: string; descripcion?: string; rutaBase?: Paso[] }
 export async function actualizarOferta(id: string, patch: OfertaPatch): Promise<void> {
   const r = await prisma.oferta.findUnique({ where: { id } }); if (!r) return;
   const d = obj(r.data);
@@ -79,7 +79,6 @@ export async function actualizarOferta(id: string, patch: OfertaPatch): Promise<
   if (patch.categoria !== undefined) data.categoria = patch.categoria;
   if (patch.descripcion !== undefined) data.descripcion = patch.descripcion;
   if (patch.rutaBase !== undefined) data.rutaBase = patch.rutaBase.map(normPaso);
-  if (patch.disparadores !== undefined) data.disparadores = patch.disparadores.map(normDisparador);
   await prisma.oferta.update({ where: { id }, data: {
     ...(patch.nombre !== undefined ? { nombre: patch.nombre } : {}),
     data: toJson(data),
