@@ -25,7 +25,7 @@ export function CatalogoUC({ proyectoId, ucId, ucNombre }: { proyectoId: string;
   const cargar = () => { setLoading(true); listarOfertas(proyectoId, ucId).then(setOfertas).catch(() => {}).finally(() => setLoading(false)); };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId, ucId]);
 
-  if (abierta) return <EditorOferta proyectoId={proyectoId} oferta={abierta} onVolver={() => { setAbierta(null); cargar(); }} />;
+  if (abierta) return <EditorOferta proyectoId={proyectoId} oferta={abierta} procesos={ofertas.map((o) => ({ id: o.id, nombre: o.nombre }))} onVolver={() => { setAbierta(null); cargar(); }} />;
 
   async function crear() {
     if (!nombre.trim()) return;

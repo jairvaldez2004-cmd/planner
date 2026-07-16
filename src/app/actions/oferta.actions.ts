@@ -6,7 +6,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
-import type { Oferta, Presentacion, Paso, TipoEntregable, Insumo } from '@/domain/oferta';
+import type { Oferta, Presentacion, Paso, TipoEntregable, Insumo, Disparador } from '@/domain/oferta';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nid(p: string): string { return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
@@ -36,6 +36,15 @@ function normInsumo(v: unknown): Insumo {
   const d = obj(v);
   return { item: str(d.item), cantidad: str(d.cantidad) || undefined, costo: num(d.costo) };
 }
+function normDisparador(v: unknown): Disparador {
+  const d = obj(v);
+  return {
+    id: str(d.id) || nid('DISP'),
+    tipo: str(d.tipo) === 'inicio' ? 'inicio' : 'fin',
+    evento: str(d.evento),
+    destinoOfertaId: str(d.destinoOfertaId) || undefined,
+  };
+}
 
 // =================== OFERTAS ===================
 function mapOferta(r: { id: string; ucId: string; nombre: string; data: unknown }): Oferta {
@@ -46,6 +55,7 @@ function mapOferta(r: { id: string; ucId: string; nombre: string; data: unknown 
     categoria: str(d.categoria) || undefined,
     descripcion: str(d.descripcion) || undefined,
     rutaBase: arr<unknown>(d.rutaBase).map(normPaso),
+    disparadores: arr<unknown>(d.disparadores).map(normDisparador),
   };
 }
 
@@ -57,10 +67,10 @@ export async function obtenerOferta(id: string): Promise<Oferta | null> {
 }
 export async function crearOferta(proyectoId: string, ucId: string, nombre: string, tipoEntregable: TipoEntregable = 'servicio'): Promise<Oferta> {
   const id = nid('OF');
-  await prisma.oferta.create({ data: { id, proyectoId, ucId, nombre: nombre.trim() || 'Oferta', data: toJson({ tipoEntregable, rutaBase: [] }) } });
-  return { id, ucId, nombre: nombre.trim() || 'Oferta', tipoEntregable, rutaBase: [] };
+  await prisma.oferta.create({ data: { id, proyectoId, ucId, nombre: nombre.trim() || 'Oferta', data: toJson({ tipoEntregable, rutaBase: [], disparadores: [] }) } });
+  return { id, ucId, nombre: nombre.trim() || 'Oferta', tipoEntregable, rutaBase: [], disparadores: [] };
 }
-export interface OfertaPatch { nombre?: string; tipoEntregable?: TipoEntregable; categoria?: string; descripcion?: string; rutaBase?: Paso[] }
+export interface OfertaPatch { nombre?: string; tipoEntregable?: TipoEntregable; categoria?: string; descripcion?: string; rutaBase?: Paso[]; disparadores?: Disparador[] }
 export async function actualizarOferta(id: string, patch: OfertaPatch): Promise<void> {
   const r = await prisma.oferta.findUnique({ where: { id } }); if (!r) return;
   const d = obj(r.data);
@@ -69,6 +79,7 @@ export async function actualizarOferta(id: string, patch: OfertaPatch): Promise<
   if (patch.categoria !== undefined) data.categoria = patch.categoria;
   if (patch.descripcion !== undefined) data.descripcion = patch.descripcion;
   if (patch.rutaBase !== undefined) data.rutaBase = patch.rutaBase.map(normPaso);
+  if (patch.disparadores !== undefined) data.disparadores = patch.disparadores.map(normDisparador);
   await prisma.oferta.update({ where: { id }, data: {
     ...(patch.nombre !== undefined ? { nombre: patch.nombre } : {}),
     data: toJson(data),

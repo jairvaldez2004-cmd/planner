@@ -10,7 +10,7 @@ import {
   actualizarOferta, guardarPasoBase, eliminarPasoBase,
   listarPresentaciones, crearPresentacion, actualizarPresentacion, eliminarPresentacion,
 } from '@/app/actions/oferta.actions';
-import type { Oferta, Presentacion, Paso, Insumo, TipoEntregable, FasePaso } from '@/domain/oferta';
+import type { Oferta, Presentacion, Paso, Insumo, TipoEntregable, FasePaso, Disparador, TipoDisparador } from '@/domain/oferta';
 import { TIPOS_ENTREGABLE, FASES, etiquetaFase, rutaEfectiva, costearPresentacion } from '@/domain/oferta';
 
 const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 13 };
@@ -21,10 +21,12 @@ const lbl: CSSProperties = { display: 'block', fontSize: 11, color: '#666', marg
 
 function nid(p: string): string { return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
 
-interface Props { proyectoId: string; oferta: Oferta; onVolver: () => void }
+interface Props { proyectoId: string; oferta: Oferta; procesos?: { id: string; nombre: string }[]; onVolver: () => void }
 
-export function EditorOferta({ proyectoId, oferta, onVolver }: Props) {
+export function EditorOferta({ proyectoId, oferta, procesos = [], onVolver }: Props) {
   const [rutaBase, setRutaBase] = useState<Paso[]>(oferta.rutaBase);
+  const [disparadores, setDisparadores] = useState<Disparador[]>(oferta.disparadores ?? []);
+  const [dragId, setDragId] = useState<string | null>(null);
   const [presentaciones, setPresentaciones] = useState<Presentacion[]>([]);
   const [sel, setSel] = useState<string | null>(null);
   const [nomPres, setNomPres] = useState('');
@@ -39,6 +41,41 @@ export function EditorOferta({ proyectoId, oferta, onVolver }: Props) {
   function changePaso(p: Paso) { setRutaBase((r) => r.map((x) => x.id === p.id ? p : x)); }
   function persistPaso(p: Paso) { void guardarPasoBase(oferta.id, p); }
   function delPaso(id: string) { setRutaBase((r) => r.filter((x) => x.id !== id)); void eliminarPasoBase(oferta.id, id); }
+
+  // --- Reordenar pasos (drag & drop). targetId=null → soltar al final de la fase. ---
+  function persistRuta(arr: Paso[]) { void actualizarOferta(oferta.id, { rutaBase: arr }); }
+  function reordenar(targetId: string | null, fase: FasePaso) {
+    const id = dragId;
+    setDragId(null);
+    if (!id || id === targetId) return;
+    setRutaBase((prev) => {
+      const arr = [...prev];
+      const from = arr.findIndex((x) => x.id === id);
+      const src = arr[from];
+      if (from < 0 || !src) return prev;
+      const moved: Paso = { ...src, fase };   // adopta la fase destino (permite mover entre fases)
+      arr.splice(from, 1);
+      if (targetId) {
+        const to = arr.findIndex((x) => x.id === targetId);
+        if (to < 0) arr.push(moved); else arr.splice(to, 0, moved);
+      } else {
+        arr.push(moved);
+      }
+      persistRuta(arr);
+      return arr;
+    });
+  }
+
+  // --- Disparadores (triggers del proceso) ---
+  function persistDisp(ds: Disparador[]) { void actualizarOferta(oferta.id, { disparadores: ds }); }
+  function commitDisp() { setDisparadores((prev) => { persistDisp(prev); return prev; }); }
+  function addDisp(tipo: TipoDisparador) {
+    setDisparadores((prev) => { const next = [...prev, { id: nid('DISP'), tipo, evento: '' } as Disparador]; persistDisp(next); return next; });
+  }
+  function updDisp(id: string, patch: Partial<Disparador>, persist = false) {
+    setDisparadores((prev) => { const next = prev.map((x) => x.id === id ? { ...x, ...patch } : x); if (persist) persistDisp(next); return next; });
+  }
+  function delDisp(id: string) { setDisparadores((prev) => { const next = prev.filter((x) => x.id !== id); persistDisp(next); return next; }); }
 
   // --- Presentaciones ---
   async function addPres() {
@@ -78,17 +115,51 @@ export function EditorOferta({ proyectoId, oferta, onVolver }: Props) {
       {/* Ruta base */}
       <div style={{ ...card, background: '#fff6f2', borderColor: '#e8c3b4' }}>
         <strong style={{ fontSize: 14 }}>🛠️ Ruta base · cómo se entrega</strong>
-        <p style={{ fontSize: 12, color: '#777', margin: '0.2rem 0 0.5rem' }}>Los pasos de esta oferta (antes / durante / después). Cada presentación los hereda; luego omite o añade lo que difiera.</p>
+        <p style={{ fontSize: 12, color: '#777', margin: '0.2rem 0 0.5rem' }}>Los pasos de esta oferta (antes / durante / después). Arrastra <span style={{ color: '#a85b3d' }}>⠿</span> para reordenarlos o moverlos entre fases. Cada presentación los hereda; luego omite o añade lo que difiera.</p>
         {FASES.map((f) => {
           const pasos = rutaBase.filter((p) => p.fase === f.id);
           return (
-            <div key={f.id} style={{ marginBottom: '0.4rem' }}>
+            <div key={f.id} style={{ marginBottom: '0.4rem' }}
+              onDragOver={dragId ? (e) => e.preventDefault() : undefined}
+              onDrop={dragId ? (e) => { e.preventDefault(); reordenar(null, f.id); } : undefined}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 12, fontWeight: 'bold', color: '#a85b3d' }}>{f.label}</span>
                 <button style={btnSm} onClick={() => addPaso(f.id)}>＋ paso</button>
               </div>
-              {pasos.length === 0 && <p style={{ fontSize: 12, color: '#bbb', margin: '0.2rem 0' }}>—</p>}
-              {pasos.map((p) => <PasoCard key={p.id} paso={p} onChange={changePaso} onBlur={persistPaso} onDelete={() => delPaso(p.id)} />)}
+              {pasos.length === 0 && <p style={{ fontSize: 12, color: '#bbb', margin: '0.2rem 0', padding: '0.3rem 0', border: dragId ? '1px dashed #e0b9a6' : 'none', borderRadius: 6, textAlign: 'center' }}>{dragId ? 'Suéltalo aquí' : '—'}</p>}
+              {pasos.map((p) => (
+                <PasoCard key={p.id} paso={p} onChange={changePaso} onBlur={persistPaso} onDelete={() => delPaso(p.id)}
+                  dnd={{ onDragStart: () => setDragId(p.id), onDrop: () => reordenar(p.id, p.fase), isDragging: dragId === p.id }} />
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Disparadores del proceso */}
+      <div style={{ ...card, background: '#f1f6ff', borderColor: '#b4cbe8' }}>
+        <strong style={{ fontSize: 14 }}>🔀 Disparadores del proceso</strong>
+        <p style={{ fontSize: 12, color: '#777', margin: '0.2rem 0 0.5rem' }}>Qué <strong>inicia</strong> y qué <strong>termina</strong> este proceso, y a qué otro proceso redirige cada disparador. Puedes dar de alta varios.</p>
+        {(['inicio', 'fin'] as TipoDisparador[]).map((tipo) => {
+          const ds = disparadores.filter((d) => d.tipo === tipo);
+          return (
+            <div key={tipo} style={{ marginBottom: '0.4rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: 'bold', color: '#2b5a97' }}>{tipo === 'inicio' ? '▶ Disparadores de inicio' : '⏹ Disparadores de fin'}</span>
+                <button style={btnSm} onClick={() => addDisp(tipo)}>＋ disparador</button>
+              </div>
+              {ds.length === 0 && <p style={{ fontSize: 12, color: '#bbb', margin: '0.2rem 0' }}>—</p>}
+              {ds.map((d) => (
+                <div key={d.id} style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', margin: '0.3rem 0', flexWrap: 'wrap' }}>
+                  <input style={{ ...inp, flex: 2, minWidth: 200 }} placeholder={tipo === 'inicio' ? 'Evento que inicia (ej. Cliente agenda cita)' : 'Evento que termina (ej. Pago recibido)'} value={d.evento} onChange={(e) => updDisp(d.id, { evento: e.target.value })} onBlur={commitDisp} />
+                  <span style={{ fontSize: 12, color: '#777' }}>→ redirige a</span>
+                  <select style={{ ...inp, minWidth: 150 }} value={d.destinoOfertaId ?? ''} onChange={(e) => updDisp(d.id, { destinoOfertaId: e.target.value || undefined }, true)}>
+                    <option value="">(ninguno)</option>
+                    {procesos.filter((p) => p.id !== oferta.id).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                  </select>
+                  <button style={{ ...btnSm, color: '#a00' }} onClick={() => delDisp(d.id)}>✕</button>
+                </div>
+              ))}
             </div>
           );
         })}
@@ -115,12 +186,23 @@ export function EditorOferta({ proyectoId, oferta, onVolver }: Props) {
 }
 
 // ---------------- Paso ----------------
-function PasoCard({ paso, onChange, onBlur, onDelete }: { paso: Paso; onChange: (p: Paso) => void; onBlur: (p: Paso) => void; onDelete: () => void }) {
+interface DnDPaso { onDragStart: () => void; onDrop: () => void; isDragging: boolean }
+function PasoCard({ paso, onChange, onBlur, onDelete, dnd }: { paso: Paso; onChange: (p: Paso) => void; onBlur: (p: Paso) => void; onDelete: () => void; dnd?: DnDPaso }) {
   const set = (patch: Partial<Paso>) => onChange({ ...paso, ...patch });
   const [abierto, setAbierto] = useState(false);
   return (
-    <div style={{ border: '1px solid #e3d2c8', borderRadius: 6, padding: '0.4rem 0.5rem', margin: '0.3rem 0', background: '#fff' }}>
+    <div
+      style={{ border: '1px solid #e3d2c8', borderRadius: 6, padding: '0.4rem 0.5rem', margin: '0.3rem 0', background: '#fff', opacity: dnd?.isDragging ? 0.4 : 1 }}
+      onDragOver={dnd ? (e) => e.preventDefault() : undefined}
+      onDrop={dnd ? (e) => { e.preventDefault(); e.stopPropagation(); dnd.onDrop(); } : undefined}>
       <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+        {dnd && (
+          <span
+            draggable
+            onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; dnd.onDragStart(); }}
+            style={{ cursor: 'grab', color: '#c9a493', fontSize: 16, userSelect: 'none', padding: '0 2px' }}
+            title="Arrastra para reordenar o mover de fase">⠿</span>
+        )}
         <input style={{ ...inp, flex: 1 }} placeholder="Nombre del paso (ej. Seleccionar, Empacar…)" value={paso.nombre} onChange={(e) => set({ nombre: e.target.value })} onBlur={() => onBlur(paso)} />
         <button style={btnSm} onClick={() => setAbierto((v) => !v)}>{abierto ? '▲ detalle' : '▼ detalle'}</button>
         <button style={{ ...btnSm, color: '#a00' }} onClick={onDelete}>✕</button>

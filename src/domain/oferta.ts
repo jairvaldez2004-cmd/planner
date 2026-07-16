@@ -34,6 +34,16 @@ export function etiquetaFase(f: FasePaso): string {
 // Insumo/componente consumido (BOM de una presentación o insumos de un paso).
 export interface Insumo { item: string; cantidad?: string | undefined; costo?: number | undefined }
 
+// Disparador (trigger) del PROCESO (= la oferta/ruta). Marca qué INICIA o qué TERMINA
+// el proceso y, opcionalmente, a qué OTRO proceso (oferta) redirige. Puede haber varios.
+export type TipoDisparador = 'inicio' | 'fin';
+export interface Disparador {
+  id: string;
+  tipo: TipoDisparador;
+  evento: string;                        // qué ocurre (ej. "Cliente agenda cita", "Pago recibido")
+  destinoOfertaId?: string | undefined;  // → a qué proceso (oferta) redirige
+}
+
 // Nodo atómico: un paso del proceso de entrega.
 export interface Paso {
   id: string;
@@ -58,6 +68,7 @@ export interface Oferta {
   categoria?: string | undefined;
   descripcion?: string | undefined;
   rutaBase: Paso[];
+  disparadores: Disparador[];  // triggers de inicio/fin del proceso + redirección
 }
 
 // Presentación = la forma EXACTA en que se vende (SKU vendible).
