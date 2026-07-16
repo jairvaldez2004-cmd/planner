@@ -49,10 +49,12 @@ export interface Paso {
   id: string;
   nombre: string;
   fase: FasePaso;
-  lugar?: string | undefined;        // → Espacio (futuro)
-  rol?: string | undefined;          // → maestro personas (futuro)
-  herramientas?: string | undefined; // → ObjetoFisico (futuro)
-  insumos: Insumo[];                 // → costos/componentes (futuro)
+  lugar?: string | undefined;              // → Espacio (futuro)
+  rol?: string | undefined;                // LEGACY (texto libre); migrado a `roles`
+  herramientas?: string | undefined;       // LEGACY (texto libre); migrado a `herramientasTags`
+  roles?: string[] | undefined;            // etiquetas de rol; cada rol → persona en el maestro Personas
+  herramientasTags?: string[] | undefined; // etiquetas de herramienta (→ ObjetoFisico, futuro)
+  insumos: Insumo[];                       // → costos/componentes (futuro)
   tiempoMin?: number | undefined;
   entrada?: string | undefined;
   salida?: string | undefined;

@@ -9,7 +9,9 @@ import type { CSSProperties } from 'react';
 import {
   actualizarOferta, guardarPasoBase, eliminarPasoBase,
   listarPresentaciones, crearPresentacion, actualizarPresentacion, eliminarPresentacion,
+  listarPersonas, guardarRolPersona,
 } from '@/app/actions/oferta.actions';
+import type { RolPersona } from '@/app/actions/oferta.actions';
 import type { Oferta, Presentacion, Paso, Insumo, TipoEntregable, FasePaso, Disparador, TipoDisparador } from '@/domain/oferta';
 import { TIPOS_ENTREGABLE, FASES, etiquetaFase, rutaEfectiva, costearPresentacion } from '@/domain/oferta';
 
@@ -43,8 +45,20 @@ export function EditorOferta({ proyectoId, oferta, procesos = [], onVolver }: Pr
   const [presentaciones, setPresentaciones] = useState<Presentacion[]>([]);
   const [sel, setSel] = useState<string | null>(null);
   const [nomPres, setNomPres] = useState('');
+  const [personas, setPersonas] = useState<RolPersona[]>([]);
 
   useEffect(() => { listarPresentaciones(proyectoId, oferta.id).then(setPresentaciones).catch(() => {}); }, [proyectoId, oferta.id]);
+  useEffect(() => { listarPersonas(proyectoId).then(setPersonas).catch(() => {}); }, [proyectoId]);
+
+  // Asigna una persona a un rol en el maestro compartido y refresca en vivo (todos los pasos lo ven).
+  function asignarPersona(rol: string, persona: string) {
+    setPersonas((prev) => {
+      const i = prev.findIndex((x) => x.rol.toLowerCase() === rol.trim().toLowerCase());
+      if (i >= 0) return prev.map((x, j) => j === i ? { ...x, persona } : x);
+      return [...prev, { rol: rol.trim(), persona }];
+    });
+    void guardarRolPersona(proyectoId, rol, persona);
+  }
 
   // --- Ruta base ---
   function addPaso(fase: FasePaso) {
@@ -117,6 +131,8 @@ export function EditorOferta({ proyectoId, oferta, procesos = [], onVolver }: Pr
       {/* Ruta base */}
       <div style={{ ...card, background: '#fff6f2', borderColor: '#e8c3b4' }}>
         <style dangerouslySetInnerHTML={{ __html: DND_CSS }} />
+        <datalist id="bp-roles">{Array.from(new Set(personas.map((p) => p.rol))).map((r, i) => <option key={i} value={r} />)}</datalist>
+        <datalist id="bp-personas">{Array.from(new Set(personas.map((p) => p.persona).filter(Boolean))).map((p, i) => <option key={i} value={p} />)}</datalist>
         <strong style={{ fontSize: 14 }}>🛠️ Ruta base · cómo se entrega</strong>
         <p style={{ fontSize: 12, color: '#777', margin: '0.2rem 0 0.5rem' }}>Arrastra <span style={{ color: '#a85b3d' }}>⠿</span> para reordenar los pasos o moverlos entre fases. Dentro de cada paso (▼ detalle) defines herramientas, roles y sus <strong>disparadores</strong> (qué lo inicia / qué lo termina y a qué proceso redirige). Cada presentación hereda la ruta.</p>
         {FASES.map((f) => {
@@ -135,7 +151,7 @@ export function EditorOferta({ proyectoId, oferta, procesos = [], onVolver }: Pr
               {pasos.length === 0 && <p style={{ fontSize: 12, color: faseOver ? '#a85b3d' : '#bbb', margin: '0.2rem 0', padding: '0.45rem 0', border: dragId ? '2px dashed #e0b9a6' : '1px dashed transparent', borderRadius: 8, textAlign: 'center', background: faseOver ? '#fff' : 'transparent', transition: 'all .15s ease' }}>{dragId ? '⤵ Suéltalo aquí' : '—'}</p>}
               {pasos.map((p) => (
                 <PasoCard key={p.id} paso={p} onChange={changePaso} onBlur={persistPaso} onDelete={() => delPaso(p.id)}
-                  procesos={procesos} selfId={oferta.id}
+                  procesos={procesos} selfId={oferta.id} personas={personas} onAsignarPersona={asignarPersona}
                   dnd={{
                     onDragStart: () => setDragId(p.id),
                     onDragEnd: limpiarDrag,
@@ -179,9 +195,10 @@ interface DnDPaso {
   isDragging: boolean;
   showBar: boolean;   // barra de inserción encima de esta tarjeta
 }
-function PasoCard({ paso, onChange, onBlur, onDelete, dnd, procesos = [], selfId }: {
+function PasoCard({ paso, onChange, onBlur, onDelete, dnd, procesos = [], selfId, personas = [], onAsignarPersona = () => {} }: {
   paso: Paso; onChange: (p: Paso) => void; onBlur: (p: Paso) => void; onDelete: () => void;
   dnd?: DnDPaso; procesos?: { id: string; nombre: string }[]; selfId?: string;
+  personas?: RolPersona[]; onAsignarPersona?: (rol: string, persona: string) => void;
 }) {
   const set = (patch: Partial<Paso>) => onChange({ ...paso, ...patch });
   const commit = (next: Paso) => { onChange(next); onBlur(next); };
@@ -226,11 +243,11 @@ function PasoCard({ paso, onChange, onBlur, onDelete, dnd, procesos = [], selfId
         {abierto && (
           <div style={{ marginTop: '0.4rem', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
             <div><span style={lbl}>Lugar / espacio</span><input style={{ ...inp, width: '100%' }} value={paso.lugar ?? ''} onChange={(e) => set({ lugar: e.target.value })} onBlur={() => onBlur(paso)} /></div>
-            <div><span style={lbl}>Rol / quién</span><input style={{ ...inp, width: '100%' }} value={paso.rol ?? ''} onChange={(e) => set({ rol: e.target.value })} onBlur={() => onBlur(paso)} /></div>
-            <div><span style={lbl}>Herramientas</span><input style={{ ...inp, width: '100%' }} value={paso.herramientas ?? ''} onChange={(e) => set({ herramientas: e.target.value })} onBlur={() => onBlur(paso)} /></div>
             <div><span style={lbl}>Tiempo (min)</span><input style={{ ...inp, width: '100%' }} type="number" value={paso.tiempoMin ?? ''} onChange={(e) => set({ tiempoMin: e.target.value === '' ? undefined : Number(e.target.value) })} onBlur={() => onBlur(paso)} /></div>
             <div><span style={lbl}>Entrada</span><input style={{ ...inp, width: '100%' }} value={paso.entrada ?? ''} onChange={(e) => set({ entrada: e.target.value })} onBlur={() => onBlur(paso)} /></div>
             <div><span style={lbl}>Salida</span><input style={{ ...inp, width: '100%' }} value={paso.salida ?? ''} onChange={(e) => set({ salida: e.target.value })} onBlur={() => onBlur(paso)} /></div>
+            <div style={{ gridColumn: '1 / -1' }}><span style={lbl}>👥 Roles · etiqueta y asigna una persona a cada rol (compartido en el maestro)</span><RolesEditor roles={paso.roles ?? []} personas={personas} onCommitRoles={(r) => commit({ ...paso, roles: r })} onAsignarPersona={onAsignarPersona} /></div>
+            <div style={{ gridColumn: '1 / -1' }}><span style={lbl}>🔧 Herramientas</span><TagList tags={paso.herramientasTags ?? []} onCommit={(t) => commit({ ...paso, herramientasTags: t })} placeholder="+ herramienta" /></div>
             <div style={{ gridColumn: '1 / -1' }}><span style={lbl}>Insumos consumidos en este paso</span><FilasInsumo value={paso.insumos} onChange={(v) => set({ insumos: v })} onBlur={() => onBlur(paso)} labelItem="Insumo" /></div>
             <div style={{ gridColumn: '1 / -1' }}><span style={lbl}>Manual / instrucción</span><textarea style={{ ...inp, width: '100%', resize: 'vertical' }} rows={2} value={paso.manual ?? ''} onChange={(e) => set({ manual: e.target.value })} onBlur={() => onBlur(paso)} /></div>
 
@@ -334,6 +351,62 @@ function PresentacionEditor({ rutaBase, pres, onChange, onBlur, onDelete }: { ru
         <span>Costo total: <strong>${c.costoTotal.toFixed(2)}</strong></span>
         {c.margen !== undefined && <span style={{ color: c.margen >= 0 ? '#2e9e63' : '#c0392b' }}>Margen: <strong>${c.margen.toFixed(2)}</strong></span>}
         <span style={{ color: '#777' }}>Tiempo ruta: <strong>{c.tiempoTotalMin} min</strong> · {efectiva.length} pasos</span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Etiquetas (chips) reutilizable ----------------
+function TagList({ tags, onCommit, placeholder, color = '#8a5a2b', bg = '#f6ecdf' }: {
+  tags: string[]; onCommit: (t: string[]) => void; placeholder: string; color?: string; bg?: string;
+}) {
+  const [draft, setDraft] = useState('');
+  const add = () => { const v = draft.trim(); if (v && !tags.some((t) => t.toLowerCase() === v.toLowerCase())) onCommit([...tags, v]); setDraft(''); };
+  return (
+    <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', alignItems: 'center', marginTop: 2 }}>
+      {tags.map((t, i) => (
+        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, background: bg, color, border: `1px solid ${color}44`, borderRadius: 20, padding: '2px 4px 2px 9px' }}>
+          {t}
+          <button onClick={() => onCommit(tags.filter((_, j) => j !== i))} style={{ border: 'none', background: 'none', color, cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '0 3px' }} title="Quitar">×</button>
+        </span>
+      ))}
+      <input style={{ ...inp, width: 130, padding: '0.2rem 0.45rem' }} placeholder={placeholder} value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+        onBlur={add} />
+    </div>
+  );
+}
+
+// ---------------- Roles del paso + asignación de persona (maestro compartido) ----------------
+function RolesEditor({ roles, personas, onCommitRoles, onAsignarPersona }: {
+  roles: string[]; personas: RolPersona[];
+  onCommitRoles: (r: string[]) => void; onAsignarPersona: (rol: string, persona: string) => void;
+}) {
+  const [draft, setDraft] = useState('');
+  const personaDe = (rol: string) => personas.find((p) => p.rol.toLowerCase() === rol.toLowerCase())?.persona ?? '';
+  const addRol = () => { const v = draft.trim(); if (v && !roles.some((r) => r.toLowerCase() === v.toLowerCase())) onCommitRoles([...roles, v]); setDraft(''); };
+  const morado = '#6a4c93';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
+      {roles.map((r, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, background: '#efe9f6', color: morado, border: `1px solid ${morado}44`, borderRadius: 20, padding: '2px 4px 2px 9px', fontWeight: 'bold' }}>
+            {r}
+            <button onClick={() => onCommitRoles(roles.filter((_, j) => j !== i))} style={{ border: 'none', background: 'none', color: morado, cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '0 3px' }} title="Quitar rol del paso">×</button>
+          </span>
+          <span style={{ fontSize: 11, color: '#999' }}>→ persona</span>
+          <input list="bp-personas" key={`${r}|${personaDe(r)}`} defaultValue={personaDe(r)} placeholder="Asignar persona…"
+            style={{ ...inp, width: 150, padding: '0.2rem 0.45rem' }}
+            onBlur={(e) => { const v = e.target.value.trim(); if (v !== personaDe(r)) onAsignarPersona(r, v); }} />
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input list="bp-roles" style={{ ...inp, width: 170, padding: '0.2rem 0.45rem' }} placeholder="+ rol (ej. Perforador)" value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRol(); } }}
+          onBlur={addRol} />
+        <button style={btnSm} onClick={addRol}>＋ rol</button>
       </div>
     </div>
   );

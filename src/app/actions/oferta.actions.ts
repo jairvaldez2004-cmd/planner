@@ -16,15 +16,23 @@ function num(v: unknown): number | undefined { return typeof v === 'number' ? v 
 function arr<T>(v: unknown): T[] { return Array.isArray(v) ? v as T[] : []; }
 
 // Normaliza un paso venido del cliente/JSON (defensivo: insumos siempre array).
+// Migra los campos legacy `rol`/`herramientas` (texto) a `roles`/`herramientasTags` (tags).
 function normPaso(v: unknown): Paso {
   const d = obj(v);
+  const legacyRol = str(d.rol);
+  const legacyHerr = str(d.herramientas);
+  const roles = arr<unknown>(d.roles).map(str).map((s) => s.trim()).filter(Boolean);
+  const herrTags = arr<unknown>(d.herramientasTags).map(str).map((s) => s.trim()).filter(Boolean);
+  const splitLegacy = (s: string) => s.split(/[,;/]/).map((x) => x.trim()).filter(Boolean);
   return {
     id: str(d.id) || nid('PASO'),
     nombre: str(d.nombre),
     fase: (str(d.fase) || 'produccion') as Paso['fase'],
     lugar: str(d.lugar) || undefined,
-    rol: str(d.rol) || undefined,
-    herramientas: str(d.herramientas) || undefined,
+    rol: legacyRol || undefined,
+    herramientas: legacyHerr || undefined,
+    roles: roles.length ? roles : (legacyRol ? splitLegacy(legacyRol) : []),
+    herramientasTags: herrTags.length ? herrTags : (legacyHerr ? splitLegacy(legacyHerr) : []),
     insumos: arr<unknown>(d.insumos).map(normInsumo),
     tiempoMin: num(d.tiempoMin),
     entrada: str(d.entrada) || undefined,
@@ -153,4 +161,36 @@ export async function eliminarPresentacion(id: string): Promise<void> {
 // Genera un paso nuevo vacío (id + fase) para que el front lo edite. Puro, sin persistir.
 export async function nuevoPasoVacio(fase: Paso['fase'] = 'produccion'): Promise<Paso> {
   return { id: nid('PASO'), nombre: '', fase, insumos: [] };
+}
+
+// =================== MAESTRO DE PERSONAS / ROLES (compartido por proyecto) ===================
+// Vive en TablaProyecto (tablaRef='personas'), llave = rol. Lo consumen los pasos de la ruta
+// (rol → persona) y el plano Organizacional. Ref: domain/tablas.ts + AGENT_ARCHITECTURE (Decisión 5).
+export interface RolPersona { rol: string; persona: string; area?: string | undefined }
+
+async function filasPersonas(proyectoId: string): Promise<Record<string, unknown>[]> {
+  const r = await prisma.tablaProyecto.findUnique({ where: { proyectoId_tablaRef: { proyectoId, tablaRef: 'personas' } } });
+  return (r && Array.isArray(r.filas)) ? (r.filas as Record<string, unknown>[]) : [];
+}
+
+export async function listarPersonas(proyectoId: string): Promise<RolPersona[]> {
+  const filas = await filasPersonas(proyectoId);
+  return filas
+    .map((f) => ({ rol: str(f.rol), persona: str(f.persona), area: str(f.area) || undefined }))
+    .filter((x) => x.rol);
+}
+
+// Asigna (o crea) el rol en el maestro con su persona. Upsert por rol (case-insensitive).
+export async function guardarRolPersona(proyectoId: string, rol: string, persona: string): Promise<void> {
+  const rolT = rol.trim(); if (!rolT) return;
+  const filas = (await filasPersonas(proyectoId)).map((f) => ({ ...f }));
+  const idx = filas.findIndex((f) => str(f.rol).toLowerCase() === rolT.toLowerCase());
+  if (idx >= 0) filas[idx] = { ...filas[idx], rol: rolT, persona };
+  else filas.push({ rol: rolT, persona });
+  const now = new Date().toISOString();
+  await prisma.tablaProyecto.upsert({
+    where: { proyectoId_tablaRef: { proyectoId, tablaRef: 'personas' } },
+    create: { proyectoId, tablaRef: 'personas', filas: toJson(filas), actualizadoEn: now },
+    update: { filas: toJson(filas), actualizadoEn: now },
+  });
 }
