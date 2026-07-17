@@ -9,6 +9,7 @@ import { obtenerGrafoPlanos } from '@/app/actions/especialista.actions';
 import type { GrafoPlanos, NodoPlano } from '@/app/actions/especialista.actions';
 import { COLOR_ESTADO, LABEL_ESTADO } from '@/app/readiness/readiness-engine';
 import type { EstadoPlano } from '@/app/readiness/readiness-engine';
+import { etapaInfo, objetivoDe, esFoco } from '@/domain/etapas';
 import { VistaPlano } from './vista-plano';
 
 const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 14 };
@@ -27,7 +28,11 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
 
   const nodos = grafo?.nodos ?? [];
   const seleccionados = nodos.filter((n) => n.seleccionado);
-  const siguiente = seleccionados.find((n) => n.estado === 'DISPONIBLE' || n.estado === 'MIN_OPERABLE')
+  const etapa = grafo?.etapaObjetivo;
+  const etInfo = etapaInfo(etapa);
+  // Siguiente: prioriza un plano del FOCO de la etapa que aún no llega a su objetivo.
+  const siguiente = (etapa ? seleccionados.find((n) => esFoco(etapa, n.planoId) && Math.round(n.progreso * 100) < objetivoDe(etapa, n.planoId)) : undefined)
+    ?? seleccionados.find((n) => n.estado === 'DISPONIBLE' || n.estado === 'MIN_OPERABLE')
     ?? seleccionados.find((n) => n.estado !== 'PUBLICADO' && n.estado !== 'COMPLETO');
   const publicados = seleccionados.filter((n) => n.estado === 'PUBLICADO' || n.estado === 'COMPLETO').length;
   const minOp = seleccionados.filter((n) => n.estado === 'MIN_OPERABLE').length;
@@ -52,6 +57,16 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
             <p style={{ margin: '0.25rem 0 0.5rem', fontSize: 12, color: '#555' }}>
               Profundidad: <strong>{grafo.profundidadProyecto}</strong> · {seleccionados.length} planos · {publicados} publicados · {minOp} mín. operable.
             </p>
+            {etInfo ? (
+              <div style={{ border: '1px solid #b3d4ff', borderRadius: 8, padding: '0.4rem 0.6rem', background: '#eaf3ff', marginBottom: '0.5rem', fontSize: 12 }}>
+                🎚️ Etapa <strong>{etInfo.n}. {etInfo.label}</strong>
+                <div style={{ color: '#2b5a97', marginTop: 2 }}>Foco: {etInfo.foco.join(' · ')}</div>
+              </div>
+            ) : (
+              <div style={{ border: '1px dashed #b3b3b3', borderRadius: 8, padding: '0.4rem 0.6rem', background: '#fafafa', marginBottom: '0.5rem', fontSize: 11.5, color: '#888' }}>
+                Sin etapa definida. Fíjala en la vista del proyecto (o dile al Curador) para ver el objetivo por plano.
+              </div>
+            )}
             {siguiente ? (
               <div style={{ border: '1px solid #b3d4ff', borderRadius: 8, padding: '0.5rem 0.7rem', background: '#eaf3ff', marginBottom: '0.5rem' }}>
                 <div style={{ fontSize: 12, color: '#555' }}>Siguiente recomendado:</div>
@@ -61,14 +76,23 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
               </div>
             ) : <p style={{ fontSize: 13, color: '#2e9e63' }}>✅ Todos los planos seleccionados están publicados.</p>}
             <div style={{ fontSize: 13 }}>
-              {seleccionados.map((n) => (
-                <div key={n.planoId} onClick={() => setPlanoAbierto(n.planoId)}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '0.25rem 0.3rem', borderRadius: 6, background: hover === n.planoId ? '#eef4ff' : 'transparent' }}
-                  onMouseEnter={() => setHover(n.planoId)} onMouseLeave={() => setHover(null)}>
-                  <span>{ENTREGA_ICON[n.entrega]} {n.nombre} {n.minOperable && <span style={{ color: '#a60', fontSize: 11 }}>·mín</span>}</span>
-                  <span style={{ background: COLOR_ESTADO[n.estado], color: '#fff', borderRadius: 5, padding: '0 0.4rem', fontSize: 11 }}>{Math.round(n.progreso * 100)}%</span>
-                </div>
-              ))}
+              {seleccionados.map((n) => {
+                const pct = Math.round(n.progreso * 100);
+                const obj = objetivoDe(etapa, n.planoId);
+                const foco = esFoco(etapa, n.planoId);
+                const faltaParaObj = etapa && obj > 0 && pct < obj;
+                return (
+                  <div key={n.planoId} onClick={() => setPlanoAbierto(n.planoId)}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '0.25rem 0.3rem', borderRadius: 6, background: hover === n.planoId ? '#eef4ff' : (foco ? '#f3f8ff' : 'transparent') }}
+                    onMouseEnter={() => setHover(n.planoId)} onMouseLeave={() => setHover(null)}>
+                    <span>{foco && <span title="Foco de la etapa" style={{ color: '#2b5a97' }}>★ </span>}{ENTREGA_ICON[n.entrega]} {n.nombre} {n.minOperable && <span style={{ color: '#a60', fontSize: 11 }}>·mín</span>}</span>
+                    <span style={{ display: 'inline-flex', gap: 5, alignItems: 'center' }}>
+                      <span style={{ background: COLOR_ESTADO[n.estado], color: '#fff', borderRadius: 5, padding: '0 0.4rem', fontSize: 11 }}>{pct}%</span>
+                      {etapa && obj > 0 && <span title="Objetivo de la etapa" style={{ fontSize: 10, color: faltaParaObj ? '#a60' : '#2e9e63' }}>/ {obj}%</span>}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
             <div style={{ marginTop: '0.6rem', borderTop: '1px solid #e3e9f5', paddingTop: '0.4rem' }}>
               {estados.map((e) => (

@@ -13,8 +13,9 @@ import { asegurarWorkspace, asegurarProyecto } from '@/app/actions/plano.actions
 import {
   listarWorkspaces, crearWorkspace, listarProyectosDeWorkspace, guardarDiagnosticoEnWorkspace,
   relacionarProyectos, renombrarProyecto, archivarProyecto, moverProyecto, obtenerProyectoBase,
-  anidarProyecto, desanidarProyecto, crearNegocioHijo,
+  anidarProyecto, desanidarProyecto, crearNegocioHijo, fijarEtapaObjetivo,
 } from '@/app/actions/workspace.actions';
+import type { EtapaObjetivo } from '@/domain/etapas';
 import { listarUnidades, crearUnidad, actualizarUnidad, eliminarUnidad } from '@/app/actions/espacios.actions';
 import { resumenWorkspace, contextoCuradorProyecto, guardarConversacion } from '@/app/actions/contexto.actions';
 import type { ProyectoNodo } from '@/app/actions/workspace.actions';
@@ -188,6 +189,13 @@ export async function conversarCuradorProyecto(
         await eliminarUnidad(u.id);
         unidades = await listarUnidades(proyectoId);
         return `Unidad "${u.nombre}" eliminada.`;
+      }
+      if (nombre === 'fijar_etapa') {
+        const et = String(input.etapa ?? '').trim();
+        const validas: EtapaObjetivo[] = ['arrancar', 'expandir', 'replicar', 'automatizar', 'vender'];
+        if (!validas.includes(et as EtapaObjetivo)) return `Etapa no válida: "${et}".`;
+        await fijarEtapaObjetivo(proyectoId, et as EtapaObjetivo);
+        return `Etapa objetivo del negocio fijada: "${et}". Esto define el foco de planos y sus % objetivo.`;
       }
       return `Herramienta desconocida: ${nombre}`;
     } catch (e) {

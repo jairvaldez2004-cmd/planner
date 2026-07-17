@@ -5,7 +5,8 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
-import { obtenerProyecto } from '@/app/actions/workspace.actions';
+import { obtenerProyecto, obtenerProyectoBase } from '@/app/actions/workspace.actions';
+import type { EtapaObjetivo } from '@/domain/etapas';
 import {
   ESPECIALISTAS, especialista, aristasPlanos,
 } from '@/domain/especialistas';
@@ -64,11 +65,13 @@ export interface GrafoPlanos {
   nodos: NodoPlano[];
   aristas: { de: string; a: string }[];
   profundidadProyecto: string;
+  etapaObjetivo?: EtapaObjetivo; // etapa de la ruta hacia la que trabaja el negocio (si está fijada)
 }
 
 export async function obtenerGrafoPlanos(proyectoId: string): Promise<GrafoPlanos | null> {
   const det = await obtenerProyecto(proyectoId);
   if (!det) return null;
+  const base = await obtenerProyectoBase(proyectoId);
   const bp = det.blueprint;
   const seleccionados = new Map(bp.planos.map((p) => [p.id, p]));
   const filasPorTabla = await cargarFilasPorTabla(proyectoId);
@@ -100,7 +103,7 @@ export async function obtenerGrafoPlanos(proyectoId: string): Promise<GrafoPlano
   // aristas solo entre nodos existentes
   const ids = new Set(nodos.map((n) => n.planoId));
   const aristas = aristasPlanos().filter((a) => ids.has(a.de) && ids.has(a.a));
-  return { nodos, aristas, profundidadProyecto: bp.profundidadProyecto };
+  return { nodos, aristas, profundidadProyecto: bp.profundidadProyecto, ...(base?.etapaObjetivo ? { etapaObjetivo: base.etapaObjetivo } : {}) };
 }
 
 // --- detalle de un plano (para la Vista de Plano) ---

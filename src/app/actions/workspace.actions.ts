@@ -10,6 +10,7 @@ import {
 } from '@/adapters/persistence/prisma-repository';
 import type { Workspace, Proyecto } from '@/domain/workspace';
 import type { Blueprint, Diagnostico } from '@/domain/diagnostico';
+import type { EtapaObjetivo } from '@/domain/etapas';
 
 function toJson(v: unknown): Prisma.InputJsonValue {
   return v as unknown as Prisma.InputJsonValue;
@@ -84,6 +85,14 @@ export async function listarProyectosDeWorkspace(workspaceId: string): Promise<P
 // Proyecto "en crudo" (sin diagnóstico): sirve para negocios hijos creados ligeros.
 export async function obtenerProyectoBase(proyectoId: string): Promise<Proyecto | null> {
   return new PrismaProyectoRepository(prisma).get(proyectoId);
+}
+
+// Fija la ETAPA OBJETIVO del negocio (la ruta de 5 fases). La define el Curador al inicio.
+export async function fijarEtapaObjetivo(proyectoId: string, etapa: EtapaObjetivo): Promise<void> {
+  const repo = new PrismaProyectoRepository(prisma);
+  const p = await repo.get(proyectoId);
+  if (!p) return;
+  await repo.save({ ...p, etapaObjetivo: etapa });
 }
 
 // Negocios hijos directos de un proyecto (jerarquía).

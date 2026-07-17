@@ -268,6 +268,7 @@ Herramientas y cuándo usarlas:
 1) NEGOCIOS: si el proyecto es un desarrollo/contenedor y el usuario menciona negocios que están dentro (ej. "dentro de Girly Zone está Altercing y Macao Pilates"), usa "crear_negocio" por cada uno. Cada negocio se podrá abrir por separado para darle sus propias unidades comerciales, sedes y planos.
 2) UNIDADES COMERCIALES: si el usuario describe las líneas de venta directa de ESTE negocio, usa "crear_unidad" por cada una; puedes ajustarlas (actualizar_unidad) o eliminarlas (eliminar_unidad).
 3) Distingue bien: un NEGOCIO es una empresa dentro del proyecto (tiene su propia administración y UC); una UNIDAD COMERCIAL es una línea de venta del propio proyecto. Ante la duda, pregunta cuál de los dos es.
+3b) ETAPA OBJETIVO: al inicio, ayuda a definir en qué ETAPA de la ruta está o hacia dónde va el negocio (arrancar → expandir → replicar → automatizar → vender) y regístrala con "fijar_etapa". Esto define qué planos y a qué % se enfoca el negocio. Si el usuario no la menciona, pregúntala una vez al conocer el negocio.
 4) NO inventes: lo que no sepas queda PENDIENTE. No dupliques negocios ni UC ya existentes.
 5) Gobierno (Nivel B): respeta el método congelado (ARQOS, PLANO ALV, contratos). Aquí defines estructura (negocios/UC); los planos se trabajan aparte.
 
@@ -324,6 +325,22 @@ const TOOLS_CURADOR_PROYECTO: Anthropic.Tool[] = [
       type: 'object', additionalProperties: false,
       properties: { unidad: { type: 'string' } },
       required: ['unidad'],
+    },
+  },
+  {
+    name: 'fijar_etapa',
+    description: 'Fija la ETAPA OBJETIVO del negocio: la ruta de 5 fases hacia la que trabaja. Úsalo al inicio, cuando el usuario define en qué etapa está o hacia dónde va. Define qué planos y a qué % se enfoca el negocio.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        etapa: {
+          type: 'string',
+          enum: ['arrancar', 'expandir', 'replicar', 'automatizar', 'vender'],
+          description: '1 arrancar (poner a operar) · 2 expandir (crecer y semi-automatizar) · 3 replicar (estandarizar para franquiciar) · 4 automatizar (agentes de IA operan) · 5 vender (todo listo para due diligence).',
+        },
+      },
+      required: ['etapa'],
     },
   },
 ];

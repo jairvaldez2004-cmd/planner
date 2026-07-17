@@ -14,10 +14,12 @@ import { listarUnidades, crearUnidad } from '@/app/actions/espacios.actions';
 import { obtenerGrafoPlanos } from '@/app/actions/especialista.actions';
 import { conversarCuradorProyecto } from '@/app/actions/arquitecto.actions';
 import { cargarConversacionProyecto } from '@/app/actions/contexto.actions';
-import { listarHijosDeProyecto, crearNegocioHijo, obtenerProyectoBase } from '@/app/actions/workspace.actions';
+import { listarHijosDeProyecto, crearNegocioHijo, obtenerProyectoBase, fijarEtapaObjetivo } from '@/app/actions/workspace.actions';
 import type { GrafoPlanos } from '@/app/actions/especialista.actions';
 import type { ProyectoNodo } from '@/app/actions/workspace.actions';
 import type { UnidadComercial } from '@/domain/espacios';
+import { ETAPAS_OBJETIVO, etapaInfo } from '@/domain/etapas';
+import type { EtapaObjetivo } from '@/domain/etapas';
 import { ChatArquitecto } from './chat-arquitecto';
 import { VistaPlanos } from './vista-planos';
 import { VistaSedes } from './vista-sedes';
@@ -31,6 +33,7 @@ type NodoGrafo = { key: string; tipo: 'admin' | 'sedes' | 'uc' | 'negocio'; id?:
 
 export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo del workspace' }: { proyectoId: string; onVolver: () => void; volverLabel?: string }) {
   const [nombre, setNombre] = useState('');
+  const [etapa, setEtapa] = useState<EtapaObjetivo | ''>('');
   const [ucs, setUcs] = useState<UnidadComercial[]>([]);
   const [hijos, setHijos] = useState<ProyectoNodo[]>([]);
   const [grafo, setGrafo] = useState<GrafoPlanos | null>(null);
@@ -44,7 +47,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   const cargar = () => {
     setLoading(true);
     Promise.all([listarUnidades(proyectoId), obtenerGrafoPlanos(proyectoId), listarHijosDeProyecto(proyectoId), obtenerProyectoBase(proyectoId)])
-      .then(([u, g, h, base]) => { setUcs(u); setGrafo(g); setHijos(h); setNombre(base?.nombre ?? ''); })
+      .then(([u, g, h, base]) => { setUcs(u); setGrafo(g); setHijos(h); setNombre(base?.nombre ?? ''); setEtapa(base?.etapaObjetivo ?? ''); })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
@@ -88,6 +91,8 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
 
   async function crearUC() { if (!nuevaUC.trim()) return; await crearUnidad(proyectoId, nuevaUC.trim()); setNuevaUC(''); cargar(); }
   async function crearNeg() { if (!nuevoNegocio.trim()) return; await crearNegocioHijo(proyectoId, nuevoNegocio.trim()); setNuevoNegocio(''); cargar(); }
+  async function cambiarEtapa(e: EtapaObjetivo | '') { setEtapa(e); if (e) await fijarEtapaObjetivo(proyectoId, e); }
+  const etapaSel = etapaInfo(etapa || undefined);
 
   const seleccionados = grafo?.nodos.filter((n) => n.seleccionado).length ?? 0;
 
@@ -108,6 +113,16 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
               Un proyecto tiene <strong>Administración</strong> (transversal) y puede contener <strong>Negocios</strong> (sub-empresas, cada una con lo suyo) y/o <strong>Unidades Comerciales</strong> (líneas de venta directa). Clic en un nodo para entrar.
             </p>
             <div style={{ fontSize: 12, color: '#777', marginBottom: '0.5rem' }}>Administración: {seleccionados} planos · {hijos.length} negocios · {ucs.length} unidades comerciales.</div>
+
+            {/* Etapa objetivo del negocio (la ruta de 5 fases) */}
+            <div style={{ border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.5rem 0.6rem', background: '#eef4ff', marginBottom: '0.6rem' }}>
+              <label style={{ fontSize: 11, color: '#2b5a97', fontWeight: 'bold', display: 'block', marginBottom: 3 }}>🎚️ Etapa del negocio (define el foco de los planos)</label>
+              <select style={{ ...inp, width: '100%', fontSize: 13 }} value={etapa} onChange={(e) => void cambiarEtapa(e.target.value as EtapaObjetivo | '')}>
+                <option value="">— Sin definir (fíjala tú o el Curador) —</option>
+                {ETAPAS_OBJETIVO.map((et) => <option key={et.id} value={et.id}>{et.n}. {et.label}</option>)}
+              </select>
+              {etapaSel && <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>{etapaSel.descripcion} <span style={{ color: '#2b5a97' }}>Foco: {etapaSel.foco.join(' · ')}.</span></div>}
+            </div>
 
             {/* Crear negocio (sub-empresa) */}
             <label style={{ fontSize: 11, color: '#8a4fbf', fontWeight: 'bold' }}>Negocio dentro de este proyecto</label>
