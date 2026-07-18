@@ -1,21 +1,23 @@
 'use client';
 
-// MAPA OPERATIVO — canvas de procesos estilo n8n (ADITIVO). Ref: domain/mapa.ts.
-//   · Carriles (filas) = departamentos: Administración + cada Unidad Comercial, una sola lista.
-//   · Bandas (columnas) = Antes · Durante · Después (orden cronológico).
-//   · Nodo = proceso (arrastrable entre celdas) · Flecha = rama por disparador (puede bifurcarse).
-//   · Lentes: misma data, distinta vista (general/instructivo/roles/espacios/herramientas/tiempos).
-//   · "Crear y volver": roles/herramientas se crean al vuelo en el maestro; espacios → Sedes.
+// MAPA OPERATIVO V2 — flujo cronológico estilo n8n (ADITIVO). Ref: domain/mapa.ts.
+//   · CADA FASE (Antes · Durante · Después) es una PÁGINA ENTERA con canvas libre.
+//   · El DEPARTAMENTO es una ETIQUETA del proceso (color + chip), no un contenedor:
+//     el flujo es UNO solo — Dirección abre, Marketing da de alta, Dirección revisa…
+//   · Nodos con posición libre (arrastrables) · flecha = rama por disparador (bifurcable).
+//   · Conexiones ENTRE FASES: portales clicables en el nodo (⤷ salida / ⤶ entrada).
+//   · Numeración cronológica global siguiendo las flechas: ▶ #1 = el primer paso de todos.
+//   · Lentes: general/instructivo/roles/espacios/herramientas/tiempos.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { CSSProperties, DragEvent } from 'react';
+import type { CSSProperties, PointerEvent as RPointerEvent } from 'react';
 import {
   listarDepartamentos, crearDepartamento, actualizarDepartamento, eliminarDepartamento,
-  listarProcesos, crearProceso, actualizarProceso, moverProceso, eliminarProceso,
+  listarProcesos, crearProceso, actualizarProceso, eliminarProceso,
   importarRutasCatalogo, listarRecursosProyecto, crearRolMaestro, crearHerramientaMaestro,
 } from '@/app/actions/mapa.actions';
 import type { RecursosProyecto } from '@/app/actions/mapa.actions';
-import { FASES_MAPA, VISTAS_MAPA, colorDepto, recursosCompartidos } from '@/domain/mapa';
+import { FASES_MAPA, VISTAS_MAPA, colorDepto, ordenCronologico, recursosCompartidos } from '@/domain/mapa';
 import type { AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, VistaMapa } from '@/domain/mapa';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -23,6 +25,8 @@ const btnSm: CSSProperties = { ...btn, padding: '0.15rem 0.5rem', fontSize: 12 }
 const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 13, width: '100%', boxSizing: 'border-box' };
 const lbl: CSSProperties = { display: 'block', fontSize: 11, color: '#666', marginTop: '0.5rem', fontWeight: 'bold' };
 const tag: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#eef2fb', border: '1px solid #cdd8ef', borderRadius: 12, padding: '0.1rem 0.5rem', fontSize: 12, margin: '2px 3px 0 0' };
+
+const ANCHO_NODO = 200;
 
 interface Props { proyectoId: string; onVolver: () => void; onIrSedes: () => void; nombreProyecto?: string }
 
@@ -33,14 +37,18 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const [procesos, setProcesos] = useState<ProcesoNodo[]>([]);
   const [recursos, setRecursos] = useState<RecursosProyecto>({ espacios: [], roles: [], herramientas: [] });
   const [loading, setLoading] = useState(true);
+  const [fase, setFase] = useState<FaseMapa>('antes');
   const [vista, setVista] = useState<VistaMapa>('general');
   const [selProc, setSelProc] = useState<string | null>(null);
   const [selDepto, setSelDepto] = useState<string | null>(null);
   const [nuevoDepto, setNuevoDepto] = useState('');
   const [msg, setMsg] = useState('');
 
-  // refs de tarjetas para dibujar las flechas (ramas) en SVG.
-  const contRef = useRef<HTMLDivElement | null>(null);
+  // drag de nodos (posición libre)
+  const dragRef = useRef<{ id: string; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null);
+
+  // refs de tarjetas para dibujar flechas
+  const canvasRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef(new Map<string, HTMLDivElement>());
   const [rects, setRects] = useState<Record<string, Rect>>({});
 
@@ -52,9 +60,8 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
 
-  // Recalcula posiciones de tarjetas (para las flechas) tras cada render relevante.
   const medir = () => {
-    const cont = contRef.current; if (!cont) return;
+    const cont = canvasRef.current; if (!cont) return;
     const cr = cont.getBoundingClientRect();
     const out: Record<string, Rect> = {};
     for (const [id, el] of cardRefs.current) {
@@ -64,7 +71,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
     }
     setRects(out);
   };
-  useLayoutEffect(() => { medir(); /* eslint-disable-next-line */ }, [procesos, deptos, vista, loading]);
+  useLayoutEffect(() => { medir(); /* eslint-disable-next-line */ }, [procesos, deptos, vista, fase, loading]);
   useEffect(() => {
     const h = () => medir();
     window.addEventListener('resize', h);
@@ -74,20 +81,31 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const proc = procesos.find((p) => p.id === selProc) ?? null;
   const depto = deptos.find((d) => d.id === selDepto) ?? null;
   const compartidos = recursosCompartidos(deptos);
+  const numeracion = ordenCronologico(procesos);
+  const byId = new Map(procesos.map((p) => [p.id, p]));
+  const colorDe = (deptoId: string) => { const i = deptos.findIndex((d) => d.id === deptoId); return i >= 0 ? colorDepto(deptos[i]!, i) : '#888'; };
+  const deptoNombre = (id: string) => deptos.find((d) => d.id === id)?.nombre ?? '?';
+  const enFase = procesos.filter((p) => p.fase === fase);
 
-  function celda(deptoId: string, fase: FaseMapa): ProcesoNodo[] {
-    return procesos.filter((p) => p.departamentoId === deptoId && p.fase === fase).sort((a, b) => a.orden - b.orden);
-  }
+  // entrantes desde OTRAS fases hacia nodos de esta página (portales de entrada)
+  const entrantesDe = (destId: string) => procesos
+    .filter((p) => p.fase !== fase)
+    .flatMap((p) => p.ramas.filter((r) => r.destinoProcesoId === destId).map((r) => ({ desde: p, evento: r.evento })));
 
-  // --- mutaciones optimistas + persistencia ---
   function patchLocal(id: string, patch: Partial<ProcesoNodo>) {
     setProcesos((ps) => ps.map((p) => p.id === id ? { ...p, ...patch } : p));
   }
+  function guardar(id: string, patch: Partial<ProcesoNodo>) {
+    patchLocal(id, patch);
+    void actualizarProceso(id, patch);
+  }
 
-  async function altaProceso(deptoId: string, fase: FaseMapa) {
+  async function altaProceso(x?: number, y?: number) {
     const nombre = window.prompt('Nombre del proceso:');
     if (!nombre?.trim()) return;
-    const nuevo = await crearProceso(proyectoId, deptoId, nombre.trim(), fase);
+    const admin = deptos.find((d) => d.tipo === 'admin') ?? deptos[0];
+    if (!admin) return;
+    const nuevo = await crearProceso(proyectoId, admin.id, nombre.trim(), fase, x !== undefined && y !== undefined ? { x, y } : undefined);
     setProcesos((ps) => [...ps, nuevo]);
     setSelProc(nuevo.id); setSelDepto(null);
   }
@@ -105,25 +123,46 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
     cargar();
   }
 
-  // --- drag & drop ---
-  function onDragStart(e: DragEvent, id: string) { e.dataTransfer.setData('text/proc', id); e.dataTransfer.effectAllowed = 'move'; }
-  async function soltarEnCelda(e: DragEvent, deptoId: string, fase: FaseMapa, antesDeId?: string) {
-    e.preventDefault(); e.stopPropagation();
-    const id = e.dataTransfer.getData('text/proc'); if (!id) return;
-    const lista = celda(deptoId, fase).filter((p) => p.id !== id);
-    const idx = antesDeId ? Math.max(0, lista.findIndex((p) => p.id === antesDeId)) : lista.length;
-    const arrastrado = procesos.find((p) => p.id === id); if (!arrastrado) return;
-    lista.splice(idx, 0, { ...arrastrado, departamentoId: deptoId, fase });
-    // renumera la celda y persiste (celdas son chicas: pocas llamadas)
-    setProcesos((ps) => ps.map((p) => {
-      const i = lista.findIndex((x) => x.id === p.id);
-      if (p.id === id) return { ...p, departamentoId: deptoId, fase, orden: lista.findIndex((x) => x.id === id) + 1 };
-      return i >= 0 ? { ...p, orden: i + 1 } : p;
-    }));
-    for (let i = 0; i < lista.length; i++) await moverProceso(lista[i]!.id, deptoId, fase, i + 1);
+  // --- drag de nodos ---
+  function onNodoPointerDown(e: RPointerEvent<HTMLDivElement>, p: ProcesoNodo) {
+    const t = e.target as HTMLElement;
+    if (t.closest('button,input,select,textarea,a,[data-portal]')) return;
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    dragRef.current = { id: p.id, sx: e.clientX, sy: e.clientY, ox: p.posX ?? 40, oy: p.posY ?? 40, moved: false };
+  }
+  function onNodoPointerMove(e: RPointerEvent<HTMLDivElement>) {
+    const d = dragRef.current; if (!d) return;
+    const dx = e.clientX - d.sx, dy = e.clientY - d.sy;
+    if (!d.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+    d.moved = true;
+    patchLocal(d.id, { posX: Math.max(0, d.ox + dx), posY: Math.max(0, d.oy + dy) });
+  }
+  function onNodoPointerUp(e: RPointerEvent<HTMLDivElement>) {
+    const d = dragRef.current; dragRef.current = null;
+    if (!d) return;
+    const p = procesos.find((x) => x.id === d.id);
+    if (d.moved && p) void actualizarProceso(d.id, { posX: p.posX, posY: p.posY });
+    if (!d.moved) { setSelProc(d.id); setSelDepto(null); }
+    void e;
   }
 
-  // --- contenido de tarjeta según la lente ---
+  // --- flechas dentro de la fase actual ---
+  const edges: { from: Rect; to: Rect; evento: string; key: string }[] = [];
+  for (const p of enFase) {
+    const from = rects[p.id]; if (!from) continue;
+    for (const r of p.ramas) {
+      if (!r.destinoProcesoId) continue;
+      const dest = byId.get(r.destinoProcesoId);
+      if (!dest || dest.fase !== fase) continue; // cross-fase = portal, no flecha
+      const to = rects[r.destinoProcesoId]; if (!to) continue;
+      edges.push({ from, to, evento: r.evento, key: `${p.id}-${r.id}` });
+    }
+  }
+
+  // tamaño del canvas según nodos
+  const maxX = Math.max(760, ...enFase.map((p) => (p.posX ?? 40) + ANCHO_NODO + 80));
+  const maxY = Math.max(480, ...enFase.map((p) => (p.posY ?? 40) + 220));
+
   function lenteCard(p: ProcesoNodo): string {
     if (vista === 'instructivo') return p.instructivo ? p.instructivo.slice(0, 60) : (p.entrada || p.salida ? `${p.entrada ?? '—'} → ${p.salida ?? '—'}` : 'sin instructivo');
     if (vista === 'roles') return p.roles.length ? p.roles.join(' · ') : 'sin rol';
@@ -133,143 +172,165 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
     return p.descripcion ? p.descripcion.slice(0, 50) : '';
   }
 
-  // --- flechas (ramas) ---
-  const edges: { from: Rect; to: Rect; evento: string; key: string }[] = [];
-  for (const p of procesos) {
-    const from = rects[p.id]; if (!from) continue;
-    for (const r of p.ramas) {
-      if (!r.destinoProcesoId) continue;
-      const to = rects[r.destinoProcesoId]; if (!to) continue;
-      edges.push({ from, to, evento: r.evento, key: `${p.id}-${r.id}` });
-    }
-  }
-
-  const totalPorDepto = (id: string) => procesos.filter((p) => p.departamentoId === id).reduce((s, p) => s + (p.tiempoMin ?? 0), 0);
+  const faseLabel = (f: FaseMapa) => FASES_MAPA.find((x) => x.id === f)?.label ?? f;
+  const cuentaFase = (f: FaseMapa) => procesos.filter((p) => p.fase === f).length;
 
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>🗺️ Mapa Operativo <span style={{ fontSize: 13, color: '#888' }}>· {nombreProyecto ?? 'proyecto'} · departamentos y flujos de procesos</span></h2>
+        <h2 style={{ margin: 0 }}>🗺️ Mapa Operativo <span style={{ fontSize: 13, color: '#888' }}>· {nombreProyecto ?? 'proyecto'} · un solo flujo cronológico</span></h2>
         <button style={btn} onClick={onVolver}>← Proyecto</button>
       </div>
 
-      {/* barra de herramientas */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center', margin: '0.6rem 0' }}>
+      {/* PÁGINAS por fase */}
+      <div style={{ display: 'flex', gap: '0.4rem', margin: '0.6rem 0 0.35rem' }}>
+        {FASES_MAPA.map((f) => (
+          <button key={f.id} onClick={() => { setFase(f.id); setSelProc(null); }}
+            style={{ ...btn, flex: 1, padding: '0.55rem 0.6rem', fontWeight: 'bold',
+              background: fase === f.id ? '#33415c' : '#fff', color: fase === f.id ? '#fff' : '#33415c',
+              borderColor: fase === f.id ? '#33415c' : '#c5cbd8' }}>
+            {f.label} <span style={{ fontWeight: 'normal', opacity: 0.75 }}>({cuentaFase(f.id)})</span>
+          </button>
+        ))}
+      </div>
+
+      {/* barra: lentes + etiquetas de departamento + acciones */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center', margin: '0.35rem 0' }}>
         {VISTAS_MAPA.map((v) => (
-          <button key={v.id} style={{ ...btnSm, background: vista === v.id ? '#33415c' : '#fff', color: vista === v.id ? '#fff' : '#333', borderColor: vista === v.id ? '#33415c' : '#bbb' }} onClick={() => setVista(v.id)}>{v.label}</button>
+          <button key={v.id} style={{ ...btnSm, background: vista === v.id ? '#5b6b8c' : '#fff', color: vista === v.id ? '#fff' : '#333', borderColor: vista === v.id ? '#5b6b8c' : '#bbb' }} onClick={() => setVista(v.id)}>{v.label}</button>
         ))}
         <span style={{ flex: 1 }} />
-        <button style={btnSm} onClick={() => void importar()} title="Siembra en el mapa los pasos de las rutas del catálogo (por UC)">⬇ Importar rutas del catálogo</button>
-        <input style={{ ...inp, width: 180 }} placeholder="＋ Departamento admin…" value={nuevoDepto} onChange={(e) => setNuevoDepto(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void altaDepto(); }} />
-        <button style={btnSm} onClick={() => void altaDepto()} disabled={!nuevoDepto.trim()}>＋</button>
+        <button style={btnSm} onClick={() => void altaProceso()}>＋ Proceso</button>
+        <button style={btnSm} onClick={() => void importar()} title="Siembra en el mapa los pasos de las rutas del catálogo">⬇ Importar catálogo</button>
       </div>
+
+      {/* etiquetas de departamento */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', alignItems: 'center', margin: '0.2rem 0 0.5rem' }}>
+        <span style={{ fontSize: 11, color: '#888', fontWeight: 'bold' }}>Departamentos (etiquetas):</span>
+        {deptos.map((d, i) => (
+          <span key={d.id} onClick={() => { setSelDepto(d.id); setSelProc(null); }}
+            style={{ ...tag, cursor: 'pointer', borderColor: colorDepto(d, i), background: selDepto === d.id ? colorDepto(d, i) : '#fff', color: selDepto === d.id ? '#fff' : colorDepto(d, i), fontWeight: 'bold' }}>
+            {d.nombre}
+          </span>
+        ))}
+        <input style={{ ...inp, width: 150, fontSize: 12, padding: '0.2rem 0.45rem' }} placeholder="＋ nuevo departamento…" value={nuevoDepto} onChange={(e) => setNuevoDepto(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void altaDepto(); }} />
+        {nuevoDepto.trim() && <button style={btnSm} onClick={() => void altaDepto()}>＋</button>}
+      </div>
+
       {msg && <p style={{ fontSize: 12, color: '#2b5a97', margin: '0 0 0.4rem' }}>{msg}</p>}
       {loading && <p style={{ color: '#666' }}>Cargando…</p>}
 
       <div style={{ display: 'grid', gridTemplateColumns: proc || depto ? 'minmax(0, 1fr) 330px' : '1fr', gap: '0.75rem', alignItems: 'start' }}>
-        {/* ==== CANVAS ==== */}
-        <div ref={contRef} style={{ position: 'relative', border: '1px solid #ddd', borderRadius: 10, background: '#fcfcfd', overflowX: 'auto' }}>
-          {/* cabecera de fases */}
-          <div style={{ display: 'grid', gridTemplateColumns: '150px repeat(3, minmax(210px, 1fr))', borderBottom: '2px solid #e5e5e5', position: 'sticky', top: 0, background: '#fcfcfd', zIndex: 2 }}>
-            <div style={{ padding: '0.5rem 0.6rem', fontSize: 12, color: '#888', fontWeight: 'bold' }}>Departamento</div>
-            {FASES_MAPA.map((f) => (
-              <div key={f.id} style={{ padding: '0.5rem 0.6rem', fontSize: 12, fontWeight: 'bold', color: '#33415c', borderLeft: '1px dashed #e5e5e5' }}>{f.label}</div>
-            ))}
-          </div>
+        {/* ==== CANVAS DE LA FASE ==== */}
+        <div style={{ border: '1px solid #ddd', borderRadius: 10, background: '#fcfcfd', overflow: 'auto', maxHeight: '74vh' }}>
+          <div ref={canvasRef}
+            onDoubleClick={(e) => {
+              if (e.target !== e.currentTarget) return;
+              const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+              void altaProceso(e.clientX - r.left - ANCHO_NODO / 2, e.clientY - r.top - 20);
+            }}
+            style={{ position: 'relative', width: maxX, height: maxY,
+              backgroundImage: 'radial-gradient(#e6e8ee 1px, transparent 1px)', backgroundSize: '22px 22px' }}>
 
-          {/* carriles */}
-          {deptos.map((d, i) => {
-            const color = colorDepto(d, i);
-            return (
-              <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '150px repeat(3, minmax(210px, 1fr))', borderBottom: '1px solid #eee', minHeight: 86 }}>
-                {/* etiqueta del carril */}
-                <div onClick={() => { setSelDepto(d.id); setSelProc(null); }}
-                  style={{ padding: '0.5rem 0.6rem', borderLeft: `5px solid ${color}`, cursor: 'pointer', background: selDepto === d.id ? '#f2f6ff' : 'transparent' }}>
-                  <div style={{ fontSize: 13, fontWeight: 'bold', color }}>{d.nombre}</div>
-                  <div style={{ fontSize: 10, color: '#999' }}>{d.tipo === 'uc' ? 'Unidad Comercial' : 'Administración'}</div>
-                  {vista === 'tiempos' && <div style={{ fontSize: 10, color: '#555', marginTop: 2 }}>Σ {totalPorDepto(d.id)} min</div>}
-                  {(d.espacios.length > 0 || d.herramientas.length > 0) && <div style={{ fontSize: 10, color: '#777', marginTop: 2 }}>📐{d.espacios.length} 🔧{d.herramientas.length}</div>}
-                </div>
-                {/* celdas por fase */}
-                {FASES_MAPA.map((f) => (
-                  <div key={f.id}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => void soltarEnCelda(e, d.id, f.id)}
-                    style={{ padding: '0.45rem', borderLeft: '1px dashed #eee', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {celda(d.id, f.id).map((p) => (
-                      <div key={p.id}
-                        ref={(el) => { if (el) cardRefs.current.set(p.id, el); else cardRefs.current.delete(p.id); }}
-                        draggable
-                        onDragStart={(e) => onDragStart(e, p.id)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => void soltarEnCelda(e, d.id, f.id, p.id)}
-                        onClick={() => { setSelProc(p.id); setSelDepto(null); }}
-                        style={{
-                          border: `1.5px solid ${selProc === p.id ? color : '#d5d9e2'}`, borderTop: `3px solid ${color}`,
-                          borderRadius: 8, background: '#fff', padding: '0.35rem 0.5rem', cursor: 'grab',
-                          boxShadow: selProc === p.id ? `0 0 0 2px ${color}33` : '0 1px 2px rgba(0,0,0,0.05)',
-                        }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#222' }}>
-                          {p.nombre}
-                          {p.ramas.filter((r) => r.destinoProcesoId).length > 1 && <span title="Se divide en varios caminos" style={{ color: '#b06be0', marginLeft: 4 }}>⑂</span>}
-                          {p.origen && <span title="Sembrado desde el catálogo" style={{ marginLeft: 4 }}>🧬</span>}
-                        </div>
-                        {lenteCard(p) && <div style={{ fontSize: 11, color: '#777', marginTop: 1 }}>{lenteCard(p)}</div>}
-                      </div>
-                    ))}
-                    <button style={{ ...btnSm, border: '1px dashed #bbb', color: '#888', background: 'transparent', alignSelf: 'flex-start' }} onClick={() => void altaProceso(d.id, f.id)}>＋ proceso</button>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
+            {/* flechas de la fase */}
+            <svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1 }} width={maxX} height={maxY}>
+              <defs>
+                <marker id="flecha" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a8" /></marker>
+              </defs>
+              {edges.map((e) => {
+                const haciaDerecha = e.to.x >= e.from.x + e.from.w - 4;
+                const x1 = haciaDerecha ? e.from.x + e.from.w : e.from.x + e.from.w / 2;
+                const y1 = haciaDerecha ? e.from.y + e.from.h / 2 : e.from.y + e.from.h;
+                const x2 = haciaDerecha ? e.to.x : e.to.x + e.to.w / 2;
+                const y2 = haciaDerecha ? e.to.y + e.to.h / 2 : e.to.y;
+                const dx = Math.max(28, Math.abs(x2 - x1) / 2);
+                const path = haciaDerecha
+                  ? `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
+                  : `M ${x1} ${y1} C ${x1} ${y1 + 26}, ${x2} ${y2 - 26}, ${x2} ${y2}`;
+                const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+                return (
+                  <g key={e.key}>
+                    <path d={path} fill="none" stroke="#8a93a8" strokeWidth={1.6} markerEnd="url(#flecha)" />
+                    {e.evento && e.evento !== 'continúa' && (
+                      <>
+                        <rect x={mx - e.evento.length * 3.2 - 4} y={my - 9} width={e.evento.length * 6.4 + 8} height={15} rx={7} fill="#fff" stroke="#d5d9e2" />
+                        <text x={mx} y={my + 2.5} textAnchor="middle" fontSize={10} fill="#7a4fbf">{e.evento}</text>
+                      </>
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
 
-          {/* flechas de las ramas */}
-          <svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1 }} width="100%" height="100%">
-            <defs>
-              <marker id="flecha" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a8" /></marker>
-            </defs>
-            {edges.map((e) => {
-              const haciaDerecha = e.to.x >= e.from.x + e.from.w - 4;
-              const x1 = haciaDerecha ? e.from.x + e.from.w : e.from.x + e.from.w / 2;
-              const y1 = haciaDerecha ? e.from.y + e.from.h / 2 : e.from.y + e.from.h;
-              const x2 = haciaDerecha ? e.to.x : e.to.x + e.to.w / 2;
-              const y2 = haciaDerecha ? e.to.y + e.to.h / 2 : e.to.y;
-              const dx = Math.max(28, Math.abs(x2 - x1) / 2);
-              const path = haciaDerecha
-                ? `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
-                : `M ${x1} ${y1} C ${x1} ${y1 + 24}, ${x2} ${y2 - 24}, ${x2} ${y2}`;
-              const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+            {/* nodos */}
+            {enFase.map((p) => {
+              const color = colorDe(p.departamentoId);
+              const n = numeracion.get(p.id);
+              const entrantes = entrantesDe(p.id);
+              const salientesCrossFase = p.ramas.filter((r) => { const d = r.destinoProcesoId ? byId.get(r.destinoProcesoId) : undefined; return d && d.fase !== fase; });
+              const bifurca = p.ramas.filter((r) => r.destinoProcesoId).length > 1;
               return (
-                <g key={e.key}>
-                  <path d={path} fill="none" stroke="#8a93a8" strokeWidth={1.6} markerEnd="url(#flecha)" />
-                  {e.evento && e.evento !== 'continúa' && (
-                    <>
-                      <rect x={mx - e.evento.length * 3.2 - 4} y={my - 9} width={e.evento.length * 6.4 + 8} height={15} rx={7} fill="#fff" stroke="#d5d9e2" />
-                      <text x={mx} y={my + 2.5} textAnchor="middle" fontSize={10} fill="#7a4fbf">{e.evento}</text>
-                    </>
-                  )}
-                </g>
+                <div key={p.id}
+                  ref={(el) => { if (el) cardRefs.current.set(p.id, el); else cardRefs.current.delete(p.id); }}
+                  onPointerDown={(e) => onNodoPointerDown(e, p)}
+                  onPointerMove={onNodoPointerMove}
+                  onPointerUp={onNodoPointerUp}
+                  style={{ position: 'absolute', left: p.posX ?? 40, top: p.posY ?? 40, width: ANCHO_NODO, zIndex: selProc === p.id ? 3 : 2,
+                    border: `1.5px solid ${selProc === p.id ? color : '#d5d9e2'}`, borderTop: `4px solid ${color}`,
+                    borderRadius: 9, background: '#fff', padding: '0.35rem 0.5rem', cursor: 'grab', touchAction: 'none',
+                    boxShadow: selProc === p.id ? `0 0 0 2px ${color}33` : '0 1px 3px rgba(0,0,0,0.07)' }}>
+                  {/* portales de ENTRADA desde otras fases */}
+                  {entrantes.map((x, i) => (
+                    <div key={i} data-portal onClick={() => { setFase(x.desde.fase); setSelProc(x.desde.id); }}
+                      style={{ fontSize: 10, color: '#2b5a97', cursor: 'pointer', marginBottom: 2 }}
+                      title={`Viene de ${faseLabel(x.desde.fase)} · clic para ir`}>
+                      ⤶ {x.desde.nombre}{x.evento && x.evento !== 'continúa' ? ` (${x.evento})` : ''} · {faseLabel(x.desde.fase).split(' ·')[0]}
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#222', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {n !== undefined && <span style={{ background: n === 1 ? '#2e9e63' : '#5b6b8c', color: '#fff', borderRadius: 9, fontSize: 10, padding: '0 5px', flexShrink: 0 }}>{n === 1 ? '▶ 1' : n}</span>}
+                    <span style={{ flex: 1 }}>{p.nombre}</span>
+                    {bifurca && <span title="Se divide en caminos por disparador" style={{ color: '#b06be0' }}>⑂</span>}
+                    {p.origen && <span title="Sembrado desde el catálogo">🧬</span>}
+                  </div>
+                  <div style={{ fontSize: 10, color, fontWeight: 'bold', marginTop: 1 }}>{deptoNombre(p.departamentoId)}</div>
+                  {lenteCard(p) && <div style={{ fontSize: 11, color: '#777', marginTop: 1 }}>{lenteCard(p)}</div>}
+                  {/* portales de SALIDA hacia otras fases */}
+                  {salientesCrossFase.map((r) => {
+                    const dest = byId.get(r.destinoProcesoId!)!;
+                    return (
+                      <div key={r.id} data-portal onClick={() => { setFase(dest.fase); setSelProc(dest.id); }}
+                        style={{ fontSize: 10, color: '#7a4fbf', cursor: 'pointer', marginTop: 2 }}
+                        title={`Sigue en ${faseLabel(dest.fase)} · clic para ir`}>
+                        ⤷ {r.evento && r.evento !== 'continúa' ? `${r.evento} → ` : '→ '}{dest.nombre} · {faseLabel(dest.fase).split(' ·')[0]}
+                      </div>
+                    );
+                  })}
+                </div>
               );
             })}
-          </svg>
 
-          {!loading && deptos.length === 0 && <p style={{ padding: '1rem', color: '#888', fontSize: 13 }}>Sin departamentos aún.</p>}
-          <p style={{ fontSize: 11, color: '#999', padding: '0.4rem 0.6rem' }}>
-            Arrastra procesos entre departamentos y fases · clic en un proceso o departamento para editarlo · ⑂ = se divide en caminos por disparador · 🧬 = sembrado del catálogo.
+            {!loading && enFase.length === 0 && (
+              <p style={{ position: 'absolute', top: 24, left: 24, color: '#999', fontSize: 13 }}>
+                Página vacía. Doble clic en el lienzo (o botón ＋ Proceso) para crear el primer proceso de esta fase.
+              </p>
+            )}
+          </div>
+          <p style={{ fontSize: 11, color: '#999', padding: '0.4rem 0.6rem', margin: 0, borderTop: '1px solid #eee' }}>
+            Doble clic = nuevo proceso · arrastra los nodos · clic = editar · <span style={{ color: '#2e9e63', fontWeight: 'bold' }}>▶ 1</span> = primer paso de todos · ⑂ = se divide por disparador · ⤶/⤷ = viene de / sigue en otra fase (clic para saltar) · 🧬 = del catálogo.
           </p>
         </div>
 
         {/* ==== PANEL PROCESO ==== */}
         {proc && (
           <PanelProceso key={proc.id} proyectoId={proyectoId} proc={proc} procesos={procesos} deptos={deptos} recursos={recursos}
-            onPatch={(patch) => { patchLocal(proc.id, patch); void actualizarProceso(proc.id, patch); }}
+            onPatch={(patch) => guardar(proc.id, patch)}
             onRecargarRecursos={() => { listarRecursosProyecto(proyectoId).then(setRecursos).catch(() => {}); }}
             onEliminar={async () => { await eliminarProceso(proc.id); setSelProc(null); cargar(); }}
             onCerrar={() => setSelProc(null)} onIrSedes={onIrSedes} />
         )}
 
-        {/* ==== PANEL DEPARTAMENTO ==== */}
+        {/* ==== PANEL DEPARTAMENTO (etiqueta) ==== */}
         {depto && !proc && (
           <PanelDepartamento key={depto.id} depto={depto} recursos={recursos} compartidos={compartidos}
             onPatch={(patch) => {
@@ -297,7 +358,6 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
   const [horarioEspacio, setHorarioEspacio] = useState('');
   const deptoDe = (id: string) => deptos.find((d) => d.id === id)?.nombre ?? '?';
 
-  // "Crear y volver": si el rol/herramienta no existe en el maestro, se crea al vuelo y queda seleccionable.
   async function addRol() {
     const r = nuevoRol.trim(); if (!r) return;
     if (!proc.roles.includes(r)) onPatch({ roles: [...proc.roles, r] });
@@ -324,10 +384,24 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
         <strong style={{ fontSize: 14 }}>⚙️ Proceso</strong>
         <button style={btnSm} onClick={onCerrar}>✕</button>
       </div>
-      <div style={{ fontSize: 11, color: '#888' }}>{deptoDe(proc.departamentoId)} · {FASES_MAPA.find((f) => f.id === proc.fase)?.label}</div>
 
       <label style={lbl}>Nombre</label>
       <input style={inp} defaultValue={proc.nombre} onBlur={(e) => { if (e.target.value.trim() && e.target.value !== proc.nombre) onPatch({ nombre: e.target.value.trim() }); }} />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+        <div>
+          <label style={lbl}>🏷️ Departamento</label>
+          <select style={inp} value={proc.departamentoId} onChange={(e) => onPatch({ departamentoId: e.target.value })}>
+            {deptos.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>Fase (página)</label>
+          <select style={inp} value={proc.fase} onChange={(e) => onPatch({ fase: e.target.value as FaseMapa })}>
+            {FASES_MAPA.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+          </select>
+        </div>
+      </div>
 
       <label style={lbl}>Descripción</label>
       <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={proc.descripcion ?? ''} onBlur={(e) => onPatch({ descripcion: e.target.value })} />
@@ -381,7 +455,7 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
       <button style={{ ...btnSm, marginTop: 4 }} onClick={onIrSedes}>Crear espacio en Sedes & Espacios →</button>
 
       {/* RAMAS */}
-      <label style={lbl}>⑂ Ramas (caminos por disparador)</label>
+      <label style={lbl}>⑂ Ramas (caminos por disparador) — pueden cruzar de fase</label>
       {proc.ramas.map((r) => (
         <div key={r.id} style={{ display: 'flex', gap: 4, marginTop: 3, alignItems: 'center' }}>
           <input style={{ ...inp, flex: 2 }} defaultValue={r.evento} placeholder="disparador (ej. Pago recibido)"
@@ -390,14 +464,14 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
             onChange={(e) => onPatch({ ramas: proc.ramas.map((x) => x.id === r.id ? { ...x, destinoProcesoId: e.target.value || undefined } : x) })}>
             <option value="">→ (sin destino)</option>
             {procesos.filter((p) => p.id !== proc.id).map((p) => (
-              <option key={p.id} value={p.id}>{deptoDe(p.departamentoId)} · {p.nombre}</option>
+              <option key={p.id} value={p.id}>{FASES_MAPA.find((f) => f.id === p.fase)?.label.split(' ·')[0]} · {p.nombre} ({deptoDe(p.departamentoId)})</option>
             ))}
           </select>
           <span style={{ cursor: 'pointer', color: '#b33', fontSize: 15 }} onClick={() => onPatch({ ramas: proc.ramas.filter((x) => x.id !== r.id) })}>×</span>
         </div>
       ))}
       <button style={{ ...btnSm, marginTop: 4 }} onClick={() => onPatch({ ramas: [...proc.ramas, { id: `RAMA-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, evento: '' }] })}>＋ Rama</button>
-      <p style={{ fontSize: 10.5, color: '#999', margin: '0.3rem 0 0' }}>Un proceso con 2+ ramas se divide en caminos según el disparador que se active.</p>
+      <p style={{ fontSize: 10.5, color: '#999', margin: '0.3rem 0 0' }}>Un proceso con 2+ ramas se divide en caminos según el disparador que se active. Si el destino está en otra fase, aparece como portal ⤷ en el nodo.</p>
 
       <div style={{ borderTop: '1px solid #dde', marginTop: '0.7rem', paddingTop: '0.5rem' }}>
         <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => { if (window.confirm(`¿Eliminar el proceso "${proc.nombre}"?`)) void onEliminar(); }}>🗑 Eliminar proceso</button>
@@ -406,7 +480,7 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
   );
 }
 
-// =================== PANEL: DEPARTAMENTO ===================
+// =================== PANEL: DEPARTAMENTO (etiqueta) ===================
 
 function PanelDepartamento({ depto, recursos, compartidos, onPatch, onEliminar, onCerrar, onIrSedes }: {
   depto: Departamento; recursos: RecursosProyecto; compartidos: Map<string, string[]>;
@@ -419,8 +493,7 @@ function PanelDepartamento({ depto, recursos, compartidos, onPatch, onEliminar, 
   const [horarioH, setHorarioH] = useState('');
 
   function esCompartido(r: AsignacionRecurso): string[] {
-    const otros = (compartidos.get((r.ref ?? r.nombre).toLowerCase()) ?? []).filter((n) => n !== depto.nombre);
-    return otros;
+    return (compartidos.get((r.ref ?? r.nombre).toLowerCase()) ?? []).filter((n) => n !== depto.nombre);
   }
   function addEspacio() {
     const n = nuevoEspacio.trim(); if (!n) return;
@@ -449,17 +522,17 @@ function PanelDepartamento({ depto, recursos, compartidos, onPatch, onEliminar, 
   return (
     <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.7rem', background: '#f7f9ff', position: 'sticky', top: 8, maxHeight: '82vh', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <strong style={{ fontSize: 14 }}>🏷️ Departamento</strong>
+        <strong style={{ fontSize: 14 }}>🏷️ Departamento (etiqueta)</strong>
         <button style={btnSm} onClick={onCerrar}>✕</button>
       </div>
-      <div style={{ fontSize: 11, color: '#888' }}>{depto.tipo === 'uc' ? 'Carril de Unidad Comercial (derivado de la UC)' : 'Departamento administrativo'}</div>
+      <div style={{ fontSize: 11, color: '#888' }}>{depto.tipo === 'uc' ? 'Etiqueta derivada de una Unidad Comercial' : 'Etiqueta administrativa'} · los procesos se etiquetan con ella en el panel del proceso.</div>
 
       <label style={lbl}>Nombre</label>
       <input style={inp} defaultValue={depto.nombre} disabled={depto.tipo === 'uc'}
         onBlur={(e) => { if (e.target.value.trim() && e.target.value !== depto.nombre) onPatch({ nombre: e.target.value.trim() }); }} />
       {depto.tipo === 'uc' && <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 0' }}>El nombre se hereda de la Unidad Comercial.</p>}
 
-      <label style={lbl}>Color del carril</label>
+      <label style={lbl}>Color de la etiqueta</label>
       <input type="color" value={depto.color ?? '#33415c'} onChange={(e) => onPatch({ color: e.target.value })} style={{ width: 46, height: 28, border: '1px solid #ccc', borderRadius: 6, background: '#fff', cursor: 'pointer' }} />
 
       <label style={lbl}>Descripción</label>
@@ -487,7 +560,7 @@ function PanelDepartamento({ depto, recursos, compartidos, onPatch, onEliminar, 
 
       {onEliminar && (
         <div style={{ borderTop: '1px solid #dde', marginTop: '0.7rem', paddingTop: '0.5rem' }}>
-          <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => { if (window.confirm(`¿Eliminar "${depto.nombre}"? Sus procesos pasan a Administración.`)) void onEliminar(); }}>🗑 Eliminar departamento</button>
+          <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => { if (window.confirm(`¿Eliminar "${depto.nombre}"? Sus procesos pasan a Administración.`)) void onEliminar(); }}>🗑 Eliminar etiqueta</button>
         </div>
       )}
     </div>

@@ -119,6 +119,8 @@ function mapProceso(r: { id: string; departamentoId: string; nombre: string; fas
     id: r.id, departamentoId: r.departamentoId, nombre: r.nombre,
     fase: (['antes', 'durante', 'despues'].includes(r.fase) ? r.fase : 'durante') as FaseMapa,
     orden: r.orden,
+    posX: num(d.posX),
+    posY: num(d.posY),
     descripcion: str(d.descripcion) || undefined,
     roles: arr<unknown>(d.roles).map(str).filter(Boolean),
     herramientas: arr<unknown>(d.herramientas).map(str).filter(Boolean),
@@ -137,12 +139,14 @@ export async function listarProcesos(proyectoId: string): Promise<ProcesoNodo[]>
   return rows.map(mapProceso);
 }
 
-export async function crearProceso(proyectoId: string, departamentoId: string, nombre: string, fase: FaseMapa): Promise<ProcesoNodo> {
-  const max = await prisma.proceso.aggregate({ where: { proyectoId, departamentoId, fase }, _max: { orden: true } });
+export async function crearProceso(proyectoId: string, departamentoId: string, nombre: string, fase: FaseMapa, pos?: { x: number; y: number }): Promise<ProcesoNodo> {
+  const max = await prisma.proceso.aggregate({ where: { proyectoId, fase }, _max: { orden: true } });
   const id = nid('PROC');
   const orden = (max._max.orden ?? 0) + 1;
-  await prisma.proceso.create({ data: { id, proyectoId, departamentoId, nombre: nombre.trim() || 'Proceso', fase, orden, data: toJson({ roles: [], herramientas: [], espacios: [], ramas: [] }) } });
-  return { id, departamentoId, nombre: nombre.trim() || 'Proceso', fase, orden, roles: [], herramientas: [], espacios: [], ramas: [] };
+  const posX = pos?.x ?? 40 + ((orden - 1) % 4) * 240;
+  const posY = pos?.y ?? 40 + Math.floor((orden - 1) / 4) * 150;
+  await prisma.proceso.create({ data: { id, proyectoId, departamentoId, nombre: nombre.trim() || 'Proceso', fase, orden, data: toJson({ posX, posY, roles: [], herramientas: [], espacios: [], ramas: [] }) } });
+  return { id, departamentoId, nombre: nombre.trim() || 'Proceso', fase, orden, posX, posY, roles: [], herramientas: [], espacios: [], ramas: [] };
 }
 
 export interface ProcesoPatch {
@@ -150,11 +154,15 @@ export interface ProcesoPatch {
   herramientas?: string[] | undefined; espacios?: AsignacionRecurso[] | undefined;
   tiempoMin?: number | undefined; entrada?: string | undefined; salida?: string | undefined;
   instructivo?: string | undefined; ramas?: Rama[] | undefined;
+  posX?: number | undefined; posY?: number | undefined;
+  departamentoId?: string | undefined; fase?: FaseMapa | undefined;
 }
 export async function actualizarProceso(id: string, patch: ProcesoPatch): Promise<void> {
   const r = await prisma.proceso.findUnique({ where: { id } }); if (!r) return;
   const d = obj(r.data);
   const data = { ...d } as Record<string, unknown>;
+  if (patch.posX !== undefined) data.posX = patch.posX;
+  if (patch.posY !== undefined) data.posY = patch.posY;
   if (patch.descripcion !== undefined) data.descripcion = patch.descripcion;
   if (patch.roles !== undefined) data.roles = patch.roles.map((x) => x.trim()).filter(Boolean);
   if (patch.herramientas !== undefined) data.herramientas = patch.herramientas.map((x) => x.trim()).filter(Boolean);
@@ -166,6 +174,8 @@ export async function actualizarProceso(id: string, patch: ProcesoPatch): Promis
   if (patch.ramas !== undefined) data.ramas = patch.ramas.map(normRama);
   await prisma.proceso.update({ where: { id }, data: {
     ...(patch.nombre !== undefined ? { nombre: patch.nombre } : {}),
+    ...(patch.departamentoId !== undefined ? { departamentoId: patch.departamentoId } : {}),
+    ...(patch.fase !== undefined ? { fase: patch.fase } : {}),
     data: toJson(data),
   } });
 }
@@ -216,12 +226,15 @@ export async function importarRutasCatalogo(proyectoId: string): Promise<{ cread
   }
 
   let creados = 0, omitidos = 0;
+  let fila = 0; // una fila del canvas por oferta
   for (const of of ofertas) {
     const depto = deptos.find((d) => d.ucId === of.ucId);
     if (!depto) continue;
     const d = obj(of.data);
     const rutaBase = arr<unknown>(d.rutaBase).map(obj);
     let anteriorId: string | null = null;
+    const colPorFase = new Map<string, number>(); // columna por fase (cadena horizontal)
+    let creoAlguno = false;
     for (const paso of rutaBase) {
       const pasoId = str(paso.id); if (!pasoId) continue;
       const k = `${of.id}:${pasoId}`;
@@ -230,6 +243,11 @@ export async function importarRutasCatalogo(proyectoId: string): Promise<{ cread
       const celda = `${depto.id}:${fase}`;
       const orden = (ordenPorCelda.get(celda) ?? 0) + 1;
       ordenPorCelda.set(celda, orden);
+      const col = colPorFase.get(fase) ?? 0;
+      colPorFase.set(fase, col + 1);
+      const posX = 40 + col * 240;
+      const posY = 40 + fila * 160;
+      creoAlguno = true;
       const id = nid('PROC');
       const roles = arr<unknown>(paso.roles).map(str).filter(Boolean);
       const herrs = arr<unknown>(paso.herramientasTags).map(str).filter(Boolean);
@@ -237,6 +255,7 @@ export async function importarRutasCatalogo(proyectoId: string): Promise<{ cread
       await prisma.proceso.create({ data: {
         id, proyectoId, departamentoId: depto.id, nombre: str(paso.nombre) || 'Paso', fase, orden,
         data: toJson({
+          posX, posY,
           descripcion: `De la oferta "${of.nombre}"`,
           roles, herramientas: herrs,
           espacios: lugar ? [{ nombre: lugar }] : [],
@@ -260,6 +279,7 @@ export async function importarRutasCatalogo(proyectoId: string): Promise<{ cread
       anteriorId = id;
       creados++;
     }
+    if (creoAlguno) fila++;
   }
   return { creados, omitidos };
 }

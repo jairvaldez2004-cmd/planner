@@ -52,10 +52,12 @@ export interface Rama {
 
 export interface ProcesoNodo {
   id: string;
-  departamentoId: string;
+  departamentoId: string;          // ETIQUETA de departamento (no contenedor)
   nombre: string;
-  fase: FaseMapa;
+  fase: FaseMapa;                  // en qué página del mapa vive (antes/durante/después)
   orden: number;
+  posX?: number | undefined;       // posición libre en el canvas de su fase
+  posY?: number | undefined;
   descripcion?: string | undefined;
   roles: string[];                     // etiquetas de rol (maestro Personas)
   herramientas: string[];              // etiquetas de herramienta/mueble
@@ -85,6 +87,34 @@ export const COLORES_DEPTO = ['#33415c', '#3b9e63', '#b06be0', '#e0795b', '#3bb0
 
 export function colorDepto(d: Departamento, i: number): string {
   return d.color ?? COLORES_DEPTO[i % COLORES_DEPTO.length]!;
+}
+
+// ORDEN CRONOLÓGICO GLOBAL: numera los procesos siguiendo las flechas (ramas) a
+// través de TODAS las fases. El #1 es "el primer paso de todos" (sin flechas entrantes,
+// en la fase más temprana). Los nodos sueltos se numeran al final por fase/posición.
+export function ordenCronologico(procesos: ProcesoNodo[]): Map<string, number> {
+  const entrantes = new Map<string, number>();
+  for (const p of procesos) entrantes.set(p.id, 0);
+  for (const p of procesos) for (const r of p.ramas) {
+    if (r.destinoProcesoId && entrantes.has(r.destinoProcesoId)) entrantes.set(r.destinoProcesoId, (entrantes.get(r.destinoProcesoId) ?? 0) + 1);
+  }
+  const porPos = (a: ProcesoNodo, b: ProcesoNodo) =>
+    ordenFaseMapa(a.fase) - ordenFaseMapa(b.fase) || (a.posY ?? 0) - (b.posY ?? 0) || (a.posX ?? 0) - (b.posX ?? 0);
+  const raices = procesos.filter((p) => (entrantes.get(p.id) ?? 0) === 0).sort(porPos);
+  const byId = new Map(procesos.map((p) => [p.id, p]));
+  const num = new Map<string, number>();
+  let n = 0;
+  const cola = [...raices];
+  while (cola.length) {
+    const p = cola.shift()!;
+    if (num.has(p.id)) continue;
+    num.set(p.id, ++n);
+    const destinos = p.ramas.map((r) => r.destinoProcesoId).filter((x): x is string => !!x)
+      .map((id) => byId.get(id)).filter((x): x is ProcesoNodo => !!x && !num.has(x.id));
+    cola.push(...destinos.sort(porPos));
+  }
+  for (const p of [...procesos].sort(porPos)) if (!num.has(p.id)) num.set(p.id, ++n);
+  return num;
 }
 
 // Recursos compartidos: nombre de recurso → departamentos que lo usan (para señalar
