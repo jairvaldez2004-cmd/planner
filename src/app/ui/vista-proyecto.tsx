@@ -21,6 +21,7 @@ import type { UnidadComercial } from '@/domain/espacios';
 import { ETAPAS_OBJETIVO, etapaInfo } from '@/domain/etapas';
 import type { EtapaObjetivo } from '@/domain/etapas';
 import { ChatArquitecto } from './chat-arquitecto';
+import { MapaOperativo } from './mapa-operativo';
 import { VistaPlanos } from './vista-planos';
 import { VistaSedes } from './vista-sedes';
 import { VistaUnidad } from './vista-unidad';
@@ -28,8 +29,8 @@ import { VistaUnidad } from './vista-unidad';
 const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 14 };
 const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 14 };
 
-type Nodo = { tipo: 'admin' | 'sedes' | 'uc'; id?: string } | null;
-type NodoGrafo = { key: string; tipo: 'admin' | 'sedes' | 'uc' | 'negocio'; id?: string; label: string; color: string };
+type Nodo = { tipo: 'admin' | 'sedes' | 'mapa' | 'uc'; id?: string } | null;
+type NodoGrafo = { key: string; tipo: 'admin' | 'sedes' | 'mapa' | 'uc' | 'negocio'; id?: string; label: string; color: string };
 
 export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo del workspace' }: { proyectoId: string; onVolver: () => void; volverLabel?: string }) {
   const [nombre, setNombre] = useState('');
@@ -65,6 +66,11 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
       <div style={{ marginTop: '0.5rem' }}><VistaSedes proyectoId={proyectoId} /></div>
     </section>
   );
+  if (nodo?.tipo === 'mapa') return (
+    <MapaOperativo proyectoId={proyectoId} nombreProyecto={nombre}
+      onVolver={() => { setNodo(null); cargar(); }}
+      onIrSedes={() => setNodo({ tipo: 'sedes' })} />
+  );
   if (nodo?.tipo === 'uc') {
     const uc = ucs.find((u) => u.id === nodo.id);
     if (uc) return <VistaUnidad proyectoId={proyectoId} uc={uc} onVolver={() => { setNodo(null); cargar(); }} onIrSedes={() => setNodo({ tipo: 'sedes' })} />;
@@ -74,6 +80,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   const nodos: NodoGrafo[] = [
     { key: 'admin', tipo: 'admin', label: 'Administración', color: '#33415c' },
     { key: 'sedes', tipo: 'sedes', label: 'Sedes & Espacios', color: '#e0795b' },
+    { key: 'mapa', tipo: 'mapa', label: 'Mapa Operativo', color: '#d9a23b' },
     ...hijos.map((h): NodoGrafo => ({ key: h.proyectoId, tipo: 'negocio', id: h.proyectoId, label: h.nombre, color: '#b06be0' })),
     ...ucs.map((u): NodoGrafo => ({ key: u.id, tipo: 'uc', id: u.id, label: u.nombre, color: '#3b9e63' })),
   ];
@@ -81,12 +88,12 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   const W = 780, H = 560, cx = W / 2, cy = H / 2;
   const R = Math.min(220, 120 + nodos.length * 10);
   const posOf = (i: number, n: number) => { const a = (i / Math.max(1, n)) * Math.PI * 2 - Math.PI / 2; return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) }; };
-  const abrev = (t: NodoGrafo['tipo']) => t === 'uc' ? 'UC' : t === 'admin' ? 'ADM' : t === 'sedes' ? 'SED' : 'NEG';
+  const abrev = (t: NodoGrafo['tipo']) => t === 'uc' ? 'UC' : t === 'admin' ? 'ADM' : t === 'sedes' ? 'SED' : t === 'mapa' ? 'MAP' : 'NEG';
 
   function abrirNodo(n: NodoGrafo) {
     if (n.tipo === 'negocio' && n.id) { setHijoAbierto(n.id); return; }
     if (n.tipo === 'uc' && n.id) { setNodo({ tipo: 'uc', id: n.id }); return; }
-    if (n.tipo === 'admin' || n.tipo === 'sedes') setNodo({ tipo: n.tipo });
+    if (n.tipo === 'admin' || n.tipo === 'sedes' || n.tipo === 'mapa') setNodo({ tipo: n.tipo });
   }
 
   async function crearUC() { if (!nuevaUC.trim()) return; await crearUnidad(proyectoId, nuevaUC.trim()); setNuevaUC(''); cargar(); }
@@ -174,7 +181,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
                 );
               })}
             </svg>
-            <p style={{ fontSize: 12, color: '#888', padding: '0 0.75rem 0.5rem' }}>ADM = Administración · SED = Sedes & Espacios · <span style={{ color: '#8a4fbf' }}>NEG = Negocio (sub-empresa)</span> · UC = Unidad Comercial. Clic para entrar.</p>
+            <p style={{ fontSize: 12, color: '#888', padding: '0 0.75rem 0.5rem' }}>ADM = Administración · SED = Sedes & Espacios · <span style={{ color: '#b8860b' }}>MAP = Mapa Operativo (departamentos y flujos de procesos)</span> · <span style={{ color: '#8a4fbf' }}>NEG = Negocio (sub-empresa)</span> · UC = Unidad Comercial. Clic para entrar.</p>
           </div>
         </div>
       )}

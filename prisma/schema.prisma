@@ -234,6 +234,34 @@ model Presentacion {
   @@index([ofertaId])
 }
 
+// MAPA OPERATIVO (ADITIVO). Departamentos = Administración + Unidades Comerciales
+// en una sola lista de carriles; Procesos = nodos del flujo (estilo n8n) con fase
+// antes/durante/después, orden cronológico y RAMAS por disparador.
+model Departamento {
+  id         String  @id
+  proyectoId String
+  nombre     String
+  tipo       String // 'admin' | 'uc'
+  ucId       String? // si representa una Unidad Comercial (derivado, no duplicado)
+  orden      Int     @default(0)
+  data       Json // color, descripcion, espacios[{ref,nombre,horario}], herramientas[{nombre,horario}]
+
+  @@index([proyectoId])
+}
+
+model Proceso {
+  id             String @id
+  proyectoId     String
+  departamentoId String
+  nombre         String
+  fase           String // 'antes' | 'durante' | 'despues'
+  orden          Int    @default(0)
+  data           Json // descripcion, roles[], herramientas[], espacios[], insumos[], tiempoMin, entrada, salida, instructivo, ramas[{id,evento,destinoProcesoId}], origen{ofertaId,pasoId}
+
+  @@index([proyectoId])
+  @@index([departamentoId])
+}
+
 // Capa 2 (ADITIVO): tablas maestras compartidas por proyecto (filas en JSON).
 model TablaProyecto {
   proyectoId    String
