@@ -19,6 +19,7 @@ import {
 import type { RecursosProyecto } from '@/app/actions/mapa.actions';
 import { FASES_MAPA, VISTAS_MAPA, colorDepto, ordenCronologico, recursosCompartidos } from '@/domain/mapa';
 import type { AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, VistaMapa } from '@/domain/mapa';
+import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
 const btnSm: CSSProperties = { ...btn, padding: '0.15rem 0.5rem', fontSize: 12 };
@@ -43,6 +44,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const [selDepto, setSelDepto] = useState<string | null>(null);
   const [nuevoDepto, setNuevoDepto] = useState('');
   const [msg, setMsg] = useState('');
+  const movil = useEsMovil();
 
   // drag de nodos (posición libre)
   const dragRef = useRef<{ id: string; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null);
@@ -220,7 +222,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
       {msg && <p style={{ fontSize: 12, color: '#2b5a97', margin: '0 0 0.4rem' }}>{msg}</p>}
       {loading && <p style={{ color: '#666' }}>Cargando…</p>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: proc || depto ? 'minmax(0, 1fr) 330px' : '1fr', gap: '0.75rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: movil || !(proc || depto) ? '1fr' : 'minmax(0, 1fr) 330px', gap: '0.75rem', alignItems: 'start' }}>
         {/* ==== CANVAS DE LA FASE ==== */}
         <div style={{ border: '1px solid #ddd', borderRadius: 10, background: '#fcfcfd', overflow: 'auto', maxHeight: '74vh' }}>
           <div ref={canvasRef}

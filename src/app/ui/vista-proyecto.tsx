@@ -22,6 +22,7 @@ import { ETAPAS_OBJETIVO, etapaInfo } from '@/domain/etapas';
 import type { EtapaObjetivo } from '@/domain/etapas';
 import { ChatArquitecto } from './chat-arquitecto';
 import { MapaOperativo } from './mapa-operativo';
+import { useEsMovil } from './use-movil';
 import { VistaPlanos } from './vista-planos';
 import { VistaSedes } from './vista-sedes';
 import { VistaUnidad } from './vista-unidad';
@@ -44,6 +45,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   const [hover, setHover] = useState<string | null>(null);
   const [nuevaUC, setNuevaUC] = useState('');
   const [nuevoNegocio, setNuevoNegocio] = useState('');
+  const movil = useEsMovil();
 
   const cargar = () => {
     setLoading(true);
@@ -112,7 +114,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
 
       {loading && <p style={{ color: '#666' }}>Cargando…</p>}
       {!loading && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 4fr) 8fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(280px, 4fr) 8fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
           {/* Panel */}
           <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.75rem', background: '#f7f9ff' }}>
             <strong style={{ fontSize: 14 }}>Estructura</strong>

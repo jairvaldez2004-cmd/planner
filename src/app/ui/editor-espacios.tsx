@@ -19,6 +19,7 @@ import {
 import type {
   Sede, Espacio, ObjetoFisico, ElementoArq, UnidadComercial, LenteId, TipoEspacio, CategoriaObjeto, TipoElemento,
 } from '@/domain/espacios';
+import { useEsMovil } from './use-movil';
 
 const VBW = 900, VBH = 600;
 const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -50,6 +51,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
   const [ucs, setUcs] = useState<UnidadComercial[]>([]);
   const [lenteId, setLenteId] = useState<LenteId>('espacios');
   const [capa, setCapa] = useState(0);
+  const movil = useEsMovil();
   const [sel, setSel] = useState<Sel>(null);
   const [drag, setDrag] = useState<Drag>(null);
   const [dragEl, setDragEl] = useState<DragEl>(null);
@@ -177,7 +179,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
         <button style={btn} onClick={() => void agregarObjeto()}>＋ Objeto</button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '8fr 4fr', gap: '1rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : '8fr 4fr', gap: '1rem', alignItems: 'start' }}>
         <div style={{ border: '1px solid #ddd', borderRadius: 10, background: '#fcfcfc' }}>
           <svg ref={svgRef} viewBox={`0 0 ${VBW} ${VBH}`} style={{ width: '100%', height: 'auto', display: 'block', cursor: modo !== 'sel' ? 'crosshair' : (drag || dragEl ? 'grabbing' : 'default') }}
             onMouseMove={moverDrag} onMouseUp={() => void soltarDrag()} onMouseLeave={() => void soltarDrag()}>

@@ -11,6 +11,7 @@ import { COLOR_ESTADO, LABEL_ESTADO } from '@/app/readiness/readiness-engine';
 import type { EstadoPlano } from '@/app/readiness/readiness-engine';
 import { etapaInfo, objetivoDe, esFoco } from '@/domain/etapas';
 import { VistaPlano } from './vista-plano';
+import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 14 };
 const ENTREGA_ICON: Record<string, string> = { documento: '📄', tabla: '📊', diagrama: '🔀', dashboard: '📈' };
@@ -18,6 +19,7 @@ const ENTREGA_ICON: Record<string, string> = { documento: '📄', tabla: '📊',
 export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVolver: () => void }) {
   const [grafo, setGrafo] = useState<GrafoPlanos | null>(null);
   const [loading, setLoading] = useState(true);
+  const movil = useEsMovil();
   const [hover, setHover] = useState<string | null>(null);
   const [planoAbierto, setPlanoAbierto] = useState<string | null>(null);
 
@@ -51,7 +53,7 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
 
       {loading && <p style={{ color: '#666' }}>Cargando planos…</p>}
       {!loading && grafo && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 4fr) 8fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(300px, 4fr) 8fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
           <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.75rem', background: '#f7f9ff' }}>
             <strong style={{ fontSize: 14 }}>Coordinador del proyecto</strong>
             <p style={{ margin: '0.25rem 0 0.5rem', fontSize: 12, color: '#555' }}>

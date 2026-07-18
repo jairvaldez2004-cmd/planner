@@ -13,6 +13,7 @@ import {
 import type { ProyectoNodo, RelacionGrafo } from '@/app/actions/workspace.actions';
 import { cargarConversacionWorkspace } from '@/app/actions/contexto.actions';
 import { ChatArquitecto } from './chat-arquitecto';
+import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 14 };
 
@@ -34,6 +35,7 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
   const [relaciones, setRelaciones] = useState<RelacionGrafo[]>([]);
   const [loading, setLoading] = useState(true);
   const [hover, setHover] = useState<string | null>(null);
+  const movil = useEsMovil();
 
   const cargar = () => {
     setLoading(true);
@@ -62,8 +64,8 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
         <button style={btn} onClick={onVolver}>← Workspaces</button>
       </div>
 
-      {/* 2 columnas: Curador | Grafo */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 5fr) 7fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
+      {/* 2 columnas: Curador | Grafo (en celular: 1 columna, grafo abajo del chat) */}
+      <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(320px, 5fr) 7fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
         {/* Curador */}
         <div style={{ border: '1px solid #a5d6a7', borderRadius: 10, padding: '0.75rem', background: '#f6fff6' }}>
           <strong style={{ fontSize: 14 }}>Curador del workspace</strong>

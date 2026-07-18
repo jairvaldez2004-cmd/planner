@@ -8,6 +8,7 @@ import type { CSSProperties } from 'react';
 import { actualizarUnidad, espaciosDeUnidad } from '@/app/actions/espacios.actions';
 import type { UnidadComercial } from '@/domain/espacios';
 import { CatalogoUC } from './catalogo-uc';
+import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 14 };
 const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 14, width: '100%' };
@@ -18,6 +19,7 @@ interface Props { proyectoId: string; uc: UnidadComercial; onVolver: () => void;
 
 export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
   const [espacios, setEspacios] = useState<{ id: string; nombre: string; tipo: string; sedeNombre: string }[]>([]);
+  const movil = useEsMovil();
 
   useEffect(() => { espaciosDeUnidad(proyectoId, uc.id).then(setEspacios).catch(() => {}); }, [proyectoId, uc.id]);
 
@@ -28,7 +30,7 @@ export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
         <button style={btn} onClick={onVolver}>← Proyecto</button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 5fr) 7fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(280px, 5fr) 7fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
         {/* Datos de la UC */}
         <div style={card}>
           <strong style={{ fontSize: 14 }}>Datos</strong>

@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { ChatEspecialista } from './chat-especialista';
+import { useEsMovil } from './use-movil';
 import {
   obtenerDetallePlano, plantillaCSV, importarCSV, guardarCampo,
 } from '@/app/actions/especialista.actions';
@@ -23,6 +24,7 @@ interface Props { proyectoId: string; planoId: string; onVolver: () => void }
 export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
   const [det, setDet] = useState<DetallePlano | null>(null);
   const [loading, setLoading] = useState(true);
+  const movil = useEsMovil();
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [msgCsv, setMsgCsv] = useState<string>('');
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -86,7 +88,7 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
           </div>
           {!det.seleccionado && <p style={{ color: '#a60', fontSize: 13 }}>⚠ Este plano NO fue seleccionado por el blueprint del proyecto. Puedes explorarlo, pero no es necesario.</p>}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 5fr) 7fr', gap: '1rem', alignItems: 'start', marginTop: '0.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(320px, 5fr) 7fr', gap: '1rem', alignItems: 'start', marginTop: '0.5rem' }}>
             {/* Izq: chat especialista */}
             <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.75rem', background: '#f7f9ff' }}>
               <strong style={{ fontSize: 14 }}>Especialista · {det.nombre}</strong>
