@@ -7,7 +7,14 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
 import type { AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, Rama, TipoDepartamento } from '@/domain/mapa';
+import { ETAPA_BASE } from '@/domain/mapa';
+import type { EtapaObjetivo } from '@/domain/etapas';
+import { ETAPAS_OBJETIVO } from '@/domain/etapas';
 import type { FasePaso } from '@/domain/oferta';
+
+function etapa(v: unknown, fallback?: EtapaObjetivo): EtapaObjetivo | undefined {
+  return ETAPAS_OBJETIVO.some((x) => x.id === v) ? v as EtapaObjetivo : fallback;
+}
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nid(p: string): string { return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
@@ -118,6 +125,9 @@ function mapProceso(r: { id: string; departamentoId: string; nombre: string; fas
   return {
     id: r.id, departamentoId: r.departamentoId, nombre: r.nombre,
     fase: (['antes', 'durante', 'despues'].includes(r.fase) ? r.fase : 'durante') as FaseMapa,
+    // Los procesos creados antes del eje de etapas nacen en la etapa base (retrocompatible).
+    etapaDesde: etapa(d.etapaDesde, ETAPA_BASE)!,
+    etapaHasta: etapa(d.etapaHasta),
     orden: r.orden,
     posX: num(d.posX),
     posY: num(d.posY),
@@ -139,14 +149,15 @@ export async function listarProcesos(proyectoId: string): Promise<ProcesoNodo[]>
   return rows.map(mapProceso);
 }
 
-export async function crearProceso(proyectoId: string, departamentoId: string, nombre: string, fase: FaseMapa, pos?: { x: number; y: number }): Promise<ProcesoNodo> {
+export async function crearProceso(proyectoId: string, departamentoId: string, nombre: string, fase: FaseMapa, pos?: { x: number; y: number }, etapaDesde?: EtapaObjetivo): Promise<ProcesoNodo> {
   const max = await prisma.proceso.aggregate({ where: { proyectoId, fase }, _max: { orden: true } });
   const id = nid('PROC');
   const orden = (max._max.orden ?? 0) + 1;
   const posX = pos?.x ?? 40 + ((orden - 1) % 4) * 240;
   const posY = pos?.y ?? 40 + Math.floor((orden - 1) / 4) * 150;
-  await prisma.proceso.create({ data: { id, proyectoId, departamentoId, nombre: nombre.trim() || 'Proceso', fase, orden, data: toJson({ posX, posY, roles: [], herramientas: [], espacios: [], ramas: [] }) } });
-  return { id, departamentoId, nombre: nombre.trim() || 'Proceso', fase, orden, posX, posY, roles: [], herramientas: [], espacios: [], ramas: [] };
+  const et = etapa(etapaDesde, ETAPA_BASE)!;
+  await prisma.proceso.create({ data: { id, proyectoId, departamentoId, nombre: nombre.trim() || 'Proceso', fase, orden, data: toJson({ posX, posY, etapaDesde: et, roles: [], herramientas: [], espacios: [], ramas: [] }) } });
+  return { id, departamentoId, nombre: nombre.trim() || 'Proceso', fase, etapaDesde: et, orden, posX, posY, roles: [], herramientas: [], espacios: [], ramas: [] };
 }
 
 export interface ProcesoPatch {
@@ -156,6 +167,7 @@ export interface ProcesoPatch {
   instructivo?: string | undefined; ramas?: Rama[] | undefined;
   posX?: number | undefined; posY?: number | undefined;
   departamentoId?: string | undefined; fase?: FaseMapa | undefined;
+  etapaDesde?: EtapaObjetivo | undefined; etapaHasta?: EtapaObjetivo | null | undefined;
 }
 export async function actualizarProceso(id: string, patch: ProcesoPatch): Promise<void> {
   const r = await prisma.proceso.findUnique({ where: { id } }); if (!r) return;
@@ -172,6 +184,8 @@ export async function actualizarProceso(id: string, patch: ProcesoPatch): Promis
   if (patch.salida !== undefined) data.salida = patch.salida;
   if (patch.instructivo !== undefined) data.instructivo = patch.instructivo;
   if (patch.ramas !== undefined) data.ramas = patch.ramas.map(normRama);
+  if (patch.etapaDesde !== undefined) data.etapaDesde = etapa(patch.etapaDesde, ETAPA_BASE);
+  if (patch.etapaHasta !== undefined) data.etapaHasta = patch.etapaHasta === null ? undefined : etapa(patch.etapaHasta);
   await prisma.proceso.update({ where: { id }, data: {
     ...(patch.nombre !== undefined ? { nombre: patch.nombre } : {}),
     ...(patch.departamentoId !== undefined ? { departamentoId: patch.departamentoId } : {}),
@@ -212,7 +226,9 @@ const FASE_PASO_A_MAPA: Record<FasePaso, FaseMapa> = {
   postventa: 'despues',
 };
 
-export async function importarRutasCatalogo(proyectoId: string): Promise<{ creados: number; omitidos: number }> {
+// Los procesos sembrados nacen en la etapa que se está viendo (por defecto, la base).
+export async function importarRutasCatalogo(proyectoId: string, etapaDesde?: EtapaObjetivo): Promise<{ creados: number; omitidos: number }> {
+  const etapaNace = etapa(etapaDesde, ETAPA_BASE)!;
   const [deptos, ofertas, procesos] = await Promise.all([
     listarDepartamentos(proyectoId),
     prisma.oferta.findMany({ where: { proyectoId } }),
@@ -256,6 +272,7 @@ export async function importarRutasCatalogo(proyectoId: string): Promise<{ cread
         id, proyectoId, departamentoId: depto.id, nombre: str(paso.nombre) || 'Paso', fase, orden,
         data: toJson({
           posX, posY,
+          etapaDesde: etapaNace,
           descripcion: `De la oferta "${of.nombre}"`,
           roles, herramientas: herrs,
           espacios: lugar ? [{ nombre: lugar }] : [],

@@ -17,8 +17,11 @@ import {
   importarRutasCatalogo, listarRecursosProyecto, crearRolMaestro, crearHerramientaMaestro,
 } from '@/app/actions/mapa.actions';
 import type { RecursosProyecto } from '@/app/actions/mapa.actions';
-import { FASES_MAPA, VISTAS_MAPA, colorDepto, ordenCronologico, recursosCompartidos } from '@/domain/mapa';
+import { obtenerProyectoBase } from '@/app/actions/workspace.actions';
+import { FASES_MAPA, VISTAS_MAPA, ETAPA_BASE, colorDepto, ordenCronologico, recursosCompartidos, vigenteEn, naceEn, seRetiraEn, procesosDeEtapa, nEtapa } from '@/domain/mapa';
 import type { AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, VistaMapa } from '@/domain/mapa';
+import { ETAPAS_OBJETIVO, etapaInfo } from '@/domain/etapas';
+import type { EtapaObjetivo } from '@/domain/etapas';
 import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -33,12 +36,17 @@ interface Props { proyectoId: string; onVolver: () => void; onIrSedes: () => voi
 
 type Rect = { x: number; y: number; w: number; h: number };
 
+// `etapaHasta: null` = quitar la jubilación (vuelve a ser vigente para siempre).
+type PatchProceso = Partial<Omit<ProcesoNodo, 'etapaHasta'>> & { etapaHasta?: EtapaObjetivo | null | undefined };
+
 export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto }: Props) {
   const [deptos, setDeptos] = useState<Departamento[]>([]);
   const [procesos, setProcesos] = useState<ProcesoNodo[]>([]);
   const [recursos, setRecursos] = useState<RecursosProyecto>({ espacios: [], roles: [], herramientas: [] });
   const [loading, setLoading] = useState(true);
   const [fase, setFase] = useState<FaseMapa>('antes');
+  const [etapa, setEtapa] = useState<EtapaObjetivo>(ETAPA_BASE);   // etapa que se está viendo
+  const [etapaMeta, setEtapaMeta] = useState<EtapaObjetivo | null>(null); // etapa objetivo del negocio
   const [vista, setVista] = useState<VistaMapa>('general');
   const [selProc, setSelProc] = useState<string | null>(null);
   const [selDepto, setSelDepto] = useState<string | null>(null);
@@ -56,8 +64,8 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
 
   const cargar = () => {
     setLoading(true);
-    Promise.all([listarDepartamentos(proyectoId), listarProcesos(proyectoId), listarRecursosProyecto(proyectoId)])
-      .then(([d, p, r]) => { setDeptos(d); setProcesos(p); setRecursos(r); })
+    Promise.all([listarDepartamentos(proyectoId), listarProcesos(proyectoId), listarRecursosProyecto(proyectoId), obtenerProyectoBase(proyectoId)])
+      .then(([d, p, r, base]) => { setDeptos(d); setProcesos(p); setRecursos(r); setEtapaMeta(base?.etapaObjetivo ?? null); })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
@@ -83,22 +91,33 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const proc = procesos.find((p) => p.id === selProc) ?? null;
   const depto = deptos.find((d) => d.id === selDepto) ?? null;
   const compartidos = recursosCompartidos(deptos);
-  const numeracion = ordenCronologico(procesos);
+  // El mapa de una etapa = lo acumulado hasta ella (herencia). La numeración cronológica
+  // se calcula SOLO sobre lo vigente, para que cada etapa tenga su propio "primer paso".
+  const vigentes = procesosDeEtapa(procesos, etapa);
+  const numeracion = ordenCronologico(vigentes);
   const byId = new Map(procesos.map((p) => [p.id, p]));
   const colorDe = (deptoId: string) => { const i = deptos.findIndex((d) => d.id === deptoId); return i >= 0 ? colorDepto(deptos[i]!, i) : '#888'; };
   const deptoNombre = (id: string) => deptos.find((d) => d.id === id)?.nombre ?? '?';
-  const enFase = procesos.filter((p) => p.fase === fase);
+  const enFase = vigentes.filter((p) => p.fase === fase);
 
-  // entrantes desde OTRAS fases hacia nodos de esta página (portales de entrada)
-  const entrantesDe = (destId: string) => procesos
+  // entrantes desde OTRAS fases (misma etapa) hacia nodos de esta página (portales de entrada)
+  const entrantesDe = (destId: string) => vigentes
     .filter((p) => p.fase !== fase)
     .flatMap((p) => p.ramas.filter((r) => r.destinoProcesoId === destId).map((r) => ({ desde: p, evento: r.evento })));
+
+  // Ramas que apuntan a un proceso que TODAVÍA NO NACE en esta etapa: el trabajo de hoy
+  // que alimenta una etapa futura (ej. guardar la factura hoy → contabilidad en la etapa 2).
+  const salientesFuturas = (p: ProcesoNodo) => p.ramas
+    .map((r) => ({ r, dest: r.destinoProcesoId ? byId.get(r.destinoProcesoId) : undefined }))
+    .filter((x): x is { r: typeof x.r; dest: ProcesoNodo } => !!x.dest && !vigenteEn(x.dest, etapa) && nEtapa(x.dest.etapaDesde) > nEtapa(etapa));
 
   function patchLocal(id: string, patch: Partial<ProcesoNodo>) {
     setProcesos((ps) => ps.map((p) => p.id === id ? { ...p, ...patch } : p));
   }
-  function guardar(id: string, patch: Partial<ProcesoNodo>) {
-    patchLocal(id, patch);
+  function guardar(id: string, patch: PatchProceso) {
+    const { etapaHasta, ...resto } = patch;
+    const local: Partial<ProcesoNodo> = etapaHasta !== undefined ? { ...resto, etapaHasta: etapaHasta ?? undefined } : resto;
+    patchLocal(id, local);
     void actualizarProceso(id, patch);
   }
 
@@ -107,7 +126,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
     if (!nombre?.trim()) return;
     const admin = deptos.find((d) => d.tipo === 'admin') ?? deptos[0];
     if (!admin) return;
-    const nuevo = await crearProceso(proyectoId, admin.id, nombre.trim(), fase, x !== undefined && y !== undefined ? { x, y } : undefined);
+    const nuevo = await crearProceso(proyectoId, admin.id, nombre.trim(), fase, x !== undefined && y !== undefined ? { x, y } : undefined, etapa);
     setProcesos((ps) => [...ps, nuevo]);
     setSelProc(nuevo.id); setSelDepto(null);
   }
@@ -120,7 +139,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
 
   async function importar() {
     setMsg('Importando rutas del catálogo…');
-    const r = await importarRutasCatalogo(proyectoId);
+    const r = await importarRutasCatalogo(proyectoId, etapa);
     setMsg(`Catálogo → mapa: ${r.creados} procesos creados${r.omitidos ? `, ${r.omitidos} ya estaban` : ''}.`);
     cargar();
   }
@@ -155,7 +174,8 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
     for (const r of p.ramas) {
       if (!r.destinoProcesoId) continue;
       const dest = byId.get(r.destinoProcesoId);
-      if (!dest || dest.fase !== fase) continue; // cross-fase = portal, no flecha
+      // cross-fase o de otra etapa = portal, no flecha
+      if (!dest || dest.fase !== fase || !vigenteEn(dest, etapa)) continue;
       const to = rects[r.destinoProcesoId]; if (!to) continue;
       edges.push({ from, to, evento: r.evento, key: `${p.id}-${r.id}` });
     }
@@ -175,7 +195,17 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   }
 
   const faseLabel = (f: FaseMapa) => FASES_MAPA.find((x) => x.id === f)?.label ?? f;
-  const cuentaFase = (f: FaseMapa) => procesos.filter((p) => p.fase === f).length;
+  const cuentaFase = (f: FaseMapa) => vigentes.filter((p) => p.fase === f).length;
+  const etapaLabel = (e: EtapaObjetivo) => etapaInfo(e)?.label ?? e;
+  const etapaN = (e: EtapaObjetivo) => nEtapa(e);
+  // por etapa: cuántos procesos hay vigentes (acumulado) y cuántos nacen ahí (lo nuevo)
+  const cuentaEtapa = (e: EtapaObjetivo) => ({
+    total: procesosDeEtapa(procesos, e).length,
+    nuevos: procesos.filter((p) => p.etapaDesde === e).length,
+  });
+  const info = etapaInfo(etapa);
+  const heredados = vigentes.filter((p) => !naceEn(p, etapa)).length;
+  const nuevosAqui = vigentes.filter((p) => naceEn(p, etapa)).length;
 
   return (
     <section>
@@ -183,6 +213,34 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
         <h2 style={{ margin: 0 }}>🗺️ Mapa Operativo <span style={{ fontSize: 13, color: '#888' }}>· {nombreProyecto ?? 'proyecto'} · un solo flujo cronológico</span></h2>
         <button style={btn} onClick={onVolver}>← Proyecto</button>
       </div>
+
+      {/* ETAPAS de la ruta — cada una es SU mapa (acumulativo: hereda las anteriores) */}
+      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', margin: '0.6rem 0 0.3rem' }}>
+        {ETAPAS_OBJETIVO.map((e) => {
+          const c = cuentaEtapa(e.id);
+          const act = etapa === e.id;
+          const meta = etapaMeta === e.id;
+          return (
+            <button key={e.id} onClick={() => { setEtapa(e.id); setSelProc(null); }}
+              title={`${e.descripcion}${meta ? ' · etapa objetivo del negocio' : ''}`}
+              style={{ ...btn, flex: '1 1 130px', padding: '0.4rem 0.5rem', textAlign: 'left', lineHeight: 1.25,
+                background: act ? '#7a4fbf' : '#fff', color: act ? '#fff' : '#4a3a63',
+                borderColor: act ? '#7a4fbf' : (meta ? '#c3a8e6' : '#d5cde2'),
+                borderWidth: meta && !act ? 2 : 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 'bold' }}>{meta ? '🎯 ' : ''}{e.n}. {e.label}</div>
+              <div style={{ fontSize: 10, opacity: 0.8 }}>{c.total} vigentes{c.nuevos ? ` · +${c.nuevos} nuevos` : ''}</div>
+            </button>
+          );
+        })}
+      </div>
+      {info && (
+        <p style={{ fontSize: 11.5, color: '#6b5a85', margin: '0 0 0.4rem', background: '#f6f2fb', border: '1px solid #e6dcf3', borderRadius: 7, padding: '0.35rem 0.55rem' }}>
+          <strong>Etapa {info.n} · {info.label}</strong> — {info.descripcion}{' '}
+          {etapaN(etapa) > 1
+            ? <>Ves <strong>{heredados}</strong> procesos heredados de etapas anteriores (atenuados) + <strong>{nuevosAqui}</strong> que nacen aquí. Lo que crees ahora nace en esta etapa.</>
+            : <>Es la operación base: todo lo que crees aquí seguirá vigente en las etapas siguientes.</>}
+        </p>
+      )}
 
       {/* PÁGINAS por fase */}
       <div style={{ display: 'flex', gap: '0.4rem', margin: '0.6rem 0 0.35rem' }}>
@@ -269,8 +327,11 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
               const color = colorDe(p.departamentoId);
               const n = numeracion.get(p.id);
               const entrantes = entrantesDe(p.id);
-              const salientesCrossFase = p.ramas.filter((r) => { const d = r.destinoProcesoId ? byId.get(r.destinoProcesoId) : undefined; return d && d.fase !== fase; });
+              const salientesCrossFase = p.ramas.filter((r) => { const d = r.destinoProcesoId ? byId.get(r.destinoProcesoId) : undefined; return d && vigenteEn(d, etapa) && d.fase !== fase; });
+              const futuras = salientesFuturas(p);
               const bifurca = p.ramas.filter((r) => r.destinoProcesoId).length > 1;
+              const nuevo = naceEn(p, etapa);
+              const seRetira = seRetiraEn(p, etapa);
               return (
                 <div key={p.id}
                   ref={(el) => { if (el) cardRefs.current.set(p.id, el); else cardRefs.current.delete(p.id); }}
@@ -278,7 +339,10 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
                   onPointerMove={onNodoPointerMove}
                   onPointerUp={onNodoPointerUp}
                   style={{ position: 'absolute', left: p.posX ?? 40, top: p.posY ?? 40, width: ANCHO_NODO, zIndex: selProc === p.id ? 3 : 2,
-                    border: `1.5px solid ${selProc === p.id ? color : '#d5d9e2'}`, borderTop: `4px solid ${color}`,
+                    // heredado de una etapa anterior = atenuado y punteado; lo que nace aquí resalta
+                    border: `1.5px ${nuevo ? 'solid' : 'dashed'} ${selProc === p.id ? color : (nuevo ? '#c9cfdd' : '#dfe3ea')}`,
+                    borderTop: `4px solid ${seRetira ? '#c0392b' : color}`,
+                    opacity: nuevo ? 1 : 0.72,
                     borderRadius: 9, background: '#fff', padding: '0.35rem 0.5rem', cursor: 'grab', touchAction: 'none',
                     boxShadow: selProc === p.id ? `0 0 0 2px ${color}33` : '0 1px 3px rgba(0,0,0,0.07)' }}>
                   {/* portales de ENTRADA desde otras fases */}
@@ -291,11 +355,20 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
                   ))}
                   <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#222', display: 'flex', alignItems: 'center', gap: 4 }}>
                     {n !== undefined && <span style={{ background: n === 1 ? '#2e9e63' : '#5b6b8c', color: '#fff', borderRadius: 9, fontSize: 10, padding: '0 5px', flexShrink: 0 }}>{n === 1 ? '▶ 1' : n}</span>}
-                    <span style={{ flex: 1 }}>{p.nombre}</span>
+                    <span style={{ flex: 1, textDecoration: seRetira ? 'line-through' : 'none' }}>{p.nombre}</span>
                     {bifurca && <span title="Se divide en caminos por disparador" style={{ color: '#b06be0' }}>⑂</span>}
                     {p.origen && <span title="Sembrado desde el catálogo">🧬</span>}
                   </div>
-                  <div style={{ fontSize: 10, color, fontWeight: 'bold', marginTop: 1 }}>{deptoNombre(p.departamentoId)}</div>
+                  <div style={{ fontSize: 10, marginTop: 1, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                    <span style={{ color, fontWeight: 'bold' }}>{deptoNombre(p.departamentoId)}</span>
+                    {nuevo && etapaN(etapa) > 1 && <span style={{ background: '#7a4fbf', color: '#fff', borderRadius: 8, padding: '0 5px', fontSize: 9 }}>NUEVO E{etapaN(etapa)}</span>}
+                    {!nuevo && (
+                      <span onClick={(ev) => { ev.stopPropagation(); setEtapa(p.etapaDesde); }} data-portal
+                        title={`Nació en la etapa ${etapaN(p.etapaDesde)} · ${etapaLabel(p.etapaDesde)} — clic para ir`}
+                        style={{ color: '#8a93a8', cursor: 'pointer', fontSize: 9 }}>desde E{etapaN(p.etapaDesde)}</span>
+                    )}
+                    {seRetira && <span title="Se retira al pasar a la siguiente etapa" style={{ background: '#c0392b', color: '#fff', borderRadius: 8, padding: '0 5px', fontSize: 9 }}>⊘ último uso</span>}
+                  </div>
                   {lenteCard(p) && <div style={{ fontSize: 11, color: '#777', marginTop: 1 }}>{lenteCard(p)}</div>}
                   {/* portales de SALIDA hacia otras fases */}
                   {salientesCrossFase.map((r) => {
@@ -308,18 +381,26 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
                       </div>
                     );
                   })}
+                  {/* portales hacia ETAPAS FUTURAS: lo que se hace hoy para habilitar el mañana */}
+                  {futuras.map(({ r, dest }) => (
+                    <div key={r.id} data-portal onClick={() => { setEtapa(dest.etapaDesde); setFase(dest.fase); setSelProc(dest.id); }}
+                      style={{ fontSize: 10, color: '#7a4fbf', cursor: 'pointer', marginTop: 2, background: '#f6f2fb', borderRadius: 5, padding: '1px 4px' }}
+                      title={`Alimenta la etapa ${etapaN(dest.etapaDesde)} (${etapaLabel(dest.etapaDesde)}) · clic para ir`}>
+                      ⏭ alimenta <strong>E{etapaN(dest.etapaDesde)}</strong> · {dest.nombre}{r.evento && r.evento !== 'continúa' ? ` (${r.evento})` : ''}
+                    </div>
+                  ))}
                 </div>
               );
             })}
 
             {!loading && enFase.length === 0 && (
               <p style={{ position: 'absolute', top: 24, left: 24, color: '#999', fontSize: 13 }}>
-                Página vacía. Doble clic en el lienzo (o botón ＋ Proceso) para crear el primer proceso de esta fase.
+                Página vacía en la etapa {etapaN(etapa)}. Doble clic en el lienzo (o ＋ Proceso) para crear el primer proceso de esta fase.
               </p>
             )}
           </div>
           <p style={{ fontSize: 11, color: '#999', padding: '0.4rem 0.6rem', margin: 0, borderTop: '1px solid #eee' }}>
-            Doble clic = nuevo proceso · arrastra los nodos · clic = editar · <span style={{ color: '#2e9e63', fontWeight: 'bold' }}>▶ 1</span> = primer paso de todos · ⑂ = se divide por disparador · ⤶/⤷ = viene de / sigue en otra fase (clic para saltar) · 🧬 = del catálogo.
+            Doble clic = nuevo proceso (nace en la etapa {etapaN(etapa)}) · arrastra los nodos · clic = editar · <span style={{ color: '#2e9e63', fontWeight: 'bold' }}>▶ 1</span> = primer paso de todos · ⑂ = se divide por disparador · ⤶/⤷ = viene de / sigue en otra fase · <span style={{ color: '#7a4fbf' }}>⏭</span> = alimenta una etapa futura · nodo punteado y atenuado = heredado de una etapa anterior · 🧬 = del catálogo.
           </p>
         </div>
 
@@ -351,7 +432,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
 
 function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, onRecargarRecursos, onEliminar, onCerrar, onIrSedes }: {
   proyectoId: string; proc: ProcesoNodo; procesos: ProcesoNodo[]; deptos: Departamento[]; recursos: RecursosProyecto;
-  onPatch: (p: Partial<ProcesoNodo>) => void; onRecargarRecursos: () => void;
+  onPatch: (p: PatchProceso) => void; onRecargarRecursos: () => void;
   onEliminar: () => Promise<void>; onCerrar: () => void; onIrSedes: () => void;
 }) {
   const [nuevoRol, setNuevoRol] = useState('');
@@ -405,6 +486,26 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
         </div>
       </div>
 
+      {/* VIGENCIA POR ETAPA — el proceso existe desde que nace hacia adelante */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+        <div>
+          <label style={lbl}>🚀 Nace en la etapa</label>
+          <select style={inp} value={proc.etapaDesde} onChange={(e) => onPatch({ etapaDesde: e.target.value as EtapaObjetivo })}>
+            {ETAPAS_OBJETIVO.map((x) => <option key={x.id} value={x.id}>{x.n}. {x.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>⊘ Vigente hasta</label>
+          <select style={inp} value={proc.etapaHasta ?? ''} onChange={(e) => onPatch({ etapaHasta: e.target.value ? e.target.value as EtapaObjetivo : null })}>
+            <option value="">Siempre (no se retira)</option>
+            {ETAPAS_OBJETIVO.filter((x) => x.n >= nEtapa(proc.etapaDesde)).map((x) => <option key={x.id} value={x.id}>{x.n}. {x.label}</option>)}
+          </select>
+        </div>
+      </div>
+      <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 0' }}>
+        Existe desde su etapa en adelante (se hereda). Usa &quot;vigente hasta&quot; para los procesos que otra etapa reemplaza (ej. el manual que la automatización jubila).
+      </p>
+
       <label style={lbl}>Descripción</label>
       <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={proc.descripcion ?? ''} onBlur={(e) => onPatch({ descripcion: e.target.value })} />
 
@@ -457,7 +558,7 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
       <button style={{ ...btnSm, marginTop: 4 }} onClick={onIrSedes}>Crear espacio en Sedes & Espacios →</button>
 
       {/* RAMAS */}
-      <label style={lbl}>⑂ Ramas (caminos por disparador) — pueden cruzar de fase</label>
+      <label style={lbl}>⑂ Ramas (caminos por disparador) — pueden cruzar de fase y de etapa</label>
       {proc.ramas.map((r) => (
         <div key={r.id} style={{ display: 'flex', gap: 4, marginTop: 3, alignItems: 'center' }}>
           <input style={{ ...inp, flex: 2 }} defaultValue={r.evento} placeholder="disparador (ej. Pago recibido)"
@@ -465,15 +566,17 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
           <select style={{ ...inp, flex: 3 }} value={r.destinoProcesoId ?? ''}
             onChange={(e) => onPatch({ ramas: proc.ramas.map((x) => x.id === r.id ? { ...x, destinoProcesoId: e.target.value || undefined } : x) })}>
             <option value="">→ (sin destino)</option>
-            {procesos.filter((p) => p.id !== proc.id).map((p) => (
-              <option key={p.id} value={p.id}>{FASES_MAPA.find((f) => f.id === p.fase)?.label.split(' ·')[0]} · {p.nombre} ({deptoDe(p.departamentoId)})</option>
-            ))}
+            {procesos.filter((p) => p.id !== proc.id)
+              .slice().sort((a, b) => nEtapa(a.etapaDesde) - nEtapa(b.etapaDesde))
+              .map((p) => (
+                <option key={p.id} value={p.id}>E{nEtapa(p.etapaDesde)} · {FASES_MAPA.find((f) => f.id === p.fase)?.label.split(' ·')[0]} · {p.nombre} ({deptoDe(p.departamentoId)})</option>
+              ))}
           </select>
           <span style={{ cursor: 'pointer', color: '#b33', fontSize: 15 }} onClick={() => onPatch({ ramas: proc.ramas.filter((x) => x.id !== r.id) })}>×</span>
         </div>
       ))}
       <button style={{ ...btnSm, marginTop: 4 }} onClick={() => onPatch({ ramas: [...proc.ramas, { id: `RAMA-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, evento: '' }] })}>＋ Rama</button>
-      <p style={{ fontSize: 10.5, color: '#999', margin: '0.3rem 0 0' }}>Un proceso con 2+ ramas se divide en caminos según el disparador que se active. Si el destino está en otra fase, aparece como portal ⤷ en el nodo.</p>
+      <p style={{ fontSize: 10.5, color: '#999', margin: '0.3rem 0 0' }}>Un proceso con 2+ ramas se divide en caminos según el disparador que se active. Si el destino está en otra fase aparece como portal ⤷; si nace en una etapa posterior, como ⏭ (el trabajo de hoy que alimenta el mañana — ej. guardar la factura hoy para Contabilidad en la etapa 2).</p>
 
       <div style={{ borderTop: '1px solid #dde', marginTop: '0.7rem', paddingTop: '0.5rem' }}>
         <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => { if (window.confirm(`¿Eliminar el proceso "${proc.nombre}"?`)) void onEliminar(); }}>🗑 Eliminar proceso</button>

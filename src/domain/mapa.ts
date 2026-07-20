@@ -4,10 +4,18 @@
 //   · Bandas cronológicas = FASES: Antes · Durante · Después.
 //   · Nodo = PROCESO (orden dentro de su celda) con recursos asignados
 //     (roles, herramientas/muebles, espacios del plano/render, insumos, tiempo).
+//   · ETAPA (ruta de 5: arrancar→expandir→replicar→automatizar→vender) = eje ACUMULATIVO:
+//     cada proceso NACE en una etapa y sigue vigente en todas las siguientes (herencia),
+//     salvo que se JUBILE en una (el proceso manual que la automatización reemplaza).
+//     Así el mapa de la etapa 2 = el de la etapa 1 + lo nuevo; y un proceso de hoy puede
+//     alimentar a uno que nace después (ej. "guardar factura" → "contabilizar" en etapa 2).
 //   · Flecha = RAMA: disparador (evento) que conecta un proceso con el siguiente;
 //     un proceso puede partirse en varios caminos según el disparador que se active.
 // Los recursos pueden COMPARTIRSE entre departamentos en horarios distintos.
 // Ancla conceptual: Sistema de Eventos del OS (Trigger → Condición → Acción → Resultado).
+
+import type { EtapaObjetivo } from './etapas';
+import { ETAPAS_OBJETIVO } from './etapas';
 
 export type FaseMapa = 'antes' | 'durante' | 'despues';
 
@@ -55,6 +63,8 @@ export interface ProcesoNodo {
   departamentoId: string;          // ETIQUETA de departamento (no contenedor)
   nombre: string;
   fase: FaseMapa;                  // en qué página del mapa vive (antes/durante/después)
+  etapaDesde: EtapaObjetivo;       // etapa en la que NACE (existe desde ahí en adelante)
+  etapaHasta?: EtapaObjetivo | undefined; // última etapa vigente; después se jubila (opcional)
   orden: number;
   posX?: number | undefined;       // posición libre en el canvas de su fase
   posY?: number | undefined;
@@ -68,6 +78,37 @@ export interface ProcesoNodo {
   instructivo?: string | undefined;    // el paso a paso (vista instructivo)
   ramas: Rama[];                       // salidas por disparador (el flujo)
   origen?: { ofertaId: string; pasoId: string } | undefined; // si vino sembrado del catálogo
+}
+
+// =================== EJE ETAPA (acumulativo) ===================
+
+export const ETAPA_BASE: EtapaObjetivo = 'arrancar';
+
+export function nEtapa(e: EtapaObjetivo | undefined): number {
+  return ETAPAS_OBJETIVO.find((x) => x.id === e)?.n ?? 1;
+}
+
+// ¿Este proceso existe en la etapa dada? Nace en `etapaDesde` y sigue vigente hacia
+// adelante hasta `etapaHasta` (inclusive) si se declaró jubilación.
+export function vigenteEn(p: ProcesoNodo, etapa: EtapaObjetivo): boolean {
+  const n = nEtapa(etapa);
+  if (nEtapa(p.etapaDesde) > n) return false;                       // todavía no nace
+  if (p.etapaHasta && nEtapa(p.etapaHasta) < n) return false;       // ya se jubiló
+  return true;
+}
+
+// ¿Es NUEVO en esta etapa (lo que agregamos al llegar aquí) o heredado de una anterior?
+export function naceEn(p: ProcesoNodo, etapa: EtapaObjetivo): boolean {
+  return p.etapaDesde === etapa;
+}
+// ¿Es su última etapa vigente? (se retira al pasar a la siguiente)
+export function seRetiraEn(p: ProcesoNodo, etapa: EtapaObjetivo): boolean {
+  return p.etapaHasta === etapa;
+}
+
+// Procesos vigentes en una etapa (el mapa acumulado hasta ahí).
+export function procesosDeEtapa(procesos: ProcesoNodo[], etapa: EtapaObjetivo): ProcesoNodo[] {
+  return procesos.filter((p) => vigenteEn(p, etapa));
 }
 
 // LENTES del mapa: misma data, distinta vista (patrón de las 6 lentes de Espacios).
