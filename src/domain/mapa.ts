@@ -70,7 +70,8 @@ export interface ProcesoNodo {
   posY?: number | undefined;
   descripcion?: string | undefined;
   roles: string[];                     // etiquetas de rol (maestro Personas)
-  herramientas: string[];              // etiquetas de herramienta/mueble
+  herramientas: string[];              // etiquetas de herramienta/mueble (se reusan)
+  insumos: string[];                   // lo que se CONSUME al ejecutarlo (gasas, solución…)
   espacios: AsignacionRecurso[];       // dónde ocurre (con horario)
   tiempoMin?: number | undefined;
   entrada?: string | undefined;

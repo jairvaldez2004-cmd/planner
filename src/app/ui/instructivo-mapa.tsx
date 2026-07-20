@@ -103,6 +103,7 @@ export function InstructivoMapa({ procesos, deptos, etapa, nombreProyecto, soloF
                       <Fila etiqueta="Quién lo hace" valor={p.roles.join(' · ')} />
                       <Fila etiqueta="Dónde" valor={p.espacios.map((e) => e.nombre + (e.horario ? ` (${e.horario})` : '')).join(' · ')} />
                       <Fila etiqueta="Con qué" valor={p.herramientas.join(' · ')} />
+                      <Fila etiqueta="Consume" valor={p.insumos.join(' · ')} />
                       <Fila etiqueta="Cuánto tarda" valor={p.tiempoMin ? `${p.tiempoMin} min` : ''} />
                       <Fila etiqueta="Recibe" valor={p.entrada ?? ''} />
                       <Fila etiqueta="Produce" valor={p.salida ?? ''} />

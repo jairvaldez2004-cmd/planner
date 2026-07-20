@@ -186,6 +186,7 @@ export async function conversarCuradorProyecto(
     if (typeof input.tiempoMin === 'number') p.tiempoMin = input.tiempoMin;
     const roles = listaStr(input.roles); if (roles) p.roles = roles;
     const herr = listaStr(input.herramientas); if (herr) p.herramientas = herr;
+    const ins = listaStr(input.insumos); if (ins) p.insumos = ins;
     const esp = listaStr(input.espacios); if (esp) p.espacios = esp.map((nombre) => ({ nombre }));
     return p;
   };

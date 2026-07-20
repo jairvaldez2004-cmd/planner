@@ -134,6 +134,7 @@ function mapProceso(r: { id: string; departamentoId: string; nombre: string; fas
     descripcion: str(d.descripcion) || undefined,
     roles: arr<unknown>(d.roles).map(str).filter(Boolean),
     herramientas: arr<unknown>(d.herramientas).map(str).filter(Boolean),
+    insumos: arr<unknown>(d.insumos).map(str).filter(Boolean),
     espacios: arr<unknown>(d.espacios).map(normAsig),
     tiempoMin: num(d.tiempoMin),
     entrada: str(d.entrada) || undefined,
@@ -156,13 +157,13 @@ export async function crearProceso(proyectoId: string, departamentoId: string, n
   const posX = pos?.x ?? 40 + ((orden - 1) % 4) * 240;
   const posY = pos?.y ?? 40 + Math.floor((orden - 1) / 4) * 150;
   const et = etapa(etapaDesde, ETAPA_BASE)!;
-  await prisma.proceso.create({ data: { id, proyectoId, departamentoId, nombre: nombre.trim() || 'Proceso', fase, orden, data: toJson({ posX, posY, etapaDesde: et, roles: [], herramientas: [], espacios: [], ramas: [] }) } });
-  return { id, departamentoId, nombre: nombre.trim() || 'Proceso', fase, etapaDesde: et, orden, posX, posY, roles: [], herramientas: [], espacios: [], ramas: [] };
+  await prisma.proceso.create({ data: { id, proyectoId, departamentoId, nombre: nombre.trim() || 'Proceso', fase, orden, data: toJson({ posX, posY, etapaDesde: et, roles: [], herramientas: [], insumos: [], espacios: [], ramas: [] }) } });
+  return { id, departamentoId, nombre: nombre.trim() || 'Proceso', fase, etapaDesde: et, orden, posX, posY, roles: [], herramientas: [], insumos: [], espacios: [], ramas: [] };
 }
 
 export interface ProcesoPatch {
   nombre?: string | undefined; descripcion?: string | undefined; roles?: string[] | undefined;
-  herramientas?: string[] | undefined; espacios?: AsignacionRecurso[] | undefined;
+  herramientas?: string[] | undefined; insumos?: string[] | undefined; espacios?: AsignacionRecurso[] | undefined;
   tiempoMin?: number | undefined; entrada?: string | undefined; salida?: string | undefined;
   instructivo?: string | undefined; ramas?: Rama[] | undefined;
   posX?: number | undefined; posY?: number | undefined;
@@ -178,6 +179,7 @@ export async function actualizarProceso(id: string, patch: ProcesoPatch): Promis
   if (patch.descripcion !== undefined) data.descripcion = patch.descripcion;
   if (patch.roles !== undefined) data.roles = patch.roles.map((x) => x.trim()).filter(Boolean);
   if (patch.herramientas !== undefined) data.herramientas = patch.herramientas.map((x) => x.trim()).filter(Boolean);
+  if (patch.insumos !== undefined) data.insumos = patch.insumos.map((x) => x.trim()).filter(Boolean);
   if (patch.espacios !== undefined) data.espacios = patch.espacios.map(normAsig);
   if (patch.tiempoMin !== undefined) data.tiempoMin = patch.tiempoMin;
   if (patch.entrada !== undefined) data.entrada = patch.entrada;
@@ -226,14 +228,23 @@ const FASE_PASO_A_MAPA: Record<FasePaso, FaseMapa> = {
   postventa: 'despues',
 };
 
+// "Aguja 16G, pinza" → ["Aguja 16G", "pinza"]. Los campos legacy son texto libre.
+function partirEtiquetas(txt: string): string[] {
+  return txt.split(/[,;/]|\sy\s/).map((x) => x.trim()).filter(Boolean);
+}
+
 // Los procesos sembrados nacen en la etapa que se está viendo (por defecto, la base).
 export async function importarRutasCatalogo(proyectoId: string, etapaDesde?: EtapaObjetivo): Promise<{ creados: number; omitidos: number }> {
   const etapaNace = etapa(etapaDesde, ETAPA_BASE)!;
-  const [deptos, ofertas, procesos] = await Promise.all([
+  const [deptos, ofertas, procesos, espaciosReales] = await Promise.all([
     listarDepartamentos(proyectoId),
     prisma.oferta.findMany({ where: { proyectoId } }),
     listarProcesos(proyectoId),
+    prisma.espacio.findMany({ where: { proyectoId } }),
   ]);
+  // Índice nombre→id para enlazar el "lugar" del paso con el Espacio real del plano.
+  const espacioPorNombre = new Map(espaciosReales.map((e) => [e.nombre.trim().toLowerCase(), e.id]));
+  const refEspacio = (lugar: string): string | undefined => espacioPorNombre.get(lugar.trim().toLowerCase());
   const yaImportados = new Set(procesos.filter((p) => p.origen).map((p) => `${p.origen!.ofertaId}:${p.origen!.pasoId}`));
   const ordenPorCelda = new Map<string, number>();
   for (const p of procesos) {
@@ -265,8 +276,20 @@ export async function importarRutasCatalogo(proyectoId: string, etapaDesde?: Eta
       const posY = 40 + fila * 160;
       creoAlguno = true;
       const id = nid('PROC');
+      // Los pasos viejos guardan `rol`/`herramientas` como TEXTO (campos LEGACY de
+      // domain/oferta.ts, previos a la migración a etiquetas). Si solo existen esos,
+      // se usan — si no, el import los tiraría en silencio.
       const roles = arr<unknown>(paso.roles).map(str).filter(Boolean);
+      if (!roles.length && str(paso.rol)) roles.push(...partirEtiquetas(str(paso.rol)));
       const herrs = arr<unknown>(paso.herramientasTags).map(str).filter(Boolean);
+      if (!herrs.length && str(paso.herramientas)) herrs.push(...partirEtiquetas(str(paso.herramientas)));
+      // Insumos = lo que se consume. Vienen como [{item, cantidad}] y nadie los llevaba al mapa.
+      const insumos = arr<unknown>(paso.insumos).map((i) => {
+        const o = obj(i);
+        const item = str(o.item);
+        const cant = num(o.cantidad);
+        return item ? (cant && cant > 1 ? `${cant}× ${item}` : item) : '';
+      }).filter(Boolean);
       const lugar = str(paso.lugar);
       await prisma.proceso.create({ data: {
         id, proyectoId, departamentoId: depto.id, nombre: str(paso.nombre) || 'Paso', fase, orden,
@@ -274,8 +297,10 @@ export async function importarRutasCatalogo(proyectoId: string, etapaDesde?: Eta
           posX, posY,
           etapaDesde: etapaNace,
           descripcion: `De la oferta "${of.nombre}"`,
-          roles, herramientas: herrs,
-          espacios: lugar ? [{ nombre: lugar }] : [],
+          roles, herramientas: herrs, insumos,
+          // Si el lugar coincide con un Espacio real del plano, se guarda la REFERENCIA:
+          // ese es el vínculo proceso↔geometría que necesitan las verificaciones y la simulación.
+          espacios: lugar ? [{ ...(refEspacio(lugar) ? { ref: refEspacio(lugar) } : {}), nombre: lugar }] : [],
           tiempoMin: num(paso.tiempoMin),
           entrada: str(paso.entrada) || undefined,
           salida: str(paso.salida) || undefined,

@@ -452,6 +452,7 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
 }) {
   const [nuevoRol, setNuevoRol] = useState('');
   const [nuevaHerr, setNuevaHerr] = useState('');
+  const [nuevoInsumo, setNuevoInsumo] = useState('');
   const [nuevoEspacio, setNuevoEspacio] = useState('');
   const [horarioEspacio, setHorarioEspacio] = useState('');
   const deptoDe = (id: string) => deptos.find((d) => d.id === id)?.nombre ?? '?';
@@ -557,6 +558,15 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
         <input style={{ ...inp, flex: 1 }} list={`herr-${proc.id}`} placeholder="herramienta existente o nueva…" value={nuevaHerr} onChange={(e) => setNuevaHerr(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void addHerr(); }} />
         <datalist id={`herr-${proc.id}`}>{recursos.herramientas.map((h) => <option key={h} value={h} />)}</datalist>
         <button style={btnSm} onClick={() => void addHerr()} disabled={!nuevaHerr.trim()}>＋</button>
+      </div>
+
+      {/* INSUMOS (se consumen; distintos de las herramientas, que se reusan) */}
+      <label style={lbl}>🧴 Insumos (se consumen)</label>
+      <div>{proc.insumos.map((x) => <span key={x} style={tag}>{x} <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onPatch({ insumos: proc.insumos.filter((y) => y !== x) })}>×</span></span>)}</div>
+      <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+        <input style={{ ...inp, flex: 1 }} placeholder="gasas, solución salina…" value={nuevoInsumo} onChange={(e) => setNuevoInsumo(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && nuevoInsumo.trim()) { if (!proc.insumos.includes(nuevoInsumo.trim())) onPatch({ insumos: [...proc.insumos, nuevoInsumo.trim()] }); setNuevoInsumo(''); } }} />
+        <button style={btnSm} disabled={!nuevoInsumo.trim()} onClick={() => { const v = nuevoInsumo.trim(); if (v && !proc.insumos.includes(v)) onPatch({ insumos: [...proc.insumos, v] }); setNuevoInsumo(''); }}>＋</button>
       </div>
 
       {/* ESPACIOS */}

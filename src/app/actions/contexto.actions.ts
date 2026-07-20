@@ -156,6 +156,7 @@ export async function resumenMapa(proyectoId: string): Promise<string> {
       if (p.roles.length) partes.push(`roles: ${p.roles.join('/')}`);
       if (p.espacios.length) partes.push(`en: ${p.espacios.map((e) => e.nombre + (e.horario ? ` (${e.horario})` : '')).join(', ')}`);
       if (p.herramientas.length) partes.push(`usa: ${p.herramientas.join(', ')}`);
+      if (p.insumos.length) partes.push(`consume: ${p.insumos.join(', ')}`);
       if (p.tiempoMin) partes.push(`${p.tiempoMin} min`);
       if (p.entrada || p.salida) partes.push(`${p.entrada ?? '—'} → ${p.salida ?? '—'}`);
       if (p.etapaHasta) partes.push(`SE JUBILA al terminar la etapa ${nEtapa(p.etapaHasta)}`);
