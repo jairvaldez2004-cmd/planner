@@ -16,6 +16,9 @@ import {
   listarRelaciones, listarWorkspaces,
 } from '@/app/actions/workspace.actions';
 import { listarUnidades, listarSedes, listarEspacios } from '@/app/actions/espacios.actions';
+import { listarDepartamentos, listarProcesos } from '@/app/actions/mapa.actions';
+import { FASES_MAPA, nEtapa, vigenteEn } from '@/domain/mapa';
+import { ETAPAS_OBJETIVO } from '@/domain/etapas';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function obj(v: unknown): Record<string, unknown> { return (v && typeof v === 'object') ? v as Record<string, unknown> : {}; }
@@ -107,6 +110,80 @@ export async function resumenProyecto(proyectoId: string): Promise<string> {
     L.push(`Sedes: ninguna todavía.`);
   }
 
+  // Ruta de etapas: hacia dónde trabaja el negocio.
+  if (base?.etapaObjetivo) {
+    const et = ETAPAS_OBJETIVO.find((x) => x.id === base.etapaObjetivo);
+    if (et) L.push(`Etapa objetivo de la ruta: ${et.n}. ${et.label} — ${et.descripcion}`);
+  } else {
+    L.push(`Etapa objetivo de la ruta: sin fijar (puedes fijarla con fijar_etapa).`);
+  }
+
+  // Mapa operativo completo (procesos, disparadores y etapas).
+  L.push('');
+  L.push(await resumenMapa(proyectoId));
+
+  return L.join('\n');
+}
+
+// =================== SNAPSHOT DEL MAPA OPERATIVO ===================
+// Rinde el mapa como texto para que el Curador lo CONOZCA: departamentos (etiquetas),
+// procesos agrupados por ETAPA de la ruta y por fase, con sus disparadores y los enlaces
+// que cruzan a etapas futuras. Compacto a propósito (se reinyecta en cada turno).
+export async function resumenMapa(proyectoId: string): Promise<string> {
+  const [deptos, procesos] = await Promise.all([listarDepartamentos(proyectoId), listarProcesos(proyectoId)]);
+  const L: string[] = [];
+  L.push(`## Mapa operativo (procesos, disparadores y ruta de etapas)`);
+  L.push(`Departamentos disponibles como ETIQUETA (id → nombre): ${deptos.map((d) => `${d.id}→"${d.nombre}"${d.tipo === 'uc' ? ' [unidad comercial]' : ''}`).join(', ') || 'ninguno'}.`);
+
+  if (!procesos.length) {
+    L.push(`Procesos: NINGUNO todavía. El mapa está vacío — puedes crearlo tú con crear_proceso.`);
+    return L.join('\n');
+  }
+
+  const nombreDepto = new Map(deptos.map((d) => [d.id, d.nombre]));
+  const byId = new Map(procesos.map((p) => [p.id, p]));
+  const faseLabel = (f: string) => FASES_MAPA.find((x) => x.id === f)?.label.split(' ·')[0] ?? f;
+
+  for (const et of ETAPAS_OBJETIVO) {
+    const nacen = procesos.filter((p) => p.etapaDesde === et.id);
+    const vigentes = procesos.filter((p) => vigenteEn(p, et.id));
+    if (!vigentes.length) continue;
+    L.push(`### Etapa ${et.n} · ${et.label} — ${vigentes.length} procesos vigentes (${nacen.length} nacen aquí, el resto se hereda de etapas anteriores)`);
+    for (const p of nacen) {
+      const partes: string[] = [];
+      partes.push(`[${nombreDepto.get(p.departamentoId) ?? '?'}]`);
+      partes.push(faseLabel(p.fase));
+      if (p.roles.length) partes.push(`roles: ${p.roles.join('/')}`);
+      if (p.espacios.length) partes.push(`en: ${p.espacios.map((e) => e.nombre + (e.horario ? ` (${e.horario})` : '')).join(', ')}`);
+      if (p.herramientas.length) partes.push(`usa: ${p.herramientas.join(', ')}`);
+      if (p.tiempoMin) partes.push(`${p.tiempoMin} min`);
+      if (p.entrada || p.salida) partes.push(`${p.entrada ?? '—'} → ${p.salida ?? '—'}`);
+      if (p.etapaHasta) partes.push(`SE JUBILA al terminar la etapa ${nEtapa(p.etapaHasta)}`);
+      L.push(`  · "${p.nombre}" (id ${p.id}) — ${partes.join(' · ')}`);
+      if (!p.ramas.some((r) => r.destinoProcesoId)) L.push(`      (SIN conexión de salida: hoy el flujo se corta aquí)`);
+      for (const r of p.ramas) {
+        const d = r.destinoProcesoId ? byId.get(r.destinoProcesoId) : undefined;
+        if (!d) { L.push(`      ⑂ disparador "${r.evento || '(sin nombre)'}" → (sin destino asignado)`); continue; }
+        const salto = nEtapa(d.etapaDesde) > nEtapa(p.etapaDesde) ? ` [ALIMENTA LA ETAPA ${nEtapa(d.etapaDesde)}]` : '';
+        L.push(`      ⑂ "${r.evento || 'continúa'}" → "${d.nombre}" (${faseLabel(d.fase)})${salto}`);
+      }
+    }
+  }
+  // HUECOS: lo que el Curador debería ofrecer completar. Explícito para que no dé por
+  // supuestas conexiones que no existen.
+  const conDestino = new Set(procesos.flatMap((p) => p.ramas.map((r) => r.destinoProcesoId).filter(Boolean)));
+  const sueltos = procesos.filter((p) => !p.ramas.some((r) => r.destinoProcesoId) && !conDestino.has(p.id));
+  const sinEntrada = procesos.filter((p) => !conDestino.has(p.id) && p.ramas.some((r) => r.destinoProcesoId));
+  const huecos: string[] = [];
+  if (sueltos.length) huecos.push(`procesos AISLADOS (sin entrada ni salida): ${sueltos.map((p) => `"${p.nombre}"`).join(', ')}`);
+  if (sinEntrada.length > 1) huecos.push(`procesos sin nada que los dispare (posibles inicios; solo uno debería serlo): ${sinEntrada.map((p) => `"${p.nombre}"`).join(', ')}`);
+  const futurosSinSemilla = procesos.filter((p) => nEtapa(p.etapaDesde) > 1 && !conDestino.has(p.id));
+  if (futurosSinSemilla.length) huecos.push(`procesos de etapas futuras que NADA alimenta desde hoy: ${futurosSinSemilla.map((p) => `"${p.nombre}" (E${nEtapa(p.etapaDesde)})`).join(', ')} — pregunta al usuario qué proceso de hoy debería prepararlos`);
+  L.push(huecos.length
+    ? `HUECOS del mapa (ofrécete a completarlos, pero NO inventes conexiones que no estén listadas arriba): ${huecos.join(' · ')}.`
+    : `El mapa no tiene huecos evidentes: todo proceso está conectado al flujo.`);
+
+  L.push(`Reglas del mapa: un proceso NACE en una etapa y se hereda a todas las siguientes; "etapaHasta" lo jubila. Una rama puede apuntar a un proceso que nace en una etapa posterior — así se declara el trabajo que se hace hoy para habilitar el mañana (ej. guardar la factura hoy para que Contabilidad la use en la etapa 2).`);
   return L.join('\n');
 }
 

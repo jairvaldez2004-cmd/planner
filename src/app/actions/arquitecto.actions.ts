@@ -17,6 +17,12 @@ import {
 } from '@/app/actions/workspace.actions';
 import type { EtapaObjetivo } from '@/domain/etapas';
 import { listarUnidades, crearUnidad, actualizarUnidad, eliminarUnidad } from '@/app/actions/espacios.actions';
+import {
+  listarDepartamentos, crearDepartamento, listarProcesos, crearProceso, actualizarProceso, eliminarProceso,
+} from '@/app/actions/mapa.actions';
+import type { ProcesoPatch } from '@/app/actions/mapa.actions';
+import type { FaseMapa } from '@/domain/mapa';
+import { nEtapa } from '@/domain/mapa';
 import { resumenWorkspace, contextoCuradorProyecto, guardarConversacion } from '@/app/actions/contexto.actions';
 import type { ProyectoNodo } from '@/app/actions/workspace.actions';
 import type { Blueprint, Diagnostico, ProyectoDiagnostico } from '@/domain/diagnostico';
@@ -153,6 +159,37 @@ export async function conversarCuradorProyecto(
     return unidades.find((u) => u.nombre.trim().toLowerCase() === n) ?? unidades.find((u) => u.nombre.toLowerCase().includes(n));
   };
 
+  // --- resolución por nombre para el mapa operativo (el Curador refiere por nombre) ---
+  const porNombre = <T extends { nombre: string }>(xs: T[], nombre: string): T | undefined => {
+    const n = nombre.trim().toLowerCase();
+    if (!n) return undefined;
+    return xs.find((x) => x.nombre.trim().toLowerCase() === n) ?? xs.find((x) => x.nombre.toLowerCase().includes(n));
+  };
+  const buscarDepto = async (nombre: string) => porNombre(await listarDepartamentos(proyectoId), nombre);
+  const deptoAdmin = async () => (await listarDepartamentos(proyectoId)).find((d) => d.tipo === 'admin');
+  const buscarProceso = async (nombre: string) => porNombre(await listarProcesos(proyectoId), nombre);
+  const faseValida = (v: unknown): FaseMapa => (['antes', 'durante', 'despues'].includes(String(v)) ? String(v) : 'durante') as FaseMapa;
+  const etapaValida = (v: unknown): EtapaObjetivo | undefined => {
+    const validas: EtapaObjetivo[] = ['arrancar', 'expandir', 'replicar', 'automatizar', 'vender'];
+    return validas.includes(String(v) as EtapaObjetivo) ? String(v) as EtapaObjetivo : undefined;
+  };
+  const listaStr = (v: unknown): string[] | undefined =>
+    Array.isArray(v) ? v.map((x) => String(x).trim()).filter(Boolean) : undefined;
+
+  // Campos comunes de crear/actualizar proceso → ProcesoPatch.
+  const patchDesdeInput = (input: Record<string, unknown>): ProcesoPatch => {
+    const p: ProcesoPatch = {};
+    if (input.descripcion !== undefined) p.descripcion = String(input.descripcion);
+    if (input.entrada !== undefined) p.entrada = String(input.entrada);
+    if (input.salida !== undefined) p.salida = String(input.salida);
+    if (input.instructivo !== undefined) p.instructivo = String(input.instructivo);
+    if (typeof input.tiempoMin === 'number') p.tiempoMin = input.tiempoMin;
+    const roles = listaStr(input.roles); if (roles) p.roles = roles;
+    const herr = listaStr(input.herramientas); if (herr) p.herramientas = herr;
+    const esp = listaStr(input.espacios); if (esp) p.espacios = esp.map((nombre) => ({ nombre }));
+    return p;
+  };
+
   const ejecutar: EjecutorHerramienta = async (nombre, input) => {
     try {
       if (nombre === 'crear_negocio') {
@@ -196,6 +233,69 @@ export async function conversarCuradorProyecto(
         if (!validas.includes(et as EtapaObjetivo)) return `Etapa no válida: "${et}".`;
         await fijarEtapaObjetivo(proyectoId, et as EtapaObjetivo);
         return `Etapa objetivo del negocio fijada: "${et}". Esto define el foco de planos y sus % objetivo.`;
+      }
+
+      // ---------- MAPA OPERATIVO ----------
+      if (nombre === 'crear_departamento') {
+        const nom = String(input.nombre ?? '').trim();
+        if (!nom) return 'Falta el nombre del departamento.';
+        if (await buscarDepto(nom)) return `El departamento "${nom}" ya existe; no lo dupliqué.`;
+        const d = await crearDepartamento(proyectoId, nom);
+        return `Departamento "${d.nombre}" creado como etiqueta del mapa.`;
+      }
+      if (nombre === 'crear_proceso') {
+        const nom = String(input.nombre ?? '').trim();
+        if (!nom) return 'Falta el nombre del proceso.';
+        if (await buscarProceso(nom)) return `El proceso "${nom}" ya existe en el mapa; no lo dupliqué. Usa actualizar_proceso si quieres cambiarlo.`;
+        const depto = await buscarDepto(String(input.departamento ?? '')) ?? await deptoAdmin();
+        if (!depto) return 'No hay departamentos en el proyecto; crea uno primero con crear_departamento.';
+        const fase = faseValida(input.fase);
+        const et = etapaValida(input.etapa) ?? 'arrancar';
+        const p = await crearProceso(proyectoId, depto.id, nom, fase, undefined, et);
+        const patch = patchDesdeInput(input);
+        if (Object.keys(patch).length) await actualizarProceso(p.id, patch);
+        return `Proceso "${p.nombre}" creado · etiqueta ${depto.nombre} · fase ${fase} · nace en la etapa ${nEtapa(et)} (${et}). Conéctalo con conectar_procesos para que forme parte del flujo.`;
+      }
+      if (nombre === 'actualizar_proceso') {
+        const p = await buscarProceso(String(input.proceso ?? ''));
+        if (!p) return `No encontré el proceso "${String(input.proceso ?? '')}" en el mapa.`;
+        const patch = patchDesdeInput(input);
+        if (input.nuevoNombre) patch.nombre = String(input.nuevoNombre);
+        if (input.fase !== undefined) patch.fase = faseValida(input.fase);
+        if (input.etapa !== undefined) { const e = etapaValida(input.etapa); if (e) patch.etapaDesde = e; }
+        if (input.etapaHasta !== undefined) {
+          patch.etapaHasta = String(input.etapaHasta) === 'siempre' ? null : (etapaValida(input.etapaHasta) ?? null);
+        }
+        if (input.departamento !== undefined) {
+          const d = await buscarDepto(String(input.departamento));
+          if (!d) return `No encontré el departamento "${String(input.departamento)}". Créalo con crear_departamento.`;
+          patch.departamentoId = d.id;
+        }
+        if (Object.keys(patch).length === 0) return 'No indicaste qué actualizar del proceso.';
+        await actualizarProceso(p.id, patch);
+        return `Proceso "${p.nombre}" actualizado.`;
+      }
+      if (nombre === 'conectar_procesos') {
+        const a = await buscarProceso(String(input.desde ?? ''));
+        const b = await buscarProceso(String(input.hasta ?? ''));
+        if (!a) return `No encontré el proceso de origen "${String(input.desde ?? '')}".`;
+        if (!b) return `No encontré el proceso de destino "${String(input.hasta ?? '')}".`;
+        if (a.id === b.id) return 'No puedo conectar un proceso consigo mismo.';
+        const evento = String(input.disparador ?? '').trim() || 'continúa';
+        if (a.ramas.some((r) => r.destinoProcesoId === b.id && r.evento === evento)) {
+          return `"${a.nombre}" ya estaba conectado a "${b.nombre}" con el disparador "${evento}".`;
+        }
+        const rama = { id: `RAMA-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, evento, destinoProcesoId: b.id };
+        await actualizarProceso(a.id, { ramas: [...a.ramas, rama] });
+        const salto = nEtapa(b.etapaDesde) > nEtapa(a.etapaDesde)
+          ? ` Este enlace CRUZA A LA ETAPA ${nEtapa(b.etapaDesde)}: en el mapa se verá como "⏭ alimenta E${nEtapa(b.etapaDesde)}".` : '';
+        return `Conectado: "${a.nombre}" —[${evento}]→ "${b.nombre}".${salto}`;
+      }
+      if (nombre === 'eliminar_proceso') {
+        const p = await buscarProceso(String(input.proceso ?? ''));
+        if (!p) return `No encontré el proceso "${String(input.proceso ?? '')}".`;
+        await eliminarProceso(p.id);
+        return `Proceso "${p.nombre}" eliminado del mapa.`;
       }
       return `Herramienta desconocida: ${nombre}`;
     } catch (e) {

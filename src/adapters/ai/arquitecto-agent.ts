@@ -202,7 +202,10 @@ async function correrBucleTools(
   const client = getClient();
   let huboCambios = false;
 
-  for (let i = 0; i < 6; i++) {
+  // Construir un mapa operativo cuesta muchas llamadas (un proceso + una conexión por paso),
+  // así que el tope es holgado; el modelo corta solo en cuanto termina.
+  const MAX_VUELTAS = 16;
+  for (let i = 0; i < MAX_VUELTAS; i++) {
     const response = await client.messages.create({
       model: modelo ?? modeloDe('curador'),
       max_tokens: 2048,
@@ -231,7 +234,8 @@ async function correrBucleTools(
     messages.push({ role: 'user', content: resultados });
   }
 
-  return { reply: 'He realizado las acciones solicitadas.', huboCambios };
+  // Se agotaron las vueltas: hay que decirlo, no dar por hecho que quedó completo.
+  return { reply: 'Hice varias acciones pero me quedé a medias (llegué al tope de pasos por turno). Dime "continúa" y sigo desde donde me quedé.', huboCambios };
 }
 
 export async function correrCurador(
@@ -269,7 +273,14 @@ Herramientas y cuándo usarlas:
 2) UNIDADES COMERCIALES: si el usuario describe las líneas de venta directa de ESTE negocio, usa "crear_unidad" por cada una; puedes ajustarlas (actualizar_unidad) o eliminarlas (eliminar_unidad).
 3) Distingue bien: un NEGOCIO es una empresa dentro del proyecto (tiene su propia administración y UC); una UNIDAD COMERCIAL es una línea de venta del propio proyecto. Ante la duda, pregunta cuál de los dos es.
 3b) ETAPA OBJETIVO: al inicio, ayuda a definir en qué ETAPA de la ruta está o hacia dónde va el negocio (arrancar → expandir → replicar → automatizar → vender) y regístrala con "fijar_etapa". Esto define qué planos y a qué % se enfoca el negocio. Si el usuario no la menciona, pregúntala una vez al conocer el negocio.
-4) NO inventes: lo que no sepas queda PENDIENTE. No dupliques negocios ni UC ya existentes.
+3c) MAPA OPERATIVO: conoces el mapa completo (lo ves abajo en el estado) y puedes CONSTRUIRLO conversando. Cuando el usuario describa cómo opera el negocio ("primero abro caja, luego el cliente llega y…"), NO le pidas que lo dibuje: crea tú los procesos con "crear_proceso" y conéctalos en orden con "conectar_procesos" indicando el disparador de cada paso. Reglas:
+   · El DEPARTAMENTO es una etiqueta del proceso (quién lo hace), no un contenedor. Si falta uno administrativo (Contabilidad, Dirección…), créalo con "crear_departamento".
+   · La FASE es antes (preparación) / durante (operación) / después (seguimiento).
+   · La ETAPA es la ruta de 5: un proceso nace en una etapa y se HEREDA a las siguientes. Lo que el negocio hace hoy nace en "arrancar". Si el usuario dice "eso lo haremos cuando crezcamos" o "en la etapa 2", el proceso nace en esa etapa futura.
+   · TRABAJO DE HOY PARA UNA ETAPA FUTURA: si el usuario dice algo como "quiero ir guardando las facturas desde ya para el departamento de contabilidad de la etapa 2", crea el proceso de hoy ("Guardar la factura", etapa arrancar) Y el futuro ("Contabilizar facturas", departamento Contabilidad, etapa expandir), y conéctalos con "conectar_procesos". El mapa mostrará el enlace hacia la etapa futura.
+   · Si un proceso manual será reemplazado más adelante (típico al automatizar), márcalo con "etapaHasta" en "actualizar_proceso".
+   · Pregunta lo mínimo: si falta el rol, el lugar o el tiempo de un paso, créalo igual y pregunta después por los huecos importantes.
+4) NO inventes: lo que no sepas queda PENDIENTE. No dupliques negocios, UC ni procesos ya existentes (los ves en el estado).
 5) Gobierno (Nivel B): respeta el método congelado (ARQOS, PLANO ALV, contratos). Aquí defines estructura (negocios/UC); los planos se trabajan aparte.
 
 Estilo: español, claro y breve. 1–3 preguntas por turno, las mínimas. Antes de eliminar, confirma. Responde solo con tu mensaje.`;
@@ -341,6 +352,90 @@ const TOOLS_CURADOR_PROYECTO: Anthropic.Tool[] = [
         },
       },
       required: ['etapa'],
+    },
+  },
+  // --- MAPA OPERATIVO: el Curador puede construir la operación conversando ---
+  {
+    name: 'crear_proceso',
+    description: 'Crea un PROCESO en el mapa operativo. Un proceso es un paso real de la operación ("Abrir caja", "Cobrar", "Guardar la factura"). Va etiquetado con un departamento, vive en una fase (antes/durante/después) y NACE en una etapa de la ruta: desde ahí se hereda a todas las etapas siguientes. Usa esto cuando el usuario describe cómo opera o cómo quiere operar.',
+    // Sin strict: la API limita a 24 los parámetros opcionales sumados entre schemas
+    // estrictos, y este tool es rico a propósito. El ejecutor valida cada campo.
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        nombre: { type: 'string', description: 'Nombre del proceso, en verbo. Ej: "Dar de alta el catálogo".' },
+        departamento: { type: 'string', description: 'Nombre del departamento que lo ejecuta (es una ETIQUETA, no un contenedor). Debe existir; si no, créalo antes con crear_departamento. Si no se sabe, usa "Administración".' },
+        fase: { type: 'string', enum: ['antes', 'durante', 'despues'], description: 'antes = preparación · durante = operación · despues = seguimiento.' },
+        etapa: { type: 'string', enum: ['arrancar', 'expandir', 'replicar', 'automatizar', 'vender'], description: 'Etapa de la ruta en la que NACE. Si el usuario habla de la operación de hoy, es "arrancar". Si dice "cuando crezcamos" o "en la etapa 2", usa la que corresponda.' },
+        descripcion: { type: 'string' },
+        roles: { type: 'array', items: { type: 'string' }, description: 'Roles que lo ejecutan. Ej: ["Perforador", "Recepción"].' },
+        herramientas: { type: 'array', items: { type: 'string' }, description: 'Herramientas/muebles/equipo que usa.' },
+        espacios: { type: 'array', items: { type: 'string' }, description: 'Dónde ocurre (nombres de espacios del plano).' },
+        tiempoMin: { type: 'number', description: 'Duración en minutos.' },
+        entrada: { type: 'string', description: 'Qué recibe para empezar.' },
+        salida: { type: 'string', description: 'Qué produce al terminar.' },
+        instructivo: { type: 'string', description: 'El paso a paso para ejecutarlo.' },
+      },
+      required: ['nombre', 'departamento', 'fase', 'etapa'],
+    },
+  },
+  {
+    name: 'actualizar_proceso',
+    description: 'Actualiza un proceso existente del mapa (reetiquetarlo a otro departamento, cambiarlo de fase o de etapa, completar sus recursos, tiempo, entrada/salida o instructivo). Refiere al proceso por su nombre actual.',
+    // Sin strict por el mismo límite de parámetros opcionales (ver crear_proceso).
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        proceso: { type: 'string', description: 'Nombre actual del proceso.' },
+        nuevoNombre: { type: 'string' },
+        departamento: { type: 'string' },
+        fase: { type: 'string', enum: ['antes', 'durante', 'despues'] },
+        etapa: { type: 'string', enum: ['arrancar', 'expandir', 'replicar', 'automatizar', 'vender'], description: 'Cambia la etapa en la que NACE.' },
+        etapaHasta: { type: 'string', enum: ['arrancar', 'expandir', 'replicar', 'automatizar', 'vender', 'siempre'], description: 'Última etapa en la que sigue vigente; después se jubila. Úsalo para el proceso manual que una automatización reemplaza. "siempre" quita la jubilación.' },
+        descripcion: { type: 'string' },
+        roles: { type: 'array', items: { type: 'string' } },
+        herramientas: { type: 'array', items: { type: 'string' } },
+        espacios: { type: 'array', items: { type: 'string' } },
+        tiempoMin: { type: 'number' },
+        entrada: { type: 'string' },
+        salida: { type: 'string' },
+        instructivo: { type: 'string' },
+      },
+      required: ['proceso'],
+    },
+  },
+  {
+    name: 'conectar_procesos',
+    description: 'Conecta dos procesos con una RAMA: el disparador (evento) que hace que del primero se pase al segundo. Así se arma el flujo. El destino PUEDE nacer en una etapa posterior: así se declara el trabajo que se hace hoy para habilitar el mañana (ej. "Guardar la factura" hoy → "Contabilizar" que nace en la etapa 2). Un proceso con varias ramas se bifurca según el disparador que se active.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        desde: { type: 'string', description: 'Nombre del proceso de origen.' },
+        hasta: { type: 'string', description: 'Nombre del proceso de destino.' },
+        disparador: { type: 'string', description: 'El evento que dispara el paso. Ej: "Pago recibido", "Cliente cancela". Si es simplemente el siguiente paso, usa "continúa".' },
+      },
+      required: ['desde', 'hasta', 'disparador'],
+    },
+  },
+  {
+    name: 'crear_departamento',
+    description: 'Crea un departamento administrativo como ETIQUETA del mapa (ej. Contabilidad, Dirección, Marketing, Recursos Humanos). Los departamentos de las unidades comerciales se crean solos; solo crea aquí los administrativos que falten.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: { nombre: { type: 'string' } },
+      required: ['nombre'],
+    },
+  },
+  {
+    name: 'eliminar_proceso',
+    description: 'Elimina un proceso del mapa. Acción destructiva: confirma con el usuario antes.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: { proceso: { type: 'string' } },
+      required: ['proceso'],
     },
   },
 ];
