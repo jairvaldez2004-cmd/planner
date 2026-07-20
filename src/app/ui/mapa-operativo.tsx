@@ -14,7 +14,7 @@ import type { CSSProperties, PointerEvent as RPointerEvent } from 'react';
 import {
   listarDepartamentos, crearDepartamento, actualizarDepartamento, eliminarDepartamento,
   listarProcesos, crearProceso, actualizarProceso, eliminarProceso,
-  importarRutasCatalogo, listarRecursosProyecto, crearRolMaestro, crearHerramientaMaestro,
+  importarRutasCatalogo, listarRecursosProyecto, crearRolMaestro, crearHerramientaMaestro, rescatarDuraciones,
 } from '@/app/actions/mapa.actions';
 import type { RecursosProyecto } from '@/app/actions/mapa.actions';
 import { obtenerProyectoBase } from '@/app/actions/workspace.actions';
@@ -147,6 +147,18 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
     cargar();
   }
 
+  async function rescatarTiempos() {
+    setMsg('Leyendo los tiempos del catálogo…');
+    const r = await rescatarDuraciones(proyectoId);
+    setMsg(
+      r.presentaciones === 0
+        ? 'El catálogo no trae tiempos en los atributos de sus presentaciones.'
+        : `Tiempos: ${r.presentaciones} presentaciones leídas → ${r.procesosActualizados} pasos con duración estimada (marcada ~).` +
+          (r.sinInterpretar.length ? ` No pude interpretar: ${r.sinInterpretar.slice(0, 3).join(' · ')}.` : '')
+    );
+    cargar();
+  }
+
   // --- drag de nodos ---
   function onNodoPointerDown(e: RPointerEvent<HTMLDivElement>, p: ProcesoNodo) {
     const t = e.target as HTMLElement;
@@ -193,7 +205,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
     if (vista === 'roles') return p.roles.length ? p.roles.join(' · ') : 'sin rol';
     if (vista === 'espacios') return p.espacios.length ? p.espacios.map((e) => e.nombre + (e.horario ? ` (${e.horario})` : '')).join(' · ') : 'sin espacio';
     if (vista === 'herramientas') return p.herramientas.length ? p.herramientas.join(' · ') : 'sin herramientas';
-    if (vista === 'tiempos') return p.tiempoMin ? `${p.tiempoMin} min` : 'sin tiempo';
+    if (vista === 'tiempos') return p.tiempoMin ? `${p.tiempoEstimado ? '~' : ''}${p.tiempoMin} min` : 'sin tiempo';
     return p.descripcion ? p.descripcion.slice(0, 50) : '';
   }
 
@@ -277,6 +289,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
         <button style={btnSm} onClick={() => setPanel('instructivo')} title="Documento imprimible con el paso a paso de esta etapa">🖨️ Instructivo</button>
         <button style={btnSm} onClick={() => setPanel('agenda')} title="Semana de los recursos compartidos y sus choques">🗓️ Agenda</button>
         <button style={btnSm} onClick={() => void importar()} title="Siembra en el mapa los pasos de las rutas del catálogo">⬇ Importar catálogo</button>
+        <button style={btnSm} onClick={() => void rescatarTiempos()} title="Lee el tiempo que traen las presentaciones del catálogo y lo baja a los pasos">⏱ Rescatar tiempos</button>
       </div>
 
       {/* etiquetas de departamento */}
@@ -536,8 +549,9 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
         </div>
       </div>
 
-      <label style={lbl}>Tiempo (min)</label>
+      <label style={lbl}>Tiempo (min) {proc.tiempoEstimado && <span style={{ color: '#a67c00', fontWeight: 'normal' }}>~ estimado del total del servicio</span>}</label>
       <input style={inp} type="number" defaultValue={proc.tiempoMin ?? ''} onBlur={(e) => onPatch({ tiempoMin: e.target.value === '' ? 0 : Number(e.target.value) })} />
+      {proc.tiempoEstimado && <p style={{ fontSize: 10.5, color: '#a67c00', margin: '2px 0 0' }}>Se repartió el tiempo total del servicio entre sus pasos. Corrígelo y pasa a contar como declarado.</p>}
 
       <label style={lbl}>Instructivo (paso a paso)</label>
       <textarea style={{ ...inp, resize: 'vertical' }} rows={3} defaultValue={proc.instructivo ?? ''} onBlur={(e) => onPatch({ instructivo: e.target.value })} />

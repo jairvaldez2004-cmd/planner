@@ -74,6 +74,7 @@ export interface ProcesoNodo {
   insumos: string[];                   // lo que se CONSUME al ejecutarlo (gasas, solución…)
   espacios: AsignacionRecurso[];       // dónde ocurre (con horario)
   tiempoMin?: number | undefined;
+  tiempoEstimado?: boolean | undefined;  // true = repartido del total del servicio, no declarado
   entrada?: string | undefined;
   salida?: string | undefined;
   instructivo?: string | undefined;    // el paso a paso (vista instructivo)

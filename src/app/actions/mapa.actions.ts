@@ -11,6 +11,7 @@ import { ETAPA_BASE } from '@/domain/mapa';
 import type { EtapaObjetivo } from '@/domain/etapas';
 import { ETAPAS_OBJETIVO } from '@/domain/etapas';
 import type { FasePaso } from '@/domain/oferta';
+import { parseDuracion, repartirDuracion } from '@/domain/duracion';
 
 function etapa(v: unknown, fallback?: EtapaObjetivo): EtapaObjetivo | undefined {
   return ETAPAS_OBJETIVO.some((x) => x.id === v) ? v as EtapaObjetivo : fallback;
@@ -137,6 +138,7 @@ function mapProceso(r: { id: string; departamentoId: string; nombre: string; fas
     insumos: arr<unknown>(d.insumos).map(str).filter(Boolean),
     espacios: arr<unknown>(d.espacios).map(normAsig),
     tiempoMin: num(d.tiempoMin),
+    tiempoEstimado: d.tiempoEstimado === true ? true : undefined,
     entrada: str(d.entrada) || undefined,
     salida: str(d.salida) || undefined,
     instructivo: str(d.instructivo) || undefined,
@@ -181,7 +183,8 @@ export async function actualizarProceso(id: string, patch: ProcesoPatch): Promis
   if (patch.herramientas !== undefined) data.herramientas = patch.herramientas.map((x) => x.trim()).filter(Boolean);
   if (patch.insumos !== undefined) data.insumos = patch.insumos.map((x) => x.trim()).filter(Boolean);
   if (patch.espacios !== undefined) data.espacios = patch.espacios.map(normAsig);
-  if (patch.tiempoMin !== undefined) data.tiempoMin = patch.tiempoMin;
+  // Editar el tiempo a mano lo convierte en declarado (deja de ser una estimación).
+  if (patch.tiempoMin !== undefined) { data.tiempoMin = patch.tiempoMin; data.tiempoEstimado = false; }
   if (patch.entrada !== undefined) data.entrada = patch.entrada;
   if (patch.salida !== undefined) data.salida = patch.salida;
   if (patch.instructivo !== undefined) data.instructivo = patch.instructivo;
@@ -324,6 +327,80 @@ export async function importarRutasCatalogo(proyectoId: string, etapaDesde?: Eta
     if (creoAlguno) fila++;
   }
   return { creados, omitidos };
+}
+
+// =================== RESCATE DE DURACIONES DEL CATÁLOGO ===================
+// Los catálogos cargados traen el tiempo del servicio como TEXTO en los atributos de
+// cada presentación ("10–20 min"), dato que nadie interpretaba. Esto lo estructura y lo
+// baja a los pasos de la ruta, que es lo que la simulación necesita.
+// El tiempo de la presentación es del SERVICIO COMPLETO: se reparte entre los pasos que
+// no declaran tiempo propio, y eso queda marcado como estimado (`tiempoEstimado`).
+
+export interface ResultadoDuraciones {
+  presentaciones: number;      // cuántas tenían tiempo interpretable
+  sinInterpretar: string[];    // textos que no se pudieron leer (para revisarlos)
+  procesosActualizados: number;
+}
+
+export async function rescatarDuraciones(proyectoId: string): Promise<ResultadoDuraciones> {
+  const [ofertas, presentaciones, procesos] = await Promise.all([
+    prisma.oferta.findMany({ where: { proyectoId } }),
+    prisma.presentacion.findMany({ where: { proyectoId } }),
+    listarProcesos(proyectoId),
+  ]);
+
+  // Duración típica por oferta = promedio de las duraciones de sus presentaciones.
+  const porOferta = new Map<string, number[]>();
+  const sinInterpretar: string[] = [];
+  let conTiempo = 0;
+
+  for (const p of presentaciones) {
+    const d = obj(p.data);
+    const atributos = obj(d.atributos);
+    const txt = str(atributos.tiempo) || str(atributos.time);
+    if (!txt) continue;
+    const dur = parseDuracion(txt);
+    if (!dur) { if (!sinInterpretar.includes(txt)) sinInterpretar.push(txt); continue; }
+    conTiempo++;
+    // Se guarda estructurado en la propia presentación (rango completo, no solo el promedio).
+    await prisma.presentacion.update({ where: { id: p.id }, data: {
+      data: toJson({ ...d, duracion: { min: dur.min, max: dur.max, prom: dur.prom } }),
+    } });
+    const arr = porOferta.get(p.ofertaId) ?? [];
+    arr.push(dur.prom);
+    porOferta.set(p.ofertaId, arr);
+  }
+
+  // Baja el total del servicio a los pasos de la ruta de cada oferta.
+  let procesosActualizados = 0;
+  for (const of of ofertas) {
+    const proms = porOferta.get(of.id);
+    if (!proms?.length) continue;
+    const totalServicio = proms.reduce((s, v) => s + v, 0) / proms.length;
+
+    // Procesos del mapa sembrados desde ESTA oferta, en el orden de la ruta.
+    const rutaBase = arr<unknown>(obj(of.data).rutaBase).map(obj);
+    const ordenPaso = new Map(rutaBase.map((p, i) => [str(p.id), i]));
+    const suyos = procesos
+      .filter((p) => p.origen?.ofertaId === of.id)
+      .sort((a, b) => (ordenPaso.get(a.origen!.pasoId) ?? 0) - (ordenPaso.get(b.origen!.pasoId) ?? 0));
+    if (!suyos.length) continue;
+
+    const reparto = repartirDuracion(totalServicio, suyos.map((p) => ({ tiempoMin: p.tiempoMin })));
+    for (let i = 0; i < suyos.length; i++) {
+      const p = suyos[i]!, nuevo = reparto[i] ?? 0;
+      if (p.tiempoMin || !nuevo) continue;            // no pisa un tiempo ya declarado
+      const r = await prisma.proceso.findUnique({ where: { id: p.id } });
+      if (!r) continue;
+      await prisma.proceso.update({ where: { id: p.id }, data: {
+        // `tiempoEstimado` distingue lo repartido de lo que el usuario declaró de verdad.
+        data: toJson({ ...obj(r.data), tiempoMin: nuevo, tiempoEstimado: true }),
+      } });
+      procesosActualizados++;
+    }
+  }
+
+  return { presentaciones: conTiempo, sinInterpretar, procesosActualizados };
 }
 
 // =================== RECURSOS DISPONIBLES (para asignar / "crear y volver") ===================
