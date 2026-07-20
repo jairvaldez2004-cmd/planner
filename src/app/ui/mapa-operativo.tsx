@@ -22,6 +22,8 @@ import { FASES_MAPA, VISTAS_MAPA, ETAPA_BASE, colorDepto, ordenCronologico, recu
 import type { AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, VistaMapa } from '@/domain/mapa';
 import { ETAPAS_OBJETIVO, etapaInfo } from '@/domain/etapas';
 import type { EtapaObjetivo } from '@/domain/etapas';
+import { InstructivoMapa } from './instructivo-mapa';
+import { AgendaRecursos } from './agenda-recursos';
 import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -51,6 +53,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const [selProc, setSelProc] = useState<string | null>(null);
   const [selDepto, setSelDepto] = useState<string | null>(null);
   const [nuevoDepto, setNuevoDepto] = useState('');
+  const [panel, setPanel] = useState<'mapa' | 'instructivo' | 'agenda'>('mapa');
   const [msg, setMsg] = useState('');
   const movil = useEsMovil();
 
@@ -207,6 +210,16 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const heredados = vigentes.filter((p) => !naceEn(p, etapa)).length;
   const nuevosAqui = vigentes.filter((p) => naceEn(p, etapa)).length;
 
+  // Vistas derivadas del mismo mapa (documento imprimible / agenda de recursos).
+  if (panel === 'instructivo') {
+    return <InstructivoMapa procesos={procesos} deptos={deptos} etapa={etapa} nombreProyecto={nombreProyecto} onCerrar={() => setPanel('mapa')} />;
+  }
+  if (panel === 'agenda') {
+    return <AgendaRecursos procesos={procesos} deptos={deptos} etapa={etapa}
+      onCerrar={() => setPanel('mapa')}
+      onIrProceso={(id) => { const p = procesos.find((x) => x.id === id); if (p) { setFase(p.fase); setSelProc(id); } setPanel('mapa'); }} />;
+  }
+
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -261,6 +274,8 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
         ))}
         <span style={{ flex: 1 }} />
         <button style={btnSm} onClick={() => void altaProceso()}>＋ Proceso</button>
+        <button style={btnSm} onClick={() => setPanel('instructivo')} title="Documento imprimible con el paso a paso de esta etapa">🖨️ Instructivo</button>
+        <button style={btnSm} onClick={() => setPanel('agenda')} title="Semana de los recursos compartidos y sus choques">🗓️ Agenda</button>
         <button style={btnSm} onClick={() => void importar()} title="Siembra en el mapa los pasos de las rutas del catálogo">⬇ Importar catálogo</button>
       </div>
 
