@@ -15,6 +15,7 @@ import {
 } from '@/app/actions/espacios.actions';
 import {
   LENTES, lente as getLente, TIPOS_ESPACIO, CATEGORIAS_OBJETO, ESTILO_ELEMENTO, etiquetaNivel, poligonoAMetros,
+  centroDe, normalizarGrados,
 } from '@/domain/espacios';
 import type {
   Sede, Espacio, ObjetoFisico, ElementoArq, UnidadComercial, LenteId, TipoEspacio, CategoriaObjeto, TipoElemento,
@@ -40,6 +41,8 @@ function Etiqueta({ x, y, text }: { x: number; y: number; text: string }) {
 type Sel = { tipo: 'espacio' | 'objeto' | 'elemento'; id: string } | null;
 type Drag = { tipo: 'espacio' | 'objeto'; id: string; offsetX: number; offsetY: number } | null;
 type DragEl = { id: string; cual: 'a' | 'b' } | null;
+// Giro: se arrastra la manija y el ángulo sale del vector centro→cursor.
+type Giro = { tipo: 'espacio' | 'objeto'; id: string; base: number } | null;
 type Modo = 'sel' | TipoElemento | 'habitacion';
 type Pt = { x: number; y: number };
 
@@ -55,6 +58,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
   const [sel, setSel] = useState<Sel>(null);
   const [drag, setDrag] = useState<Drag>(null);
   const [dragEl, setDragEl] = useState<DragEl>(null);
+  const [giro, setGiro] = useState<Giro>(null);
   const [modo, setModo] = useState<Modo>('sel');
   const [pend, setPend] = useState<Pt | null>(null);
   const [roomPts, setRoomPts] = useState<Pt[]>([]);
@@ -97,7 +101,27 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
     const p = svgCoords(e); setDrag({ tipo, id: item.id, offsetX: p.x / scale - item.x, offsetY: p.y / scale - item.y });
   }
   function iniciarDragEl(e: React.MouseEvent, id: string, cual: 'a' | 'b') { if (modo !== 'sel') return; e.stopPropagation(); setSel({ tipo: 'elemento', id }); setDragEl({ id, cual }); }
+
+  // --- giro ---
+  function iniciarGiro(e: React.MouseEvent, tipo: 'espacio' | 'objeto', item: { id: string; rot: number }) {
+    if (modo !== 'sel') return;
+    e.stopPropagation(); setSel({ tipo, id: item.id }); setGiro({ tipo, id: item.id, base: item.rot });
+  }
+  // Ángulo del centro de la figura al cursor. Con Shift se imanta a múltiplos de 15°
+  // (y por tanto a los ejes 0/90/180/270), que es como se alinea a un muro real.
+  function anguloDesdeCursor(e: React.MouseEvent, f: { x: number; y: number; ancho: number; alto: number }): number {
+    const p = svgCoords(e);
+    const c = centroDe(f);
+    const g = (Math.atan2(p.y / scale - c.y, p.x / scale - c.x) * 180) / Math.PI + 90; // 0° = manija arriba
+    return normalizarGrados(e.shiftKey ? Math.round(g / 15) * 15 : Math.round(g));
+  }
+
   function moverDrag(e: React.MouseEvent) {
+    if (giro) {
+      if (giro.tipo === 'espacio') setEspacios((arr) => arr.map((s) => s.id === giro.id ? { ...s, rot: anguloDesdeCursor(e, s) } : s));
+      else setObjetos((arr) => arr.map((o) => o.id === giro.id ? { ...o, rot: anguloDesdeCursor(e, o) } : o));
+      return;
+    }
     if (dragEl) { const p = metros(e); setElementos((arr) => arr.map((el) => el.id !== dragEl.id ? el : (dragEl.cual === 'a' ? { ...el, x1: p.x, y1: p.y } : { ...el, x2: p.x, y2: p.y }))); return; }
     if (!drag) return;
     const p = svgCoords(e); const nx = Math.max(0, p.x / scale - drag.offsetX), ny = Math.max(0, p.y / scale - drag.offsetY);
@@ -105,6 +129,12 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
     else setObjetos((arr) => arr.map((o) => o.id === drag.id ? { ...o, x: nx, y: ny } : o));
   }
   async function soltarDrag() {
+    if (giro) {
+      const g = giro; setGiro(null);
+      if (g.tipo === 'espacio') { const s = espacios.find((x) => x.id === g.id); if (s) await actualizarEspacio(s.id, { rot: Math.round(s.rot) }); }
+      else { const o = objetos.find((x) => x.id === g.id); if (o) await actualizarObjeto(o.id, { rot: Math.round(o.rot) }); }
+      return;
+    }
     if (dragEl) { const d = dragEl; setDragEl(null); const el = elementos.find((x) => x.id === d.id); if (el) await actualizarElemento(el.id, d.cual === 'a' ? { x1: Number(el.x1.toFixed(2)), y1: Number(el.y1.toFixed(2)) } : { x2: Number(el.x2.toFixed(2)), y2: Number(el.y2.toFixed(2)) }); return; }
     if (!drag) return; const d = drag; setDrag(null);
     if (d.tipo === 'espacio') { const s = espacios.find((x) => x.id === d.id); if (s) await actualizarEspacio(s.id, { x: Number(s.x.toFixed(2)), y: Number(s.y.toFixed(2)), ...(s.poligono ? { poligono: s.poligono.map((p) => ({ x: Number(p.x.toFixed(2)), y: Number(p.y.toFixed(2)) })) } : {}) }); }
@@ -193,8 +223,10 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
             {espCapa.map((e) => {
               const activo = sel?.tipo === 'espacio' && sel.id === e.id;
               const stroke = activo ? lente.color : '#c8d3e6';
+              const c = centroDe(e);
               return (
-                <g key={e.id} onMouseDown={(ev) => iniciarDrag(ev, 'espacio', e)} style={{ cursor: modo === 'sel' ? 'grab' : 'crosshair' }}>
+                <g key={e.id} onMouseDown={(ev) => iniciarDrag(ev, 'espacio', e)} style={{ cursor: modo === 'sel' ? 'grab' : 'crosshair' }}
+                  transform={e.rot ? `rotate(${e.rot} ${c.x * scale} ${c.y * scale})` : undefined}>
                   {e.poligono && e.poligono.length >= 3
                     ? <polygon points={e.poligono.map((p) => `${p.x * scale},${p.y * scale}`).join(' ')} fill="#eef2f8" fillOpacity={0.85} stroke={stroke} strokeWidth={activo ? 3 : 1.5} />
                     : <rect x={e.x * scale} y={e.y * scale} width={e.ancho * scale} height={e.alto * scale} rx={4} fill="#eef2f8" fillOpacity={0.85} stroke={stroke} strokeWidth={activo ? 3 : 1.5} />}
@@ -206,10 +238,14 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
             {/* objetos */}
             {objCapa.map((o) => {
               const activo = sel?.tipo === 'objeto' && sel.id === o.id;
+              const c = centroDe(o);
               return (
-                <g key={o.id} onMouseDown={(ev) => iniciarDrag(ev, 'objeto', o)} style={{ cursor: modo === 'sel' ? 'grab' : 'crosshair' }}>
+                <g key={o.id} onMouseDown={(ev) => iniciarDrag(ev, 'objeto', o)} style={{ cursor: modo === 'sel' ? 'grab' : 'crosshair' }}
+                  transform={o.rot ? `rotate(${o.rot} ${c.x * scale} ${c.y * scale})` : undefined}>
                   <rect x={o.x * scale} y={o.y * scale} width={o.ancho * scale} height={o.alto * scale} rx={3} fill="#fff3e0" stroke={activo ? lente.color : '#e0a96b'} strokeWidth={activo ? 3 : 1.5} />
-                  <text x={o.x * scale + o.ancho * scale / 2} y={o.y * scale + o.alto * scale / 2 + 3} textAnchor="middle" fontSize={9} fill="#8a5a2b" style={{ pointerEvents: 'none' }}>{o.nombre.slice(0, 10)}</text>
+                  {/* marca del frente: sin ella, girado 180° se ve igual */}
+                  <line x1={o.x * scale + 3} y1={o.y * scale + 3} x2={(o.x + o.ancho) * scale - 3} y2={o.y * scale + 3} stroke="#c98a3b" strokeWidth={2} style={{ pointerEvents: 'none' }} />
+                  <text x={c.x * scale} y={c.y * scale + 3} textAnchor="middle" fontSize={9} fill="#8a5a2b" style={{ pointerEvents: 'none' }}>{o.nombre.slice(0, 10)}</text>
                 </g>
               );
             })}
@@ -236,6 +272,31 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
             {selElemento && modo === 'sel' && ([['a', selElemento.x1, selElemento.y1], ['b', selElemento.x2, selElemento.y2]] as const).map(([cual, hx, hy]) => (
               <circle key={cual} cx={hx * scale} cy={hy * scale} r={6} fill="#fff" stroke="#e0795b" strokeWidth={2} style={{ cursor: 'grab', pointerEvents: 'all' }} onMouseDown={(ev) => iniciarDragEl(ev, selElemento.id, cual)} />
             ))}
+            {/* manija de GIRO de la figura seleccionada (espacio o objeto) */}
+            {modo === 'sel' && (selEspacio ?? selObjeto) && (() => {
+              const f = (selEspacio ?? selObjeto)!;
+              const tipo: 'espacio' | 'objeto' = selEspacio ? 'espacio' : 'objeto';
+              const c = centroDe(f);
+              const cx = c.x * scale, cy = c.y * scale;
+              const brazo = (f.alto * scale) / 2 + 22;
+              return (
+                <g transform={`rotate(${f.rot} ${cx} ${cy})`}>
+                  <line x1={cx} y1={cy - (f.alto * scale) / 2} x2={cx} y2={cy - brazo} stroke="#7a4fbf" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+                  <circle cx={cx} cy={cy - brazo} r={7} fill="#fff" stroke="#7a4fbf" strokeWidth={2}
+                    style={{ cursor: 'grab', pointerEvents: 'all' }}
+                    onMouseDown={(ev) => iniciarGiro(ev, tipo, f)}>
+                    <title>Arrastra para girar · mantén Shift para imantar a 15°</title>
+                  </circle>
+                </g>
+              );
+            })()}
+            {/* ángulo en vivo mientras se gira */}
+            {giro && (selEspacio ?? selObjeto) && (() => {
+              const f = (selEspacio ?? selObjeto)!;
+              const c = centroDe(f);
+              return <Etiqueta x={c.x * scale + 12} y={c.y * scale - 10} text={`${Math.round(f.rot)}°`} />;
+            })()}
+
             {/* preview muro/puerta/ventana */}
             {(modo === 'muro' || modo === 'puerta' || modo === 'ventana') && pend && cursor && <line x1={pend.x * scale} y1={pend.y * scale} x2={cursor.x * scale} y2={cursor.y * scale} stroke={ESTILO_ELEMENTO[modo].color} strokeWidth={ESTILO_ELEMENTO[modo].grosor} strokeDasharray="4 4" opacity={0.6} style={{ pointerEvents: 'none' }} />}
             {(modo === 'muro' || modo === 'puerta' || modo === 'ventana') && pend && <circle cx={pend.x * scale} cy={pend.y * scale} r={4} fill={ESTILO_ELEMENTO[modo].color} style={{ pointerEvents: 'none' }} />}
@@ -300,6 +361,7 @@ function FichaEspacio({ espacio, ucs, lenteId, onCambio, onEliminar }: { espacio
             <div style={{ flex: 1 }}><label style={lbl}>Ancho (m)</label><input style={inp} type="number" defaultValue={espacio.ancho} onBlur={(e) => void actualizarEspacio(espacio.id, { ancho: Number(e.target.value) || espacio.ancho }).then(onCambio)} /></div>
             <div style={{ flex: 1 }}><label style={lbl}>Alto (m)</label><input style={inp} type="number" defaultValue={espacio.alto} onBlur={(e) => void actualizarEspacio(espacio.id, { alto: Number(e.target.value) || espacio.alto }).then(onCambio)} /></div>
           </div>}
+      <Giro rot={espacio.rot} onCambio={(rot) => void actualizarEspacio(espacio.id, { rot }).then(onCambio)} />
       <label style={lbl}>Unidades Comerciales asignadas</label>
       {ucs.length === 0 && <div style={{ fontSize: 12, color: '#999' }}>(crea UCs en el proyecto)</div>}
       {ucs.map((uc) => (
@@ -334,10 +396,29 @@ function FichaObjeto({ objeto, espacios, lenteId, onCambio, onEliminar }: { obje
         <div style={{ flex: 1 }}><label style={lbl}>Ancho (m)</label><input style={inp} type="number" defaultValue={objeto.ancho} onBlur={(e) => void actualizarObjeto(objeto.id, { ancho: Number(e.target.value) || objeto.ancho }).then(onCambio)} /></div>
         <div style={{ flex: 1 }}><label style={lbl}>Alto (m)</label><input style={inp} type="number" defaultValue={objeto.alto} onBlur={(e) => void actualizarObjeto(objeto.id, { alto: Number(e.target.value) || objeto.alto }).then(onCambio)} /></div>
       </div>
+      <Giro rot={objeto.rot} onCambio={(rot) => void actualizarObjeto(objeto.id, { rot }).then(onCambio)} />
       <CamposLente elementoData={objeto.data} soloObjeto lenteId={lenteId} onGuardar={(campos) => void actualizarObjeto(objeto.id, { campos }).then(onCambio)} />
       <button style={{ ...btn, color: '#a00', marginTop: '0.6rem' }} onClick={onEliminar}>Eliminar objeto</button>
       <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>Lente: <span style={{ color: lente.color }}>{lente.etiqueta}</span></div>
     </div>
+  );
+}
+
+// --- control de giro (numérico + atajos) ---
+function Giro({ rot, onCambio }: { rot: number; onCambio: (rot: number) => void }) {
+  const set = (g: number) => onCambio(normalizarGrados(Math.round(g)));
+  return (
+    <>
+      <label style={lbl}>Giro (°)</label>
+      <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+        <input style={{ ...inp, flex: 1 }} type="number" value={Math.round(rot)}
+          onChange={(e) => set(Number(e.target.value) || 0)} />
+        <button style={btn} title="Girar 90° a la izquierda" onClick={() => set(rot - 90)}>↺</button>
+        <button style={btn} title="Girar 90° a la derecha" onClick={() => set(rot + 90)}>↻</button>
+        <button style={btn} title="Volver a 0°" onClick={() => set(0)}>⌐</button>
+      </div>
+      <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>También puedes arrastrar la manija morada del lienzo (Shift = imantar a 15°).</div>
+    </>
   );
 }
 

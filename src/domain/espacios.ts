@@ -98,15 +98,50 @@ export function poligonoAMetros(pts: [number, number][]): { puntos: { x: number;
   return { puntos, ancho, alto };
 }
 
+// `rot` = giro en GRADOS alrededor del centro de la figura. Sin él todo queda alineado
+// a los ejes y ninguna distribución real (una camilla en diagonal, una barra en ángulo)
+// se puede representar — ni medir bien los recorridos.
 export interface Espacio {
   id: string; sedeId: string; padreId?: string | undefined; tipo: TipoEspacio; nombre: string;
-  capa: number; x: number; y: number; ancho: number; alto: number;
+  capa: number; x: number; y: number; ancho: number; alto: number; rot: number;
   ucIds: string[]; poligono?: { x: number; y: number }[] | undefined; data: Record<string, string>;
 }
 
 export interface ObjetoFisico {
   id: string; sedeId: string; espacioId: string; nombre: string; categoria: CategoriaObjeto;
-  capa: number; x: number; y: number; ancho: number; alto: number; data: Record<string, string>;
+  capa: number; x: number; y: number; ancho: number; alto: number; rot: number; data: Record<string, string>;
+}
+
+// ---------- geometría con rotación ----------
+
+export interface Punto { x: number; y: number }
+
+// Centro de una figura rectangular (el eje del giro).
+export function centroDe(f: { x: number; y: number; ancho: number; alto: number }): Punto {
+  return { x: f.x + f.ancho / 2, y: f.y + f.alto / 2 };
+}
+
+export function rotarPunto(p: Punto, centro: Punto, grados: number): Punto {
+  if (!grados) return p;
+  const r = (grados * Math.PI) / 180, cos = Math.cos(r), sin = Math.sin(r);
+  const dx = p.x - centro.x, dy = p.y - centro.y;
+  return { x: centro.x + dx * cos - dy * sin, y: centro.y + dx * sin + dy * cos };
+}
+
+// Las 4 esquinas reales de un rectángulo ya rotado (para medir, verificar choques
+// y calcular recorridos sobre la geometría de verdad, no sobre el bbox).
+export function esquinasDe(f: { x: number; y: number; ancho: number; alto: number; rot?: number }): Punto[] {
+  const c = centroDe(f);
+  const g = f.rot ?? 0;
+  return [
+    { x: f.x, y: f.y }, { x: f.x + f.ancho, y: f.y },
+    { x: f.x + f.ancho, y: f.y + f.alto }, { x: f.x, y: f.y + f.alto },
+  ].map((p) => rotarPunto(p, c, g));
+}
+
+// Normaliza un ángulo a [0, 360).
+export function normalizarGrados(g: number): number {
+  return ((g % 360) + 360) % 360;
 }
 
 // Elementos arquitectónicos: segmentos en metros por capa (muros/puertas/ventanas).

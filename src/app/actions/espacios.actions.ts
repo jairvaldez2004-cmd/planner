@@ -68,12 +68,12 @@ export async function eliminarSede(id: string): Promise<void> {
 // =================== ESPACIOS ===================
 function mapEspacio(r: { id: string; sedeId: string; padreId: string | null; tipo: string; nombre: string; capa: number; x: number; y: number; ancho: number; alto: number; data: unknown }): Espacio {
   const d = obj(r.data);
-  const { ucIds, poligono, ...campos } = d as { ucIds?: unknown; poligono?: unknown } & Record<string, unknown>;
+  const { ucIds, poligono, rot, ...campos } = d as { ucIds?: unknown; poligono?: unknown; rot?: unknown } & Record<string, unknown>;
   const camposStr: Record<string, string> = {};
   for (const [k, v] of Object.entries(campos)) camposStr[k] = str(v);
   return {
     id: r.id, sedeId: r.sedeId, padreId: r.padreId ?? undefined, tipo: r.tipo as TipoEspacio, nombre: r.nombre,
-    capa: r.capa, x: r.x, y: r.y, ancho: r.ancho, alto: r.alto,
+    capa: r.capa, x: r.x, y: r.y, ancho: r.ancho, alto: r.alto, rot: typeof rot === 'number' ? rot : 0,
     ucIds: Array.isArray(ucIds) ? (ucIds as string[]) : [],
     poligono: Array.isArray(poligono) ? (poligono as { x: number; y: number }[]) : undefined,
     data: camposStr,
@@ -92,13 +92,14 @@ export async function crearEspacio(proyectoId: string, sedeId: string, e: { tipo
   } });
   return mapEspacio(r);
 }
-export interface EspacioPatch { nombre?: string; tipo?: TipoEspacio; x?: number; y?: number; ancho?: number; alto?: number; capa?: number; ucIds?: string[]; poligono?: { x: number; y: number }[]; campos?: Record<string, string> }
+export interface EspacioPatch { nombre?: string; tipo?: TipoEspacio; x?: number; y?: number; ancho?: number; alto?: number; rot?: number; capa?: number; ucIds?: string[]; poligono?: { x: number; y: number }[]; campos?: Record<string, string> }
 export async function actualizarEspacio(id: string, patch: EspacioPatch): Promise<void> {
   const r = await prisma.espacio.findUnique({ where: { id } }); if (!r) return;
   const d = obj(r.data);
   const data = { ...d } as Record<string, unknown>;
   if (patch.ucIds !== undefined) data.ucIds = patch.ucIds;
   if (patch.poligono !== undefined) data.poligono = patch.poligono;
+  if (patch.rot !== undefined) data.rot = patch.rot;
   if (patch.campos) for (const [k, v] of Object.entries(patch.campos)) data[k] = v;
   await prisma.espacio.update({ where: { id }, data: {
     ...(patch.nombre !== undefined ? { nombre: patch.nombre } : {}),
@@ -118,9 +119,10 @@ export async function eliminarEspacio(id: string): Promise<void> {
 
 // =================== OBJETOS FÍSICOS ===================
 function mapObjeto(r: { id: string; sedeId: string; espacioId: string; nombre: string; categoria: string; capa: number; x: number; y: number; ancho: number; alto: number; data: unknown }): ObjetoFisico {
-  const d = obj(r.data); const campos: Record<string, string> = {};
-  for (const [k, v] of Object.entries(d)) campos[k] = str(v);
-  return { id: r.id, sedeId: r.sedeId, espacioId: r.espacioId, nombre: r.nombre, categoria: r.categoria as CategoriaObjeto, capa: r.capa, x: r.x, y: r.y, ancho: r.ancho, alto: r.alto, data: campos };
+  const d = obj(r.data); const { rot, ...resto } = d as { rot?: unknown } & Record<string, unknown>;
+  const campos: Record<string, string> = {};
+  for (const [k, v] of Object.entries(resto)) campos[k] = str(v);
+  return { id: r.id, sedeId: r.sedeId, espacioId: r.espacioId, nombre: r.nombre, categoria: r.categoria as CategoriaObjeto, capa: r.capa, x: r.x, y: r.y, ancho: r.ancho, alto: r.alto, rot: typeof rot === 'number' ? rot : 0, data: campos };
 }
 export async function listarObjetos(sedeId: string): Promise<ObjetoFisico[]> {
   return (await prisma.objetoFisico.findMany({ where: { sedeId } })).map(mapObjeto);
@@ -133,11 +135,12 @@ export async function crearObjeto(proyectoId: string, sedeId: string, o: { espac
   } });
   return mapObjeto(r);
 }
-export interface ObjetoPatch { nombre?: string; categoria?: CategoriaObjeto; espacioId?: string; x?: number; y?: number; ancho?: number; alto?: number; campos?: Record<string, string> }
+export interface ObjetoPatch { nombre?: string; categoria?: CategoriaObjeto; espacioId?: string; x?: number; y?: number; ancho?: number; alto?: number; rot?: number; campos?: Record<string, string> }
 export async function actualizarObjeto(id: string, patch: ObjetoPatch): Promise<void> {
   const r = await prisma.objetoFisico.findUnique({ where: { id } }); if (!r) return;
   const d = obj(r.data); const data = { ...d } as Record<string, unknown>;
   if (patch.campos) for (const [k, v] of Object.entries(patch.campos)) data[k] = v;
+  if (patch.rot !== undefined) data.rot = patch.rot;
   await prisma.objetoFisico.update({ where: { id }, data: {
     ...(patch.nombre !== undefined ? { nombre: patch.nombre } : {}),
     ...(patch.categoria !== undefined ? { categoria: patch.categoria } : {}),
