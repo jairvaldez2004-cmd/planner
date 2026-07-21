@@ -242,6 +242,23 @@ model Modelo3DObjeto {
   @@index([proyectoId])
 }
 
+// Escaneo 3D del NIVEL COMPLETO de una sede (fotogrametría/LiDAR del local entero,
+// exportado .glb): la vista 3D lo muestra TAL CUAL en lugar del modelo dibujado.
+// 1 por nivel (subir otro lo reemplaza). `rot` = giro en cuartos (0/90/180/270) para
+// alinear el escaneo con el plano.
+model Modelo3DNivel {
+  id         String @id
+  proyectoId String
+  sedeId     String
+  capa       Int    @default(0)
+  nombre     String
+  rot        Int    @default(0)
+  datos      Bytes
+
+  @@unique([sedeId, capa])
+  @@index([proyectoId])
+}
+
 // Catálogo por UC (ADITIVO). Ref: PLANNER_CATALOG_TO_OFFERING_V1.md.
 // Oferta = {Entregable} + {Ruta base}. Presentación = SKU vendible que hereda la ruta.
 model Oferta {

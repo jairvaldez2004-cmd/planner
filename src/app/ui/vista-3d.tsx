@@ -14,7 +14,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { alturaObjeto, normalizarGrados } from '@/domain/espacios';
 import type { Espacio, ObjetoFisico, Sede } from '@/domain/espacios';
-import { modelosDeSede } from '@/app/actions/modelo3d.actions';
+import { modelosDeSede, obtenerEscaneoNivel, subirEscaneoNivel, rotarEscaneoNivel, eliminarEscaneoNivel } from '@/app/actions/modelo3d.actions';
+import { MAX_GLB_BYTES } from '@/domain/render';
 import { actualizarObjeto, eliminarObjeto, crearObjeto } from '@/app/actions/espacios.actions';
 import { registrarDeshacer, BotonDeshacer } from './deshacer';
 import { conversarDisenador3D, cargarChatDisenador, aplicarInversaDisenador } from '@/app/actions/disenador.actions';
@@ -56,6 +57,36 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
   const selObj = objetos.find((o) => o.id === selId) ?? null;
   // Escaneos .glb subidos por objeto (LiDAR/fotogrametría): se cargan una vez por sede.
   const [modelos, setModelos] = useState<Map<string, ArrayBuffer> | null>(null);
+  // Escaneo del NIVEL COMPLETO (el local entero): si existe, se puede ver TAL CUAL.
+  const [escaneo, setEscaneo] = useState<{ nombre: string; rot: number; buf: ArrayBuffer } | null>(null);
+  const [verEscaneo, setVerEscaneo] = useState(true); // con escaneo: real por defecto
+  const [msgEscaneo, setMsgEscaneo] = useState('');
+  const escaneoRef = useRef<HTMLInputElement | null>(null);
+
+  const cargarEscaneo = () => {
+    obtenerEscaneoNivel(sede.id, capa).then((r) => {
+      if (!r) { setEscaneo(null); return; }
+      const bin = atob(r.base64);
+      const buf = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      setEscaneo({ nombre: r.nombre, rot: r.rot, buf: buf.buffer });
+    }).catch(() => setEscaneo(null));
+  };
+  useEffect(() => { cargarEscaneo(); /* eslint-disable-next-line */ }, [sede.id, capa]);
+
+  async function subirEscaneo(f: File) {
+    if (f.size > MAX_GLB_BYTES) { setMsgEscaneo(`Pesa ${(f.size / 1024 / 1024).toFixed(1)} MB; máximo 25 MB — exporta el escaneo en calidad media.`); return; }
+    setMsgEscaneo('Subiendo escaneo del local…');
+    const b64 = await new Promise<string>((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(String(fr.result).split(',')[1] ?? '');
+      fr.onerror = rej;
+      fr.readAsDataURL(f);
+    });
+    const r = await subirEscaneoNivel(proyectoId, sede.id, capa, f.name.replace(/\.[^.]+$/, ''), b64);
+    setMsgEscaneo(r.ok ? 'Escaneo del local guardado. Si quedó girado, usa ⟳90°.' : r.error);
+    if (r.ok) { setVerEscaneo(true); cargarEscaneo(); }
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -115,14 +146,41 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
     terreno.receiveShadow = true;
     scene.add(terreno);
 
+    // ===== MODO ESCANEO REAL: el .glb del local entero sustituye al modelo dibujado
+    // (piso/muros/losas/objetos dibujados se OMITEN; quedan las etiquetas de área) =====
+    const modoEscaneo = verEscaneo && !!escaneo;
+    if (modoEscaneo && escaneo) {
+      const loaderNivel = new GLTFLoader();
+      loaderNivel.parse(escaneo.buf.slice(0), '', (gltf) => {
+        const g = gltf.scene;
+        // giro de alineación elegido por el usuario (⟳90°)
+        g.rotation.y = -escaneo.rot * Math.PI / 180;
+        g.updateMatrixWorld(true);
+        const caja = new THREE.Box3().setFromObject(g);
+        const dim = caja.getSize(new THREE.Vector3());
+        const centro = caja.getCenter(new THREE.Vector3());
+        // encuadre a la huella: escala uniforme al ancho×fondo declarados
+        const s = Math.min(W / Math.max(0.1, dim.x), D / Math.max(0.1, dim.z));
+        const wrap = new THREE.Group();
+        wrap.add(g);
+        g.position.set(-centro.x, -caja.min.y, -centro.z);
+        wrap.scale.setScalar(s);
+        wrap.position.set(W / 2, 0.02, D / 2);
+        wrap.traverse((n) => { n.castShadow = true; n.receiveShadow = true; });
+        scene.add(wrap);
+      }, () => { /* GLB ilegible: queda el modelo dibujado de fondo */ });
+    }
+
     // piso general: acabado de la sede si lo hay (duela, porcelanato…), neutro si no
-    const piso = new THREE.Mesh(
-      new THREE.BoxGeometry(W, 0.05, D),
-      materialAcabado(sede.acabadoPiso, W, D) ?? new THREE.MeshStandardMaterial({ color: 0xd8cfc2, roughness: 0.7 }),
-    );
-    piso.position.set(W / 2, 0.025, D / 2);
-    piso.receiveShadow = true;
-    scene.add(piso);
+    if (!modoEscaneo) {
+      const piso = new THREE.Mesh(
+        new THREE.BoxGeometry(W, 0.05, D),
+        materialAcabado(sede.acabadoPiso, W, D) ?? new THREE.MeshStandardMaterial({ color: 0xd8cfc2, roughness: 0.7 }),
+      );
+      piso.position.set(W / 2, 0.025, D / 2);
+      piso.receiveShadow = true;
+      scene.add(piso);
+    }
 
     // --- muros perimetrales (se ocultan solos los que dan a la cámara) ---
     const T = 0.15, half = T / 2;
@@ -136,13 +194,15 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
       { w: D + T, x: -half, z: D / 2, rotY: Math.PI / 2, n: [-1, 0] },
       { w: D + T, x: W + half, z: D / 2, rotY: Math.PI / 2, n: [1, 0] },
     ];
-    for (const m of defMuros) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(m.w, muroAlt, T), matMuro);
-      mesh.rotation.y = m.rotY;
-      mesh.position.set(m.x, muroAlt / 2 + 0.05, m.z);
-      mesh.castShadow = true; mesh.receiveShadow = true;
-      scene.add(mesh);
-      muros.push({ mesh, normal: new THREE.Vector3(m.n[0], 0, m.n[1]), centro: mesh.position.clone() });
+    if (!modoEscaneo) {
+      for (const m of defMuros) {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(m.w, muroAlt, T), matMuro);
+        mesh.rotation.y = m.rotY;
+        mesh.position.set(m.x, muroAlt / 2 + 0.05, m.z);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        scene.add(mesh);
+        muros.push({ mesh, normal: new THREE.Vector3(m.n[0], 0, m.n[1]), centro: mesh.position.clone() });
+      }
     }
 
     // --- áreas: losa de color + etiqueta (sprite con texto) ---
@@ -162,6 +222,13 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
     };
 
     espacios.forEach((s, i) => {
+      // en modo escaneo: solo la etiqueta flotante (el escaneo ya trae el piso real)
+      if (modoEscaneo) {
+        const et = etiqueta(s.nombre);
+        et.position.set(s.x + s.ancho / 2, 1.9, s.y + s.alto / 2);
+        scene.add(et);
+        return;
+      }
       const color = COLORES_AREA[i % COLORES_AREA.length]!;
       let shape: THREE.Shape;
       if (s.poligono && s.poligono.length >= 3) {
@@ -188,9 +255,10 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
     });
 
     // --- objetos: escaneo .glb si existe, caja genérica si no (ambos clicables) ---
+    // En modo escaneo del local NO se dibujan (el escaneo ya trae los muebles reales).
     const clicables: THREE.Object3D[] = [];
     const loader = new GLTFLoader();
-    for (const o of objetos) {
+    for (const o of modoEscaneo ? [] : objetos) {
       const glb = modelos?.get(o.id);
       // ancla del objeto: su lugar y giro del plano
       const ancla = new THREE.Group();
@@ -353,7 +421,7 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
       renderer.dispose();
       mont.removeChild(renderer.domElement);
     };
-  }, [espacios, objetos, footAncho, footAlto, muroAlt, modelos, selId]);
+  }, [espacios, objetos, footAncho, footAlto, muroAlt, modelos, selId, escaneo, verEscaneo]);
 
   // ---- acciones del panel de manipulación (todas reversibles con ↩) ----
   function girar(delta: number) {
@@ -392,8 +460,27 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
         <input type="range" min={0} max={3.5} step={0.1} value={muroAlt} onChange={(e) => setMuroAlt(Number(e.target.value))} />
         <span style={{ fontSize: 12, color: '#666' }}>{muroAlt.toFixed(1)} m</span>
         <span style={{ flex: 1 }} />
+        {/* escaneo del local completo (fotogrametría/LiDAR del teléfono → .glb) */}
+        <input ref={escaneoRef} type="file" accept=".glb,model/gltf-binary" style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirEscaneo(f); e.target.value = ''; }} />
+        {escaneo ? (
+          <>
+            <button style={{ ...btn, background: verEscaneo ? '#2e9e63' : '#fff', color: verEscaneo ? '#fff' : '#333', borderColor: verEscaneo ? '#2e9e63' : '#999', fontWeight: 'bold' }}
+              onClick={() => setVerEscaneo((v) => !v)} title="Alternar entre el escaneo real y el modelo dibujado">
+              {verEscaneo ? '🏠 Escaneo real' : '📐 Modelo'}
+            </button>
+            {verEscaneo && <button style={btn} title="Girar el escaneo 90° para alinearlo al plano"
+              onClick={() => { void rotarEscaneoNivel(sede.id, capa).then(() => cargarEscaneo()); }}>⟳90°</button>}
+            <button style={{ ...btn, color: '#b33' }} title="Quitar el escaneo del local"
+              onClick={() => { if (window.confirm('¿Quitar el escaneo del local?')) void eliminarEscaneoNivel(sede.id, capa).then(() => { setEscaneo(null); setMsgEscaneo(''); }); }}>×</button>
+          </>
+        ) : (
+          <button style={btn} title="Sube el escaneo .glb del local entero (Scaniverse/Polycam/Luma)"
+            onClick={() => escaneoRef.current?.click()}>🏠 Subir escaneo del local</button>
+        )}
         <BotonDeshacer onDespues={onCambio} />
       </div>
+      {msgEscaneo && <p style={{ fontSize: 12, color: msgEscaneo.includes('guardado') ? '#2e9e63' : '#8a6d3b', margin: '0 0 0.4rem' }}>{msgEscaneo}</p>}
 
       <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(0, 1fr) 330px', gap: '0.75rem', alignItems: 'start' }}>
         <div>

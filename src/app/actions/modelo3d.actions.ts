@@ -38,3 +38,37 @@ export async function modelosDeSede(sedeId: string): Promise<{ objetoId: string;
 export async function eliminarModelo3D(objetoId: string): Promise<void> {
   await prisma.modelo3DObjeto.deleteMany({ where: { objetoId } });
 }
+
+// =================== ESCANEO DEL NIVEL COMPLETO ===================
+// El local entero escaneado con el teléfono (fotogrametría/LiDAR → .glb): la vista 3D
+// lo muestra tal cual, en lugar del modelo dibujado. 1 por nivel (reemplaza al subir).
+
+export async function subirEscaneoNivel(proyectoId: string, sedeId: string, capa: number, nombre: string, base64: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const datos = Buffer.from(base64, 'base64');
+  const motivo = validarGlb(new Uint8Array(datos.subarray(0, 4)), datos.byteLength);
+  if (motivo) return { ok: false, error: motivo };
+  await prisma.modelo3DNivel.upsert({
+    where: { sedeId_capa: { sedeId, capa } },
+    create: { id: nid('M3N'), proyectoId, sedeId, capa, nombre: nombre.trim() || 'Escaneo del local', datos },
+    update: { nombre: nombre.trim() || 'Escaneo del local', datos, rot: 0 },
+  });
+  return { ok: true };
+}
+
+export async function obtenerEscaneoNivel(sedeId: string, capa: number): Promise<{ nombre: string; rot: number; base64: string } | null> {
+  const r = await prisma.modelo3DNivel.findUnique({ where: { sedeId_capa: { sedeId, capa } } });
+  return r ? { nombre: r.nombre, rot: r.rot, base64: Buffer.from(r.datos).toString('base64') } : null;
+}
+
+// Gira el escaneo 90° (para alinearlo con el plano sin re-escanear).
+export async function rotarEscaneoNivel(sedeId: string, capa: number): Promise<number> {
+  const r = await prisma.modelo3DNivel.findUnique({ where: { sedeId_capa: { sedeId, capa } } });
+  if (!r) return 0;
+  const rot = (r.rot + 90) % 360;
+  await prisma.modelo3DNivel.update({ where: { sedeId_capa: { sedeId, capa } }, data: { rot } });
+  return rot;
+}
+
+export async function eliminarEscaneoNivel(sedeId: string, capa: number): Promise<void> {
+  await prisma.modelo3DNivel.deleteMany({ where: { sedeId, capa } });
+}
