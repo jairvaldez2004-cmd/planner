@@ -19,6 +19,7 @@ import { MAX_GLB_BYTES } from '@/domain/render';
 import { actualizarObjeto, eliminarObjeto, crearObjeto } from '@/app/actions/espacios.actions';
 import { registrarDeshacer, BotonDeshacer } from './deshacer';
 import { conversarDisenador3D, cargarChatDisenador, aplicarInversaDisenador } from '@/app/actions/disenador.actions';
+import type { InversaDisenador } from '@/app/actions/disenador.actions';
 import { modeloGenerico } from './modelos-genericos';
 import { materialAcabado } from './texturas';
 import { ChatArquitecto } from './chat-arquitecto';
@@ -34,6 +35,25 @@ const MAT_OBJ: Record<string, { color: number; rough: number; metal: number }> =
   insumo: { color: 0xcfc7ba, rough: 0.85, metal: 0 },
 };
 const COLORES_AREA = [0xdce7f5, 0xe8f0dd, 0xf5e9dc, 0xe9def0, 0xdff0ec, 0xf0e5de];
+
+// ---------- deshacer PERSISTENTE de los turnos del Diseñador ----------
+// El historial de deshacer en memoria se pierde al recargar la página; las inversas
+// del agente SÍ son serializables, así que se guardan en localStorage por sede y se
+// re-registran al volver a abrir la vista 3D. (Los cambios manuales siguen siendo de
+// sesión: sus inversas son funciones, no datos.)
+interface EntradaAgente { id: string; descripcion: string; grupo: string; op: InversaDisenador }
+const yaRegistradas = new Set<string>(); // evita duplicar al re-montar la vista
+
+function claveUndo(sedeId: string): string { return `bp-undo-disenador:${sedeId}`; }
+function leerUndoLS(sedeId: string): EntradaAgente[] {
+  try { return JSON.parse(localStorage.getItem(claveUndo(sedeId)) ?? '[]') as EntradaAgente[]; } catch { return []; }
+}
+function guardarUndoLS(sedeId: string, entradas: EntradaAgente[]): void {
+  try { localStorage.setItem(claveUndo(sedeId), JSON.stringify(entradas.slice(-60))); } catch { /* almacenamiento lleno */ }
+}
+function quitarUndoLS(sedeId: string, id: string): void {
+  guardarUndoLS(sedeId, leerUndoLS(sedeId).filter((e) => e.id !== id));
+}
 
 interface Props {
   sede: Sede;
@@ -62,6 +82,23 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
   const [verEscaneo, setVerEscaneo] = useState(true); // con escaneo: real por defecto
   const [msgEscaneo, setMsgEscaneo] = useState('');
   const escaneoRef = useRef<HTMLInputElement | null>(null);
+
+  // Registra una entrada del agente en la pila de deshacer (y la limpia de
+  // localStorage cuando se ejecuta su inversa).
+  function registrarEntradaAgente(e: EntradaAgente) {
+    if (yaRegistradas.has(e.id)) return;
+    yaRegistradas.add(e.id);
+    registrarDeshacer(e.descripcion, async () => {
+      await aplicarInversaDisenador(proyectoId, e.op);
+      quitarUndoLS(sede.id, e.id);
+    }, e.grupo);
+  }
+
+  // Al abrir la vista: rehidrata los turnos del Diseñador guardados (sobreviven recargas).
+  useEffect(() => {
+    for (const e of leerUndoLS(sede.id)) registrarEntradaAgente(e);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sede.id]);
 
   const cargarEscaneo = () => {
     obtenerEscaneoNivel(sede.id, capa).then((r) => {
@@ -516,9 +553,12 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
             if (r.inversas.length) {
               const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
               const grupo = `Turno del Diseñador · ${hora}`;
-              for (const inv of r.inversas) {
-                registrarDeshacer(inv.descripcion, () => aplicarInversaDisenador(proyectoId, inv.op), grupo);
-              }
+              const entradas: EntradaAgente[] = r.inversas.map((inv) => ({
+                id: crypto.randomUUID(), descripcion: inv.descripcion, grupo, op: inv.op,
+              }));
+              // persisten en localStorage (sobreviven recargas) y entran a la pila
+              guardarUndoLS(sede.id, [...leerUndoLS(sede.id), ...entradas]);
+              for (const e of entradas) registrarEntradaAgente(e);
             }
             return r;
           }}
