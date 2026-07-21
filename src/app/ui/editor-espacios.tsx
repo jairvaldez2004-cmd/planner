@@ -458,7 +458,7 @@ function FichaObjeto({ objeto, espacios, lenteId, proyectoId, tieneModelo, onCam
         {tieneModelo && <button style={{ ...btn, color: '#b33' }} onClick={() => void eliminarModelo3D(objeto.id).then(() => { setMsgGlb('Escaneo eliminado.'); onCambio(); })}>×</button>}
       </div>
       <p style={{ fontSize: 10.5, color: msgGlb.includes('guardado') ? '#2e9e63' : '#8a6d3b', margin: '2px 0 0' }}>
-        {msgGlb || 'Escanea el objeto real con Polycam o Scaniverse (LiDAR o con fotos), exporta ".glb" y súbelo: en la vista 3D sustituye a la caja, ajustado a las medidas de arriba.'}
+        {msgGlb || 'Sube un ".glb" de cualquiera de estas fuentes: (1) escaneo del objeto REAL con Polycam/Scaniverse (LiDAR o fotos); (2) si AÚN NO LO TIENES: descárgalo gratis de poly.pizza o sketchfab.com, o genéralo por IA con meshy.ai/tripo3d.ai escribiendo qué es. Sin GLB, la vista 3D usa una forma genérica según el nombre (camilla, silla, mostrador…).'}
       </p>
 
       <CamposLente elementoData={objeto.data} soloObjeto lenteId={lenteId} onGuardar={(campos) => void actualizarObjeto(objeto.id, { campos }).then(onCambio)} />

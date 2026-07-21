@@ -15,6 +15,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { alturaObjeto } from '@/domain/espacios';
 import type { Espacio, ObjetoFisico, Sede } from '@/domain/espacios';
 import { modelosDeSede } from '@/app/actions/modelo3d.actions';
+import { modeloGenerico } from './modelos-genericos';
 
 const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
 
@@ -193,12 +194,18 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar
           g.traverse((n) => { n.castShadow = true; n.receiveShadow = true; });
           ancla.add(g);
         }, () => {
-          // GLB ilegible (p.ej. comprimido con Draco): caja de respaldo para no dejar hueco.
-          ancla.add(cajaGenerica(o));
+          // GLB ilegible (p.ej. comprimido con Draco): forma de respaldo para no dejar hueco.
+          ancla.add(formaGenerica(o));
         });
       } else {
-        ancla.add(cajaGenerica(o));
+        ancla.add(formaGenerica(o));
       }
+    }
+
+    // Objeto que aún no existe físicamente (nada que escanear): forma paramétrica
+    // reconocible según su nombre (camilla, silla, mostrador…); si no hay, caja.
+    function formaGenerica(o: ObjetoFisico): THREE.Object3D {
+      return modeloGenerico(o.nombre, o.ancho, o.alto) ?? cajaGenerica(o);
     }
 
     function cajaGenerica(o: ObjetoFisico): THREE.Mesh {
