@@ -157,6 +157,23 @@ export const ESTILO_ELEMENTO: Record<TipoElemento, { color: string; grosor: numb
 };
 
 // Etiqueta de nivel/capa (sótano / planta baja / pisos).
+// Altura estimada de un objeto (m) para la vista 3D, por su nombre/categoría. Es una
+// aproximación razonable mientras no se capture la altura real por objeto.
+export function alturaObjeto(nombre: string, categoria: string): number {
+  const n = nombre.toLowerCase();
+  if (/l[aá]mpara|lampara/.test(n)) return 1.7;
+  if (/vitrina|estante|repisa|anaquel/.test(n)) return 1.5;
+  if (/mostrador|barra|recepci/.test(n)) return 1.1;
+  if (/silla|banco|taburete/.test(n)) return 0.9;
+  if (/camilla|cama/.test(n)) return 0.75;
+  if (/tarja|lavabo|fregadero/.test(n)) return 0.9;
+  if (/carro|carrito/.test(n)) return 0.9;
+  if (/autoclave|equipo|esterili/.test(n)) return 0.55;
+  if (categoria === 'insumo') return 0.3;
+  if (categoria === 'equipo') return 0.6;
+  return 0.8;
+}
+
 export function etiquetaNivel(capa: number): string {
   if (capa < 0) return `Sótano ${-capa}`;
   if (capa === 0) return 'Planta baja';

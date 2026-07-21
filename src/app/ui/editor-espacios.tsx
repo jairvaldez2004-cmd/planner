@@ -20,6 +20,7 @@ import {
 import type {
   Sede, Espacio, ObjetoFisico, ElementoArq, UnidadComercial, LenteId, TipoEspacio, CategoriaObjeto, TipoElemento,
 } from '@/domain/espacios';
+import { Vista3D } from './vista-3d';
 import { useEsMovil } from './use-movil';
 
 const VBW = 900, VBH = 600;
@@ -60,6 +61,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
   const [dragEl, setDragEl] = useState<DragEl>(null);
   const [giro, setGiro] = useState<Giro>(null);
   const [modo, setModo] = useState<Modo>('sel');
+  const [ver3D, setVer3D] = useState(false);
   const [pend, setPend] = useState<Pt | null>(null);
   const [roomPts, setRoomPts] = useState<Pt[]>([]);
   const [cursor, setCursor] = useState<Pt | null>(null);
@@ -177,8 +179,17 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h3 style={{ margin: 0 }}>🏢 {sede?.nombre ?? 'Sede'} · editor 2D</h3>
-        <button style={btn} onClick={onVolver}>← Sedes</button>
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+          <button style={{ ...btn, background: ver3D ? '#33415c' : '#fff', color: ver3D ? '#fff' : '#333', borderColor: ver3D ? '#33415c' : '#999', fontWeight: 'bold' }}
+            onClick={() => setVer3D((v) => !v)} title="Ver el plano en 3D (isométrico)">🧊 {ver3D ? 'Ver 2D' : 'Ver 3D'}</button>
+          <button style={btn} onClick={onVolver}>← Sedes</button>
+        </div>
       </div>
+
+      {ver3D && sede && (
+        <Vista3D sede={sede} espacios={espCapa} objetos={objCapa} footAncho={footAncho} footAlto={footAlto} onCerrar={() => setVer3D(false)} />
+      )}
+      {!ver3D && (<>
 
       {/* Lentes */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', margin: '0.5rem 0' }}>
@@ -337,6 +348,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
           </div>
         </div>
       </div>
+      </>)}
     </section>
   );
 }
