@@ -8,6 +8,7 @@ import dynamic from 'next/dynamic';
 import { listarSedes, crearSede, actualizarSede, eliminarSede, listarEspacios, listarObjetos } from '@/app/actions/espacios.actions';
 import type { Sede, Espacio, ObjetoFisico } from '@/domain/espacios';
 import { EditorEspacios } from './editor-espacios';
+import { registrarDeshacer, BotonDeshacer } from './deshacer';
 import { rectRotado, medidasDeRect, centroide } from './huella-geo';
 import type { LL } from './huella-geo';
 
@@ -63,8 +64,24 @@ export function VistaSedes({ proyectoId }: { proyectoId: string }) {
   if (abierta) return <EditorEspacios proyectoId={proyectoId} sedeId={abierta} onVolver={() => { setAbierta(null); cargar(); }} />;
 
   async function crear() { if (!nombre.trim()) return; const s = await crearSede(proyectoId, nombre.trim()); setNombre(''); cargar(); setSelectedId(s.id); }
-  async function mover(id: string, lat: number, lng: number) { setSedes((arr) => arr.map((s) => s.id === id ? { ...s, lat, lng } : s)); await actualizarSede(id, { lat, lng }); }
-  async function setPoligono(id: string, pts: [number, number][]) { setSedes((arr) => arr.map((s) => s.id === id ? { ...s, poligono: pts } : s)); await actualizarSede(id, { poligono: pts }); }
+  async function mover(id: string, lat: number, lng: number) {
+    const prev = sedes.find((s) => s.id === id);
+    if (prev && typeof prev.lat === 'number' && typeof prev.lng === 'number') {
+      const pl = prev.lat, pg = prev.lng;
+      registrarDeshacer('mover la sede en el mapa', async () => { await actualizarSede(id, { lat: pl, lng: pg }); });
+    }
+    setSedes((arr) => arr.map((s) => s.id === id ? { ...s, lat, lng } : s));
+    await actualizarSede(id, { lat, lng });
+  }
+  async function setPoligono(id: string, pts: [number, number][]) {
+    const prev = sedes.find((s) => s.id === id);
+    if (prev) {
+      const pPoly = prev.poligono ? prev.poligono.map((p) => [...p] as [number, number]) : [];
+      registrarDeshacer('cambiar la huella en el mapa', async () => { await actualizarSede(id, { poligono: pPoly }); });
+    }
+    setSedes((arr) => arr.map((s) => s.id === id ? { ...s, poligono: pts } : s));
+    await actualizarSede(id, { poligono: pts });
+  }
   async function setFoot(id: string, patch: Partial<Sede>) { setSedes((arr) => arr.map((s) => s.id === id ? { ...s, ...patch } : s)); await actualizarSede(id, patch); }
 
   return (
@@ -77,6 +94,7 @@ export function VistaSedes({ proyectoId }: { proyectoId: string }) {
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', margin: '0.5rem 0' }}>
         <input style={{ ...inp, flex: 2, minWidth: 160 }} placeholder="Nombre de la sede (ej. Local centro)" value={nombre} onChange={(e) => setNombre(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void crear(); }} />
         <button style={btn} onClick={() => void crear()} disabled={!nombre.trim()}>＋ Nueva sede</button>
+        <BotonDeshacer onDespues={cargar} />
       </div>
 
       {/* Mapa real */}

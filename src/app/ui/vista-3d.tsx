@@ -15,7 +15,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { alturaObjeto, normalizarGrados } from '@/domain/espacios';
 import type { Espacio, ObjetoFisico, Sede } from '@/domain/espacios';
 import { modelosDeSede } from '@/app/actions/modelo3d.actions';
-import { actualizarObjeto, eliminarObjeto } from '@/app/actions/espacios.actions';
+import { actualizarObjeto, eliminarObjeto, crearObjeto } from '@/app/actions/espacios.actions';
+import { registrarDeshacer, BotonDeshacer } from './deshacer';
 import { conversarDisenador3D, cargarChatDisenador } from '@/app/actions/disenador.actions';
 import { modeloGenerico } from './modelos-genericos';
 import { materialAcabado } from './texturas';
@@ -295,6 +296,11 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
       drag = null;
       if (!movido) return;                     // fue solo un clic de selección
       const d = ancla.userData as { id: string; ancho: number; alto: number };
+      const prev = objetos.find((o) => o.id === d.id);
+      if (prev) {
+        const px = prev.x, py = prev.y;
+        registrarDeshacer('mover objeto (3D)', async () => { await actualizarObjeto(d.id, { x: px, y: py }); });
+      }
       void actualizarObjeto(d.id, {
         x: Number((ancla.position.x - d.ancho / 2).toFixed(2)),
         y: Number((ancla.position.z - d.alto / 2).toFixed(2)),
@@ -349,20 +355,30 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
     };
   }, [espacios, objetos, footAncho, footAlto, muroAlt, modelos, selId]);
 
-  // ---- acciones del panel de manipulación ----
+  // ---- acciones del panel de manipulación (todas reversibles con ↩) ----
   function girar(delta: number) {
     if (!selObj) return;
-    void actualizarObjeto(selObj.id, { rot: normalizarGrados(Math.round((selObj.rot ?? 0) + delta)) }).then(onCambio);
+    const id = selObj.id, prevRot = selObj.rot ?? 0;
+    registrarDeshacer('girar objeto (3D)', async () => { await actualizarObjeto(id, { rot: prevRot }); });
+    void actualizarObjeto(id, { rot: normalizarGrados(Math.round(prevRot + delta)) }).then(onCambio);
   }
   function redimensionar(campo: 'ancho' | 'alto', v: number) {
     if (!selObj || !(v > 0)) return;
-    void actualizarObjeto(selObj.id, { [campo]: Number(v.toFixed(2)) }).then(onCambio);
+    const id = selObj.id, prev = selObj[campo];
+    registrarDeshacer('redimensionar objeto (3D)', async () => { await actualizarObjeto(id, { [campo]: prev }); });
+    void actualizarObjeto(id, { [campo]: Number(v.toFixed(2)) }).then(onCambio);
   }
   function quitar() {
     if (!selObj) return;
     if (!window.confirm(`¿Eliminar "${selObj.nombre}" del plano?`)) return;
+    const o = selObj;
+    // recrear al deshacer (el id cambia: un escaneo .glb ligado no se recupera)
+    registrarDeshacer('eliminar objeto (3D)', async () => {
+      const n = await crearObjeto(proyectoId, o.sedeId, { espacioId: o.espacioId, nombre: o.nombre, categoria: o.categoria, capa: o.capa, x: o.x, y: o.y });
+      await actualizarObjeto(n.id, { ancho: o.ancho, alto: o.alto, rot: o.rot, campos: o.data });
+    });
     setSelId(null);
-    void eliminarObjeto(selObj.id).then(onCambio);
+    void eliminarObjeto(o.id).then(onCambio);
   }
 
   return (
@@ -375,6 +391,8 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
         <span style={{ fontSize: 12, color: '#666' }}>Altura de muro</span>
         <input type="range" min={0} max={3.5} step={0.1} value={muroAlt} onChange={(e) => setMuroAlt(Number(e.target.value))} />
         <span style={{ fontSize: 12, color: '#666' }}>{muroAlt.toFixed(1)} m</span>
+        <span style={{ flex: 1 }} />
+        <BotonDeshacer onDespues={onCambio} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(0, 1fr) 330px', gap: '0.75rem', alignItems: 'start' }}>

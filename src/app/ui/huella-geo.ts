@@ -48,6 +48,16 @@ export function rectRotado(center: LL, W: number, H: number, angleDeg: number): 
   return [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)];
 }
 
+// ¿El polígono es un rectángulo (4 vértices, lados opuestos ~iguales)? Distingue la
+// huella "rect georreferenciado" (el plano 2D entero, solo girado/colocado en el mapa)
+// de un polígono dibujado a mano con forma libre.
+export function esRectanguloLL(poly: LL[]): boolean {
+  if (poly.length !== 4) return false;
+  const d = (i: number, j: number) => distM(poly[i]!, poly[j]!);
+  const casi = (a: number, b: number) => Math.abs(a - b) <= Math.max(a, b) * 0.08 + 0.05;
+  return casi(d(0, 1), d(2, 3)) && casi(d(1, 2), d(3, 0));
+}
+
 // Ancho/Alto/Orientación de un polígono ~rectangular (4 vértices: lado 0-1 = ancho, 1-2 = alto).
 export function medidasDeRect(poly: LL[]): { W: number; H: number; orient: number } {
   if (poly.length < 4) return { W: 0, H: 0, orient: 0 };

@@ -22,6 +22,9 @@ import type {
 } from '@/domain/espacios';
 import { Vista3D } from './vista-3d';
 import { VistaRenders } from './vista-renders';
+import { esRectanguloLL } from './huella-geo';
+import type { LL } from './huella-geo';
+import { registrarDeshacer, BotonDeshacer } from './deshacer';
 import { subirModelo3D, idsConModelo3D, eliminarModelo3D } from '@/app/actions/modelo3d.actions';
 import { MAX_GLB_BYTES } from '@/domain/render';
 import { useEsMovil } from './use-movil';
@@ -43,8 +46,9 @@ function Etiqueta({ x, y, text }: { x: number; y: number; text: string }) {
 }
 
 type Sel = { tipo: 'espacio' | 'objeto' | 'elemento'; id: string } | null;
-type Drag = { tipo: 'espacio' | 'objeto'; id: string; offsetX: number; offsetY: number } | null;
-type DragEl = { id: string; cual: 'a' | 'b' } | null;
+// `prev` = estado ANTES del arrastre, para poder registrar el deshacer al soltar.
+type Drag = { tipo: 'espacio' | 'objeto'; id: string; offsetX: number; offsetY: number; prev: { x: number; y: number; poligono?: { x: number; y: number }[] | undefined } } | null;
+type DragEl = { id: string; cual: 'a' | 'b'; prev: { x1: number; y1: number; x2: number; y2: number } } | null;
 // Giro: se arrastra la manija y el ángulo sale del vector centro→cursor.
 type Giro = { tipo: 'espacio' | 'objeto'; id: string; base: number } | null;
 type Modo = 'sel' | TipoElemento | 'habitacion';
@@ -74,7 +78,11 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const lente = getLente(lenteId);
-  const poly = sede?.poligono && sede.poligono.length >= 3 ? poligonoAMetros(sede.poligono) : null;
+  // Si la huella del mapa es un RECTÁNGULO georreferenciado (el plano entero, solo
+  // girado/colocado), el lienzo sigue siendo footAncho×footAlto: rotar la huella en el
+  // mapa NO deforma el plano 2D. Solo un polígono de forma libre cambia el cascarón.
+  const esRectGeo = !!(sede?.poligono && sede.poligono.length === 4 && esRectanguloLL(sede.poligono as LL[]));
+  const poly = sede?.poligono && sede.poligono.length >= 3 && !esRectGeo ? poligonoAMetros(sede.poligono) : null;
   const footAncho = poly ? poly.ancho : (sede?.footAncho ?? 20);
   const footAlto = poly ? poly.alto : (sede?.footAlto ?? 15);
   const scale = Math.min(VBW / footAncho, VBH / footAlto);
@@ -115,12 +123,17 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
   function metros(e: React.MouseEvent): Pt { const p = svgCoords(e); return { x: snap(p.x / scale, footAncho), y: snap(p.y / scale, footAlto) }; }
 
   // --- arrastre (modo selección) ---
-  function iniciarDrag(e: React.MouseEvent, tipo: 'espacio' | 'objeto', item: { id: string; x: number; y: number }) {
+  function iniciarDrag(e: React.MouseEvent, tipo: 'espacio' | 'objeto', item: { id: string; x: number; y: number; poligono?: { x: number; y: number }[] | undefined }) {
     if (modo !== 'sel') return;
     e.stopPropagation(); setSel({ tipo, id: item.id });
-    const p = svgCoords(e); setDrag({ tipo, id: item.id, offsetX: p.x / scale - item.x, offsetY: p.y / scale - item.y });
+    const p = svgCoords(e);
+    setDrag({ tipo, id: item.id, offsetX: p.x / scale - item.x, offsetY: p.y / scale - item.y, prev: { x: item.x, y: item.y, poligono: item.poligono?.map((q) => ({ ...q })) } });
   }
-  function iniciarDragEl(e: React.MouseEvent, id: string, cual: 'a' | 'b') { if (modo !== 'sel') return; e.stopPropagation(); setSel({ tipo: 'elemento', id }); setDragEl({ id, cual }); }
+  function iniciarDragEl(e: React.MouseEvent, id: string, cual: 'a' | 'b') {
+    if (modo !== 'sel') return; e.stopPropagation(); setSel({ tipo: 'elemento', id });
+    const el = elementos.find((x) => x.id === id); if (!el) return;
+    setDragEl({ id, cual, prev: { x1: el.x1, y1: el.y1, x2: el.x2, y2: el.y2 } });
+  }
 
   // --- giro ---
   function iniciarGiro(e: React.MouseEvent, tipo: 'espacio' | 'objeto', item: { id: string; rot: number }) {
@@ -151,14 +164,44 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
   async function soltarDrag() {
     if (giro) {
       const g = giro; setGiro(null);
-      if (g.tipo === 'espacio') { const s = espacios.find((x) => x.id === g.id); if (s) await actualizarEspacio(s.id, { rot: Math.round(s.rot) }); }
-      else { const o = objetos.find((x) => x.id === g.id); if (o) await actualizarObjeto(o.id, { rot: Math.round(o.rot) }); }
+      if (g.tipo === 'espacio') {
+        const s = espacios.find((x) => x.id === g.id);
+        if (s && Math.round(s.rot) !== Math.round(g.base)) {
+          registrarDeshacer('girar área', async () => { await actualizarEspacio(g.id, { rot: Math.round(g.base) }); });
+          await actualizarEspacio(s.id, { rot: Math.round(s.rot) });
+        }
+      } else {
+        const o = objetos.find((x) => x.id === g.id);
+        if (o && Math.round(o.rot) !== Math.round(g.base)) {
+          registrarDeshacer('girar objeto', async () => { await actualizarObjeto(g.id, { rot: Math.round(g.base) }); });
+          await actualizarObjeto(o.id, { rot: Math.round(o.rot) });
+        }
+      }
       return;
     }
-    if (dragEl) { const d = dragEl; setDragEl(null); const el = elementos.find((x) => x.id === d.id); if (el) await actualizarElemento(el.id, d.cual === 'a' ? { x1: Number(el.x1.toFixed(2)), y1: Number(el.y1.toFixed(2)) } : { x2: Number(el.x2.toFixed(2)), y2: Number(el.y2.toFixed(2)) }); return; }
+    if (dragEl) {
+      const d = dragEl; setDragEl(null);
+      const el = elementos.find((x) => x.id === d.id);
+      if (el) {
+        registrarDeshacer('mover extremo de muro', async () => { await actualizarElemento(d.id, d.prev); });
+        await actualizarElemento(el.id, d.cual === 'a' ? { x1: Number(el.x1.toFixed(2)), y1: Number(el.y1.toFixed(2)) } : { x2: Number(el.x2.toFixed(2)), y2: Number(el.y2.toFixed(2)) });
+      }
+      return;
+    }
     if (!drag) return; const d = drag; setDrag(null);
-    if (d.tipo === 'espacio') { const s = espacios.find((x) => x.id === d.id); if (s) await actualizarEspacio(s.id, { x: Number(s.x.toFixed(2)), y: Number(s.y.toFixed(2)), ...(s.poligono ? { poligono: s.poligono.map((p) => ({ x: Number(p.x.toFixed(2)), y: Number(p.y.toFixed(2)) })) } : {}) }); }
-    else { const o = objetos.find((x) => x.id === d.id); if (o) await actualizarObjeto(o.id, { x: Number(o.x.toFixed(2)), y: Number(o.y.toFixed(2)) }); }
+    if (d.tipo === 'espacio') {
+      const s = espacios.find((x) => x.id === d.id);
+      if (s && (s.x !== d.prev.x || s.y !== d.prev.y)) {
+        registrarDeshacer('mover área', async () => { await actualizarEspacio(d.id, { x: d.prev.x, y: d.prev.y, ...(d.prev.poligono ? { poligono: d.prev.poligono } : {}) }); });
+        await actualizarEspacio(s.id, { x: Number(s.x.toFixed(2)), y: Number(s.y.toFixed(2)), ...(s.poligono ? { poligono: s.poligono.map((p) => ({ x: Number(p.x.toFixed(2)), y: Number(p.y.toFixed(2)) })) } : {}) });
+      }
+    } else {
+      const o = objetos.find((x) => x.id === d.id);
+      if (o && (o.x !== d.prev.x || o.y !== d.prev.y)) {
+        registrarDeshacer('mover objeto', async () => { await actualizarObjeto(d.id, { x: d.prev.x, y: d.prev.y }); });
+        await actualizarObjeto(o.id, { x: Number(o.x.toFixed(2)), y: Number(o.y.toFixed(2)) });
+      }
+    }
   }
 
   // --- dibujo ---
@@ -168,7 +211,8 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
     if (modo === 'habitacion') { setRoomPts((a) => [...a, p]); return; }
     if (!pend) { setPend(p); return; }
     if (p.x === pend.x && p.y === pend.y) return;
-    await crearElemento(proyectoId, sedeId, { capa, tipo: modo, x1: pend.x, y1: pend.y, x2: p.x, y2: p.y, ...(modo === 'muro' ? { grosor: muroInt } : {}) });
+    const el = await crearElemento(proyectoId, sedeId, { capa, tipo: modo, x1: pend.x, y1: pend.y, x2: p.x, y2: p.y, ...(modo === 'muro' ? { grosor: muroInt } : {}) });
+    registrarDeshacer(`dibujar ${modo}`, async () => { await eliminarElemento(el.id); });
     setPend(null); await cargar();
   }
   async function cerrarHabitacion() {
@@ -176,15 +220,36 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
     const xs = roomPts.map((p) => p.x), ys = roomPts.map((p) => p.y);
     const minx = Math.min(...xs), miny = Math.min(...ys);
     const e = await crearEspacio(proyectoId, sedeId, { tipo: 'habitacion', nombre: 'Habitación', capa, x: minx, y: miny, ancho: Number((Math.max(...xs) - minx).toFixed(2)), alto: Number((Math.max(...ys) - miny).toFixed(2)), poligono: roomPts.map((p) => ({ x: p.x, y: p.y })) });
+    registrarDeshacer('crear habitación', async () => { await eliminarEspacio(e.id); });
     setRoomPts([]); await cargar(); setSel({ tipo: 'espacio', id: e.id });
   }
 
-  async function agregarEspacio() { const e = await crearEspacio(proyectoId, sedeId, { tipo: 'habitacion', nombre: 'Nueva área', capa, x: 1, y: 1 }); await cargar(); setSel({ tipo: 'espacio', id: e.id }); }
+  async function agregarEspacio() {
+    const e = await crearEspacio(proyectoId, sedeId, { tipo: 'habitacion', nombre: 'Nueva área', capa, x: 1, y: 1 });
+    registrarDeshacer('crear área', async () => { await eliminarEspacio(e.id); });
+    await cargar(); setSel({ tipo: 'espacio', id: e.id });
+  }
   async function agregarObjeto() {
     const espacioId = (sel?.tipo === 'espacio' ? sel.id : espCapa[0]?.id);
     if (!espacioId) { alert('Crea o selecciona un espacio primero.'); return; }
     const o = await crearObjeto(proyectoId, sedeId, { espacioId, nombre: 'Objeto', categoria: 'mueble', capa, x: 0.5, y: 0.5 });
+    registrarDeshacer('crear objeto', async () => { await eliminarObjeto(o.id); });
     await cargar(); setSel({ tipo: 'objeto', id: o.id });
+  }
+
+  // Recrear tras eliminar (deshacer). Nota: el id cambia — un escaneo .glb ligado al
+  // objeto y los objetos DENTRO de un área eliminada no se recuperan.
+  function registrarEliminarEspacio(s: Espacio) {
+    registrarDeshacer('eliminar área', async () => {
+      const n = await crearEspacio(proyectoId, sedeId, { tipo: s.tipo, nombre: s.nombre, capa: s.capa, x: s.x, y: s.y, ancho: s.ancho, alto: s.alto, ...(s.poligono ? { poligono: s.poligono } : {}) });
+      await actualizarEspacio(n.id, { ucIds: s.ucIds, rot: s.rot, campos: s.data });
+    });
+  }
+  function registrarEliminarObjeto(o: ObjetoFisico) {
+    registrarDeshacer('eliminar objeto', async () => {
+      const n = await crearObjeto(proyectoId, sedeId, { espacioId: o.espacioId, nombre: o.nombre, categoria: o.categoria, capa: o.capa, x: o.x, y: o.y });
+      await actualizarObjeto(n.id, { ancho: o.ancho, alto: o.alto, rot: o.rot, campos: o.data });
+    });
   }
 
   const selEspacio = sel?.tipo === 'espacio' ? espacios.find((e) => e.id === sel.id) ?? null : null;
@@ -240,6 +305,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
         <button style={btn} onClick={() => setCapa(Math.max(...capas) + 1)}>＋ piso</button>
         <button style={btn} onClick={() => setCapa(Math.min(...capas) - 1)}>＋ sótano</button>
         <span style={{ marginLeft: 'auto' }} />
+        <BotonDeshacer onDespues={() => void cargar()} />
         <button style={btn} onClick={() => void agregarEspacio()}>＋ Área (rect)</button>
         <button style={btn} onClick={() => void agregarObjeto()}>＋ Objeto</button>
       </div>
@@ -356,13 +422,19 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
         {/* Panel */}
         <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: '0.75rem', background: '#fafafa', minHeight: 200 }}>
           {!sel && <p style={{ color: '#666', fontSize: 13 }}>Selecciona un elemento en el lienzo para editar su ficha.<br />Lente activa: <strong style={{ color: lente.color }}>{lente.etiqueta}</strong>.</p>}
-          {selEspacio && <FichaEspacio key={selEspacio.id} espacio={selEspacio} ucs={ucs} lenteId={lenteId} onCambio={cargar} onEliminar={async () => { await eliminarEspacio(selEspacio.id); setSel(null); cargar(); }} />}
-          {selObjeto && <FichaObjeto key={selObjeto.id} objeto={selObjeto} espacios={espacios} lenteId={lenteId} proyectoId={proyectoId} tieneModelo={conModelo.has(selObjeto.id)} onCambio={cargar} onEliminar={async () => { await eliminarObjeto(selObjeto.id); setSel(null); cargar(); }} />}
+          {selEspacio && <FichaEspacio key={selEspacio.id} espacio={selEspacio} ucs={ucs} lenteId={lenteId} onCambio={cargar} onEliminar={async () => { registrarEliminarEspacio(selEspacio); await eliminarEspacio(selEspacio.id); setSel(null); cargar(); }} />}
+          {selObjeto && <FichaObjeto key={selObjeto.id} objeto={selObjeto} espacios={espacios} lenteId={lenteId} proyectoId={proyectoId} tieneModelo={conModelo.has(selObjeto.id)} onCambio={cargar} onEliminar={async () => { registrarEliminarObjeto(selObjeto); await eliminarObjeto(selObjeto.id); setSel(null); cargar(); }} />}
           {selElemento && (
             <div>
               <strong style={{ fontSize: 14 }}>{ESTILO_ELEMENTO[selElemento.tipo].label}</strong>
               <p style={{ fontSize: 13, color: '#666', margin: '0.3rem 0' }}>Longitud: <strong>{Math.hypot(selElemento.x2 - selElemento.x1, selElemento.y2 - selElemento.y1).toFixed(2)} m</strong> · arrastra los círculos naranjas para editar sus extremos.</p>
-              <button style={{ ...btn, color: '#a00' }} onClick={async () => { await eliminarElemento(selElemento.id); setSel(null); cargar(); }}>Eliminar {ESTILO_ELEMENTO[selElemento.tipo].label.toLowerCase()}</button>
+              <button style={{ ...btn, color: '#a00' }} onClick={async () => {
+                const el = selElemento;
+                registrarDeshacer(`eliminar ${ESTILO_ELEMENTO[el.tipo].label.toLowerCase()}`, async () => {
+                  await crearElemento(proyectoId, sedeId, { capa: el.capa, tipo: el.tipo, x1: el.x1, y1: el.y1, x2: el.x2, y2: el.y2, ...(el.grosor ? { grosor: el.grosor } : {}) });
+                });
+                await eliminarElemento(el.id); setSel(null); cargar();
+              }}>Eliminar {ESTILO_ELEMENTO[selElemento.tipo].label.toLowerCase()}</button>
             </div>
           )}
           <div style={{ marginTop: '1rem', borderTop: '1px solid #e3e3e3', paddingTop: '0.5rem', fontSize: 13 }}>

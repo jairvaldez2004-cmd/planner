@@ -9,7 +9,7 @@ import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
 import type { Sede, Espacio, ObjetoFisico } from '@/domain/espacios';
 import { esquinasDe } from '@/domain/espacios';
-import { medidasDeRect, anguloInterior, bearingDeg } from './huella-geo';
+import { medidasDeRect, anguloInterior, bearingDeg, esRectanguloLL } from './huella-geo';
 import type { LL } from './huella-geo';
 
 const CENTRO_DEF: [number, number] = [19.4326, -99.1332]; // CDMX por defecto
@@ -165,8 +165,7 @@ export default function MapaSedes({ sedes, selectedId, overlaySpaces, overlayObj
 
       // overlay interior dentro del bbox del polígono
       if (sel && (overlaySpaces.length || overlayObjetos.length)) {
-        const lats = poly.map((p) => p[0]), lngs = poly.map((p) => p[1]);
-        dibujarOverlay(capa, Math.max(...lats), Math.min(...lats), Math.min(...lngs), Math.max(...lngs), overlaySpaces, overlayObjetos);
+        dibujarOverlay(capa, poly, s, overlaySpaces, overlayObjetos);
       }
     }
 
@@ -202,12 +201,29 @@ function areaPoligonoM2(poly: [number, number][]): number {
   return Math.abs(s) / 2;
 }
 
-// dibuja el layout interior (áreas + objetos, CON su rotación) dentro de un bbox geográfico
-function dibujarOverlay(capa: L.LayerGroup, north: number, south: number, west: number, east: number, espacios: Espacio[], objetos: ObjetoFisico[]) {
-  const lat0 = (north + south) / 2, cos = Math.cos(lat0 * Math.PI / 180);
-  const Wm = Math.max(1, (east - west) * 111320 * cos), Hm = Math.max(1, (north - south) * 111320);
-  // metros del plano → lat/lng dentro del bbox de la huella
-  const aLL = (p: { x: number; y: number }): [number, number] => [north - (p.y / Hm) * (north - south), west + (p.x / Wm) * (east - west)];
+// dibuja el layout interior (áreas + objetos, CON su rotación) SIGUIENDO la huella:
+// si la huella es un rectángulo georreferenciado (aunque esté girado/movido en el mapa),
+// el plano completo se mapea AFÍN sobre sus lados — mover o rotar la huella arrastra
+// todo el interior con ella. Para polígonos de forma libre se usa el bbox (aproximado).
+function dibujarOverlay(capa: L.LayerGroup, poly: [number, number][], s: Sede, espacios: Espacio[], objetos: ObjetoFisico[]) {
+  let aLL: (p: { x: number; y: number }) => [number, number];
+
+  if (esRectanguloLL(poly as LL[])) {
+    // afín por lados: v0→v1 = eje del ANCHO del plano, v0→v3 = eje del FONDO.
+    const med = medidasDeRect(poly as LL[]);
+    const W = s.footAncho ?? med.W ?? 20, H = s.footAlto ?? med.H ?? 15;
+    const [A, B, , DD] = poly as [LL, LL, LL, LL];
+    aLL = (p) => [
+      A[0] + (p.x / W) * (B[0] - A[0]) + (p.y / H) * (DD[0] - A[0]),
+      A[1] + (p.x / W) * (B[1] - A[1]) + (p.y / H) * (DD[1] - A[1]),
+    ];
+  } else {
+    const lats = poly.map((p) => p[0]), lngs = poly.map((p) => p[1]);
+    const north = Math.max(...lats), south = Math.min(...lats), west = Math.min(...lngs), east = Math.max(...lngs);
+    const lat0 = (north + south) / 2, cos = Math.cos(lat0 * Math.PI / 180);
+    const Wm = Math.max(1, (east - west) * 111320 * cos), Hm = Math.max(1, (north - south) * 111320);
+    aLL = (p) => [north - (p.y / Hm) * (north - south), west + (p.x / Wm) * (east - west)];
+  }
   for (const e of espacios) {
     const pts = (e.poligono && e.poligono.length >= 3) ? e.poligono : esquinasDe(e);
     L.polygon(pts.map(aLL), { color: '#33415c', weight: 1, fillColor: '#5b8def', fillOpacity: 0.22, pmIgnore: true }).addTo(capa).bindTooltip(e.nombre);
