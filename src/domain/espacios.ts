@@ -157,6 +157,50 @@ export const ESTILO_ELEMENTO: Record<TipoElemento, { color: string; grosor: numb
 };
 
 // Etiqueta de nivel/capa (sótano / planta baja / pisos).
+// ---------- colocación automática ----------
+// Busca un hueco libre dentro de un área para un objeto nuevo de ancho×fondo (m):
+// recorre en rejilla y devuelve la primera posición que no se encima con lo ocupado.
+// null si no cabe (quien llama decide: centrar, avisar, o pedir otra área).
+export interface RectM { x: number; y: number; ancho: number; alto: number }
+
+export function buscarHueco(area: RectM, ocupados: RectM[], ancho: number, fondo: number, margen = 0.06, paso = 0.1): { x: number; y: number } | null {
+  const solapa = (a: RectM, b: RectM) =>
+    a.x < b.x + b.ancho && a.x + a.ancho > b.x && a.y < b.y + b.alto && a.y + a.alto > b.y;
+  for (let y = area.y + margen; y + fondo + margen <= area.y + area.alto + 1e-9; y += paso) {
+    for (let x = area.x + margen; x + ancho + margen <= area.x + area.ancho + 1e-9; x += paso) {
+      const cand: RectM = { x, y, ancho, alto: fondo };
+      const inflado = (o: RectM): RectM => ({ x: o.x - margen, y: o.y - margen, ancho: o.ancho + margen * 2, alto: o.alto + margen * 2 });
+      if (!ocupados.some((o) => solapa(cand, inflado(o)))) {
+        return { x: Number(x.toFixed(2)), y: Number(y.toFixed(2)) };
+      }
+    }
+  }
+  return null;
+}
+
+// ---------- formas 3D reconocibles ----------
+// Qué nombres de objeto tienen forma paramétrica en la vista 3D (ui/modelos-genericos
+// construye la geometría; aquí viven los PATRONES para que el server pueda saberlo sin
+// importar Three.js). Mantener ambos lados en sincronía por `clave`.
+export const FORMAS_3D: { clave: string; patron: RegExp }[] = [
+  { clave: 'camilla', patron: /camilla|cama|sill[oó]n de tatu/ },
+  { clave: 'sillas', patron: /sillas?|asiento/ },
+  { clave: 'banco', patron: /banco|taburete/ },
+  { clave: 'mostrador', patron: /mostrador|barra|recepci[oó]n|caja/ },
+  { clave: 'vitrina', patron: /vitrina|exhibidor|aparador/ },
+  { clave: 'lampara', patron: /l[aá]mpara/ },
+  { clave: 'autoclave', patron: /autoclave|esteriliza/ },
+  { clave: 'tarja', patron: /tarja|lavabo|fregadero|lavamanos/ },
+  { clave: 'carrito', patron: /carro|carrito/ },
+  { clave: 'estante', patron: /estante|anaquel|repisa|librero/ },
+  { clave: 'mesa', patron: /mesa|escritorio/ },
+];
+
+export function claveForma3D(nombre: string): string | null {
+  const n = nombre.toLowerCase();
+  return FORMAS_3D.find((f) => f.patron.test(n))?.clave ?? null;
+}
+
 // Altura estimada de un objeto (m) para la vista 3D, por su nombre/categoría. Es una
 // aproximación razonable mientras no se capture la altura real por objeto.
 export function alturaObjeto(nombre: string, categoria: string): number {

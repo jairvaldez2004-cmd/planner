@@ -131,35 +131,27 @@ function estante(g: THREE.Group, w: number, d: number): void {
   for (const y of [0.1, 0.55, 1.0, 1.45]) caja(g, w - 0.06, 0.03, d, M.madera(), 0, y, 0);
 }
 
-// ---------- selección por nombre/categoría ----------
+// ---------- selección por nombre (patrones en domain/espacios FORMAS_3D) ----------
 
-const CONSTRUCTORES: { patron: RegExp; construir: (g: THREE.Group, w: number, d: number) => void }[] = [
-  { patron: /camilla|cama|sill[oó]n de tatu/, construir: camilla },
-  { patron: /sillas?|asiento/, construir: sillas },
-  { patron: /banco|taburete/, construir: banco },
-  { patron: /mostrador|barra|recepci[oó]n|caja/, construir: mostrador },
-  { patron: /vitrina|exhibidor|aparador/, construir: vitrina },
-  { patron: /l[aá]mpara/, construir: lampara },
-  { patron: /autoclave|esteriliza/, construir: autoclave },
-  { patron: /tarja|lavabo|fregadero|lavamanos/, construir: tarja },
-  { patron: /carro|carrito/, construir: carrito },
-  { patron: /estante|anaquel|repisa|librero/, construir: estante },
-  { patron: /mesa|escritorio/, construir: mesa },
-];
+import { claveForma3D } from '@/domain/espacios';
+
+const POR_CLAVE: Record<string, (g: THREE.Group, w: number, d: number) => void> = {
+  camilla, sillas, banco, mostrador, vitrina, lampara, autoclave, tarja, carrito, estante, mesa,
+};
 
 // ¿Hay forma reconocible para este nombre? (para que la UI pueda decirlo)
 export function tieneModeloGenerico(nombre: string): boolean {
-  const n = nombre.toLowerCase();
-  return CONSTRUCTORES.some((c) => c.patron.test(n));
+  return claveForma3D(nombre) !== null;
 }
 
 // Construye el modelo genérico apoyado en y=0, centrado en origen, huella w×d.
 // Devuelve null si no hay forma para ese nombre (el llamador usa su caja).
 export function modeloGenerico(nombre: string, ancho: number, fondo: number): THREE.Group | null {
-  const c = CONSTRUCTORES.find((x) => x.patron.test(nombre.toLowerCase()));
-  if (!c) return null;
+  const clave = claveForma3D(nombre);
+  const construir = clave ? POR_CLAVE[clave] : undefined;
+  if (!construir) return null;
   const g = new THREE.Group();
-  c.construir(g, Math.max(0.1, ancho), Math.max(0.1, fondo));
+  construir(g, Math.max(0.1, ancho), Math.max(0.1, fondo));
   g.traverse((n) => { n.castShadow = true; n.receiveShadow = true; });
   return g;
 }

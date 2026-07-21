@@ -442,6 +442,73 @@ const TOOLS_CURADOR_PROYECTO: Anthropic.Tool[] = [
   },
 ];
 
+// =================== DISEÑADOR 3D (amuebla la sede conversando) ===================
+// Dentro de la vista 3D de una sede: el usuario DESCRIBE los objetos ("pon una camilla
+// de 1.9×0.7 en la Cabina 2") y el agente los crea/coloca/mueve/gira/quita de verdad.
+
+const SYSTEM_DISENADOR = `Eres el DISEÑADOR 3D del Business Planner: amueblas la sede de un negocio colocando OBJETOS reales en su plano, conversando.
+
+SISTEMA DE COORDENADAS (métrico): origen (0,0) = esquina superior-izquierda del plano; x crece a la DERECHA hasta el ancho de la huella; y crece hacia ABAJO (el fondo) hasta el alto. Un objeto se define por su esquina superior-izquierda (x, y) + ancho (en x) + fondo (en y), en METROS, + giro en grados (sentido horario).
+
+REGLAS:
+1) Ve el estado del plano abajo (huella, áreas y objetos con posiciones). Coloca cada objeto DENTRO del área que corresponda y SIN encimarlo con lo que ya hay. Si el usuario no da posición, OMITE x/y: el sistema busca hueco libre solo.
+2) NOMBRES = FORMA 3D: la vista dibuja una forma reconocible si el nombre contiene una de estas palabras: camilla/sillón, silla(s), banco/taburete, mostrador/barra/recepción, vitrina, mesa/escritorio, lámpara, autoclave, tarja/lavabo, carro/carrito, estante/anaquel. Úsalas cuando apliquen ("Camilla de tatuaje", "Estante de insumos"). Si el objeto no matchea ninguna, se verá como caja: dilo y sugiere subir un .glb (escaneado, descargado de poly.pizza, o generado con IA en meshy.ai).
+3) Si el usuario no da medidas, usa medidas REALES sensatas (camilla 1.9×0.7 · silla 0.45×0.45 · mostrador 1.5×0.6 · vitrina 1.2×0.4 · banco 0.4×0.4 · carrito 0.5×0.4 · estante 0.9×0.35 · lámpara 0.4×0.4) y dilas en tu respuesta.
+4) Puedes crear VARIOS objetos en un turno, y también mover, girar, redimensionar, renombrar o eliminar los existentes (refiérelos por su nombre). Antes de ELIMINAR, confirma con el usuario.
+5) Español, claro y breve. Di siempre QUÉ hiciste y DÓNDE quedó (área y posición).`;
+
+const TOOLS_DISENADOR: Anthropic.Tool[] = [
+  {
+    name: 'crear_objeto',
+    description: 'Crea un objeto físico en el plano (mueble/herramienta/equipo/insumo). Si omites x/y, el sistema le busca un hueco libre dentro del área.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        nombre: { type: 'string', description: 'Nombre con palabra clave de forma si aplica. Ej: "Camilla de tatuaje".' },
+        area: { type: 'string', description: 'Nombre del área/habitación donde va.' },
+        ancho: { type: 'number', description: 'Metros en x.' },
+        fondo: { type: 'number', description: 'Metros en y.' },
+        x: { type: 'number', description: 'Esquina sup-izq en m (opcional: sin ella se busca hueco).' },
+        y: { type: 'number', description: 'Esquina sup-izq en m (opcional).' },
+        giro: { type: 'number', description: 'Grados, sentido horario (opcional).' },
+        categoria: { type: 'string', enum: ['mueble', 'herramienta', 'insumo', 'equipo'], description: 'Por defecto: mueble.' },
+      },
+      required: ['nombre', 'area', 'ancho', 'fondo'],
+    },
+  },
+  {
+    name: 'mover_objeto', description: 'Mueve un objeto existente a otra posición (esquina sup-izq, metros).', strict: true,
+    input_schema: { type: 'object', additionalProperties: false, properties: { objeto: { type: 'string' }, x: { type: 'number' }, y: { type: 'number' } }, required: ['objeto', 'x', 'y'] },
+  },
+  {
+    name: 'rotar_objeto', description: 'Gira un objeto (grados absolutos, sentido horario; 0 = sin giro).', strict: true,
+    input_schema: { type: 'object', additionalProperties: false, properties: { objeto: { type: 'string' }, grados: { type: 'number' } }, required: ['objeto', 'grados'] },
+  },
+  {
+    name: 'redimensionar_objeto', description: 'Cambia el tamaño de un objeto (metros).', strict: true,
+    input_schema: { type: 'object', additionalProperties: false, properties: { objeto: { type: 'string' }, ancho: { type: 'number' }, fondo: { type: 'number' } }, required: ['objeto', 'ancho', 'fondo'] },
+  },
+  {
+    name: 'renombrar_objeto', description: 'Renombra un objeto (recuerda las palabras clave de forma).', strict: true,
+    input_schema: { type: 'object', additionalProperties: false, properties: { objeto: { type: 'string' }, nuevoNombre: { type: 'string' } }, required: ['objeto', 'nuevoNombre'] },
+  },
+  {
+    name: 'eliminar_objeto', description: 'Elimina un objeto del plano. Confirma con el usuario antes.', strict: true,
+    input_schema: { type: 'object', additionalProperties: false, properties: { objeto: { type: 'string' } }, required: ['objeto'] },
+  },
+];
+
+export async function correrDisenador3D(
+  historial: MensajeChat[],
+  estado: string,
+  ejecutar: EjecutorHerramienta,
+  modelo?: ModeloClaude,
+): Promise<ResultadoCurador> {
+  const system = `${SYSTEM_DISENADOR}\n\n${estado}`;
+  return correrBucleTools(system, TOOLS_DISENADOR, historial, ejecutar, modelo);
+}
+
 export interface ContextoProyecto {
   proyecto?: string;   // nombre del proyecto/empresa
   unidades?: string[]; // nombres de UCs ya creadas

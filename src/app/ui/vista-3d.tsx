@@ -12,10 +12,14 @@ import type { CSSProperties } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { alturaObjeto } from '@/domain/espacios';
+import { alturaObjeto, normalizarGrados } from '@/domain/espacios';
 import type { Espacio, ObjetoFisico, Sede } from '@/domain/espacios';
 import { modelosDeSede } from '@/app/actions/modelo3d.actions';
+import { actualizarObjeto, eliminarObjeto } from '@/app/actions/espacios.actions';
+import { conversarDisenador3D, cargarChatDisenador } from '@/app/actions/disenador.actions';
 import { modeloGenerico } from './modelos-genericos';
+import { ChatArquitecto } from './chat-arquitecto';
+import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
 
@@ -34,13 +38,20 @@ interface Props {
   objetos: ObjetoFisico[];
   footAncho: number;
   footAlto: number;
+  proyectoId: string;
+  capa: number;
+  onCambio: () => void;   // recargar datos tras crear/mover/editar (chat o manipulación)
   onCerrar?: (() => void) | undefined;
 }
 
-export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar }: Props) {
+export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyectoId, capa, onCambio, onCerrar }: Props) {
   const montRef = useRef<HTMLDivElement | null>(null);
   const [muroAlt, setMuroAlt] = useState(2.6);
-  const [info, setInfo] = useState<string>('');
+  const [selId, setSelId] = useState<string | null>(null);   // objeto seleccionado (manipulación)
+  const selRef = useRef<string | null>(null);
+  selRef.current = selId;
+  const movil = useEsMovil();
+  const selObj = objetos.find((o) => o.id === selId) ?? null;
   // Escaneos .glb subidos por objeto (LiDAR/fotogrametría): se cargan una vez por sede.
   const [modelos, setModelos] = useState<Map<string, ArrayBuffer> | null>(null);
 
@@ -176,9 +187,16 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar
       const ancla = new THREE.Group();
       ancla.position.set(o.x + o.ancho / 2, 0.05, o.y + o.alto / 2);
       ancla.rotation.y = -(o.rot ?? 0) * Math.PI / 180;
-      ancla.userData.nombre = `${o.nombre} · ${o.categoria}${glb ? ' · escaneo' : ''}`;
+      ancla.userData = { id: o.id, nombre: `${o.nombre} · ${o.categoria}${glb ? ' · escaneo' : ''}`, ancho: o.ancho, alto: o.alto };
       scene.add(ancla);
       clicables.push(ancla);
+      // aro de selección bajo el objeto seleccionado
+      if (selRef.current === o.id) {
+        const r = Math.hypot(o.ancho, o.alto) / 2 + 0.08;
+        const aro = new THREE.Mesh(new THREE.RingGeometry(r, r + 0.05, 40), new THREE.MeshBasicMaterial({ color: 0x7a4fbf, side: THREE.DoubleSide }));
+        aro.rotation.x = -Math.PI / 2; aro.position.y = 0.02;
+        ancla.add(aro);
+      }
 
       if (glb) {
         // Escaneo real: se AJUSTA a la huella declarada (ancho×alto del plano) y se
@@ -220,19 +238,64 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar
       return mesh;
     }
 
-    // --- clic = identificar objeto (raycast) ---
+    // --- selección + ARRASTRE sobre el piso (pointer events; el orbit se pausa al arrastrar) ---
     const ray = new THREE.Raycaster();
-    const onClick = (e: MouseEvent) => {
+    const pisoPlano = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.05);
+    let drag: { ancla: THREE.Group; offX: number; offZ: number; movido: boolean } | null = null;
+
+    const anclaEn = (e: PointerEvent): THREE.Group | null => {
       const r = renderer.domElement.getBoundingClientRect();
       const p = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       ray.setFromCamera(p, camera);
       const hit = ray.intersectObjects(clicables, true)[0];
-      // el nombre vive en el ANCLA del objeto; sube desde el mesh golpeado hasta encontrarlo
       let n: THREE.Object3D | null = hit?.object ?? null;
-      while (n && !n.userData.nombre) n = n.parent;
-      setInfo(n ? String(n.userData.nombre) : '');
+      while (n && !n.userData.id) n = n.parent;
+      return (n as THREE.Group) ?? null;
     };
-    renderer.domElement.addEventListener('click', onClick);
+    const puntoPiso = (e: PointerEvent): THREE.Vector3 | null => {
+      const r = renderer.domElement.getBoundingClientRect();
+      const p = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(p, camera);
+      const out = new THREE.Vector3();
+      return ray.ray.intersectPlane(pisoPlano, out) ? out : null;
+    };
+
+    const onDown = (e: PointerEvent) => {
+      const ancla = anclaEn(e);
+      if (!ancla) return;                      // clic al vacío: orbitar normal (no deselecciona)
+      setSelId(String(ancla.userData.id));
+      const p = puntoPiso(e);
+      if (!p) return;
+      controls.enabled = false;               // arrastrar el objeto, no la cámara
+      drag = { ancla, offX: ancla.position.x - p.x, offZ: ancla.position.z - p.z, movido: false };
+      renderer.domElement.setPointerCapture(e.pointerId);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!drag) return;
+      const p = puntoPiso(e);
+      if (!p) return;
+      const d = drag.ancla.userData as { ancho: number; alto: number };
+      // el centro se mantiene dentro de la huella
+      drag.ancla.position.x = Math.min(W - d.ancho / 2, Math.max(d.ancho / 2, p.x + drag.offX));
+      drag.ancla.position.z = Math.min(D - d.alto / 2, Math.max(d.alto / 2, p.z + drag.offZ));
+      drag.movido = true;
+    };
+    const onUp = () => {
+      controls.enabled = true;
+      if (!drag) return;
+      const { ancla, movido } = drag;
+      drag = null;
+      if (!movido) return;                     // fue solo un clic de selección
+      const d = ancla.userData as { id: string; ancho: number; alto: number };
+      void actualizarObjeto(d.id, {
+        x: Number((ancla.position.x - d.ancho / 2).toFixed(2)),
+        y: Number((ancla.position.z - d.alto / 2).toFixed(2)),
+      }).then(onCambio);
+    };
+    renderer.domElement.addEventListener('pointerdown', onDown);
+    renderer.domElement.addEventListener('pointermove', onMove);
+    renderer.domElement.addEventListener('pointerup', onUp);
+    renderer.domElement.addEventListener('pointercancel', onUp);
 
     // --- tamaño y bucle ---
     const centro = new THREE.Vector3(W / 2, 0, D / 2);
@@ -262,7 +325,10 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar
     return () => {
       vivo = false;
       ro.disconnect();
-      renderer.domElement.removeEventListener('click', onClick);
+      renderer.domElement.removeEventListener('pointerdown', onDown);
+      renderer.domElement.removeEventListener('pointermove', onMove);
+      renderer.domElement.removeEventListener('pointerup', onUp);
+      renderer.domElement.removeEventListener('pointercancel', onUp);
       controls.dispose();
       scene.traverse((o) => {
         const mesh = o as THREE.Mesh;
@@ -273,7 +339,23 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar
       renderer.dispose();
       mont.removeChild(renderer.domElement);
     };
-  }, [espacios, objetos, footAncho, footAlto, muroAlt, modelos]);
+  }, [espacios, objetos, footAncho, footAlto, muroAlt, modelos, selId]);
+
+  // ---- acciones del panel de manipulación ----
+  function girar(delta: number) {
+    if (!selObj) return;
+    void actualizarObjeto(selObj.id, { rot: normalizarGrados(Math.round((selObj.rot ?? 0) + delta)) }).then(onCambio);
+  }
+  function redimensionar(campo: 'ancho' | 'alto', v: number) {
+    if (!selObj || !(v > 0)) return;
+    void actualizarObjeto(selObj.id, { [campo]: Number(v.toFixed(2)) }).then(onCambio);
+  }
+  function quitar() {
+    if (!selObj) return;
+    if (!window.confirm(`¿Eliminar "${selObj.nombre}" del plano?`)) return;
+    setSelId(null);
+    void eliminarObjeto(selObj.id).then(onCambio);
+  }
 
   return (
     <section>
@@ -285,13 +367,44 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar
         <span style={{ fontSize: 12, color: '#666' }}>Altura de muro</span>
         <input type="range" min={0} max={3.5} step={0.1} value={muroAlt} onChange={(e) => setMuroAlt(Number(e.target.value))} />
         <span style={{ fontSize: 12, color: '#666' }}>{muroAlt.toFixed(1)} m</span>
-        {info && <span style={{ fontSize: 12.5, background: '#33415c', color: '#fff', borderRadius: 12, padding: '0.15rem 0.7rem' }}>{info}</span>}
       </div>
-      <div ref={montRef} style={{ border: '1px solid #ddd', borderRadius: 10, overflow: 'hidden', lineHeight: 0 }} />
-      <p style={{ fontSize: 11.5, color: '#888', margin: '0.4rem 0 0' }}>
-        Escena 3D generada de tu plano (luces, sombras y materiales reales; los muros hacia la cámara se ocultan solos).
-        Clic en un objeto para identificarlo. Para fotorrealismo de foto, sube un render externo en 🖼 Renders.
-      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(0, 1fr) 330px', gap: '0.75rem', alignItems: 'start' }}>
+        <div>
+          <div ref={montRef} style={{ border: '1px solid #ddd', borderRadius: 10, overflow: 'hidden', lineHeight: 0, touchAction: 'none' }} />
+
+          {/* panel de manipulación del objeto seleccionado */}
+          {selObj && (
+            <div style={{ border: '1px solid #d7c9ee', background: '#f8f5fd', borderRadius: 10, padding: '0.5rem 0.7rem', marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <strong style={{ fontSize: 13 }}>◈ {selObj.nombre}</strong>
+              <span style={{ fontSize: 11, color: '#888' }}>({selObj.ancho}×{selObj.alto} m · {Math.round(selObj.rot)}°) — arrástralo en la escena para moverlo</span>
+              <span style={{ flex: 1 }} />
+              <button style={btn} title="Girar 90° a la izquierda" onClick={() => girar(-90)}>↺90</button>
+              <button style={btn} title="Girar 15° a la izquierda" onClick={() => girar(-15)}>↺15</button>
+              <button style={btn} title="Girar 15° a la derecha" onClick={() => girar(15)}>15↻</button>
+              <button style={btn} title="Girar 90° a la derecha" onClick={() => girar(90)}>90↻</button>
+              <label style={{ fontSize: 11.5, color: '#666' }}>ancho <input style={{ width: 52, padding: '0.2rem 0.3rem', borderRadius: 5, border: '1px solid #ccc', fontSize: 12 }} type="number" step={0.1} defaultValue={selObj.ancho} onBlur={(e) => redimensionar('ancho', Number(e.target.value))} /></label>
+              <label style={{ fontSize: 11.5, color: '#666' }}>fondo <input style={{ width: 52, padding: '0.2rem 0.3rem', borderRadius: 5, border: '1px solid #ccc', fontSize: 12 }} type="number" step={0.1} defaultValue={selObj.alto} onBlur={(e) => redimensionar('alto', Number(e.target.value))} /></label>
+              <button style={{ ...btn, color: '#b33', borderColor: '#d99' }} onClick={quitar}>🗑</button>
+              <button style={btn} onClick={() => setSelId(null)}>✕</button>
+            </div>
+          )}
+          <p style={{ fontSize: 11.5, color: '#888', margin: '0.4rem 0 0' }}>
+            Arrastra el fondo para orbitar · <strong>toca un objeto para seleccionarlo y arrástralo para moverlo</strong> · gíralo/redimensiónalo/elimínalo en el panel · o pídeselo al Diseñador en el chat.
+          </p>
+        </div>
+
+        {/* chat del Diseñador 3D: describe el objeto y lo coloca */}
+        <ChatArquitecto
+          conversar={(h) => conversarDisenador3D(h, proyectoId, sede.id, capa)}
+          saludo={'Soy el Diseñador 3D. Descríbeme lo que quieres en el espacio y lo coloco: "pon una camilla de tatuaje en la Cabina 2", "una vitrina de 1.2 m junto a recepción", "gira la camilla 90°", "quita el banco"…'}
+          placeholder="Describe el objeto y dónde va…"
+          cargarHistorial={() => cargarChatDisenador(sede.id)}
+          historialKey={`${sede.id}:${capa}`}
+          onCambio={onCambio}
+          altura={movil ? 300 : 480}
+        />
+      </div>
     </section>
   );
 }
