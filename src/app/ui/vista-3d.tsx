@@ -17,7 +17,7 @@ import type { Espacio, ObjetoFisico, Sede } from '@/domain/espacios';
 import { modelosDeSede } from '@/app/actions/modelo3d.actions';
 import { actualizarObjeto, eliminarObjeto, crearObjeto } from '@/app/actions/espacios.actions';
 import { registrarDeshacer, BotonDeshacer } from './deshacer';
-import { conversarDisenador3D, cargarChatDisenador } from '@/app/actions/disenador.actions';
+import { conversarDisenador3D, cargarChatDisenador, aplicarInversaDisenador } from '@/app/actions/disenador.actions';
 import { modeloGenerico } from './modelos-genericos';
 import { materialAcabado } from './texturas';
 import { ChatArquitecto } from './chat-arquitecto';
@@ -422,7 +422,19 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
 
         {/* chat del Diseñador 3D: describe el objeto y lo coloca */}
         <ChatArquitecto
-          conversar={(h) => conversarDisenador3D(h, proyectoId, sede.id, capa)}
+          conversar={async (h) => {
+            const r = await conversarDisenador3D(h, proyectoId, sede.id, capa);
+            // Cada operación del turno se registra en la pila de deshacer, agrupada:
+            // desde el panel ▾ se revierte una, todo el turno, o todo.
+            if (r.inversas.length) {
+              const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+              const grupo = `Turno del Diseñador · ${hora}`;
+              for (const inv of r.inversas) {
+                registrarDeshacer(inv.descripcion, () => aplicarInversaDisenador(proyectoId, inv.op), grupo);
+              }
+            }
+            return r;
+          }}
           saludo={'Soy el Diseñador 3D. Descríbeme lo que quieres en el espacio y lo coloco: "pon una camilla de tatuaje en la Cabina 2", "una vitrina de 1.2 m junto a recepción", "gira la camilla 90°", "quita el banco"…'}
           placeholder="Describe el objeto y dónde va…"
           cargarHistorial={() => cargarChatDisenador(sede.id)}
