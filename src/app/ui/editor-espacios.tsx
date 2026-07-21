@@ -272,7 +272,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
       </div>
 
       {panel === '3d' && sede && (
-        <Vista3D sede={sede} espacios={espCapa} objetos={objCapa} footAncho={footAncho} footAlto={footAlto}
+        <Vista3D sede={sede} espacios={espCapa} objetos={objCapa} elementos={elCapa} footAncho={footAncho} footAlto={footAlto}
           proyectoId={proyectoId} capa={capa} onCambio={() => void cargar()} onCerrar={() => setPanel('2d')} />
       )}
       {panel === 'renders' && (

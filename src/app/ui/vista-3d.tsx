@@ -13,7 +13,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { alturaObjeto, normalizarGrados } from '@/domain/espacios';
-import type { Espacio, ObjetoFisico, Sede } from '@/domain/espacios';
+import type { Espacio, ObjetoFisico, Sede, ElementoArq } from '@/domain/espacios';
 import { modelosDeSede, obtenerEscaneoNivel, subirEscaneoNivel, rotarEscaneoNivel, eliminarEscaneoNivel } from '@/app/actions/modelo3d.actions';
 import { MAX_GLB_BYTES } from '@/domain/render';
 import { actualizarObjeto, eliminarObjeto, crearObjeto } from '@/app/actions/espacios.actions';
@@ -59,6 +59,7 @@ interface Props {
   sede: Sede;
   espacios: Espacio[];
   objetos: ObjetoFisico[];
+  elementos: ElementoArq[];   // muros/puertas/ventanas interiores del nivel
   footAncho: number;
   footAlto: number;
   proyectoId: string;
@@ -67,7 +68,7 @@ interface Props {
   onCerrar?: (() => void) | undefined;
 }
 
-export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyectoId, capa, onCambio, onCerrar }: Props) {
+export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlto, proyectoId, capa, onCambio, onCerrar }: Props) {
   const montRef = useRef<HTMLDivElement | null>(null);
   const [muroAlt, setMuroAlt] = useState(2.6);
   const [selId, setSelId] = useState<string | null>(null);   // objeto seleccionado (manipulación)
@@ -239,6 +240,44 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
         mesh.castShadow = true; mesh.receiveShadow = true;
         scene.add(mesh);
         muros.push({ mesh, normal: new THREE.Vector3(m.n[0], 0, m.n[1]), centro: mesh.position.clone() });
+      }
+
+      // --- muros/puertas/ventanas INTERIORES (ElementoArq: segmentos del editor 2D) ---
+      const hInt = Math.min(muroAlt, 2.4);
+      for (const el of elementos) {
+        const dx = el.x2 - el.x1, dz = el.y2 - el.y1;
+        const L = Math.hypot(dx, dz);
+        if (L < 0.05) continue;
+        const ang = -Math.atan2(dz, dx);
+        const mx = (el.x1 + el.x2) / 2, mz = (el.y1 + el.y2) / 2;
+        if (el.tipo === 'muro') {
+          const m = new THREE.Mesh(new THREE.BoxGeometry(L, hInt, el.grosor ?? 0.12), matMuro);
+          m.position.set(mx, hInt / 2 + 0.05, mz);
+          m.rotation.y = ang;
+          m.castShadow = true; m.receiveShadow = true;
+          scene.add(m);
+        } else if (el.tipo === 'puerta') {
+          // marco (dintel) + hoja entreabierta con bisagra en el primer punto
+          const dintel = new THREE.Mesh(new THREE.BoxGeometry(L, hInt - 2.0, 0.12), matMuro);
+          dintel.position.set(mx, 2.0 + (hInt - 2.0) / 2 + 0.05, mz);
+          dintel.rotation.y = ang;
+          scene.add(dintel);
+          const bisagra = new THREE.Group();
+          bisagra.position.set(el.x1, 0.05, el.y1);
+          bisagra.rotation.y = ang + 0.55;             // entreabierta: se LEE como puerta
+          const hoja = new THREE.Mesh(new THREE.BoxGeometry(L * 0.95, 2.0, 0.045), new THREE.MeshStandardMaterial({ color: 0x9a7146, roughness: 0.6 }));
+          hoja.position.set(L * 0.475, 1.0, 0);
+          hoja.castShadow = true;
+          bisagra.add(hoja);
+          scene.add(bisagra);
+        } else { // ventana
+          const bajo = new THREE.Mesh(new THREE.BoxGeometry(L, 0.9, 0.12), matMuro);
+          bajo.position.set(mx, 0.5, mz); bajo.rotation.y = ang; scene.add(bajo);
+          const vidrio = new THREE.Mesh(new THREE.BoxGeometry(L, 0.9, 0.04), new THREE.MeshPhysicalMaterial({ color: 0xcfe4ef, roughness: 0.05, transparent: true, opacity: 0.35 }));
+          vidrio.position.set(mx, 1.4, mz); vidrio.rotation.y = ang; scene.add(vidrio);
+          const alto = new THREE.Mesh(new THREE.BoxGeometry(L, Math.max(0.05, hInt - 1.85), 0.12), matMuro);
+          alto.position.set(mx, 1.85 + Math.max(0.05, hInt - 1.85) / 2 + 0.05, mz); alto.rotation.y = ang; scene.add(alto);
+        }
       }
     }
 
@@ -458,7 +497,7 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
       renderer.dispose();
       mont.removeChild(renderer.domElement);
     };
-  }, [espacios, objetos, footAncho, footAlto, muroAlt, modelos, selId, escaneo, verEscaneo]);
+  }, [espacios, objetos, elementos, footAncho, footAlto, muroAlt, modelos, selId, escaneo, verEscaneo]);
 
   // ---- acciones del panel de manipulación (todas reversibles con ↩) ----
   function girar(delta: number) {

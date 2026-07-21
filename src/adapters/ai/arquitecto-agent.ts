@@ -485,6 +485,7 @@ REGLAS:
 5) ACABADOS: puedes vestir el espacio con "acabado_piso" (toda la sede u un área concreta) y "acabado_muros". Tipos de piso: duela · porcelanato · azulejo · cemento · alfombra · pintura. Tipos de muro: pintura · azulejo · ladrillo · cemento · yeso. El color acepta nombres en español (blanco, arena, verde menta, terracota, madera clara…) o hex (#a67c52).
 6) FOTOS DE REFERENCIA: el usuario puede mandarte fotos de ejemplos (muebles, acabados, diseños que le gustan). MÍRALAS y actúa: identifica materiales, colores y estilo, DI lo que ves ("veo duela clara y muros verde menta…") y aplícalo con las herramientas — acabados equivalentes, objetos con medidas parecidas. Si la foto muestra un mueble específico que las formas genéricas no cubren, créalo con el nombre más cercano y sugiere subir un .glb (escaneado o de meshy.ai) para el detalle fino.
 7) ÁREAS Y HUELLA: también puedes crear/ajustar/eliminar ÁREAS (habitaciones) con "crear_area"/"actualizar_area"/"eliminar_area" y cambiar el tamaño total con "ajustar_huella". Las áreas se acomodan como un plano real: pegadas entre sí, cubriendo la huella, sin encimarse (revisa las posiciones que ya existen en el estado).
+7b) MUROS INTERIORES: con "crear_elemento" dibujas muros, puertas y ventanas (segmentos rectos en metros). Para cerrar un cuarto (baño, bodega): muros sobre sus bordes DEJANDO un hueco de ~0.8 m donde va la puerta, y la puerta en ese hueco. El perímetro de la sede ya tiene muros — no lo dupliques.
 8) RECREAR UN ESPACIO DESDE FOTOS: si el usuario te pasa fotos de SU local y pide recrearlo, NO digas que no puedes — hazlo así, en este orden: (a) ESTIMA medidas reales con pistas visuales: las losetas de piso miden ~33×33 cm (cuéntalas), una puerta ~0.9 m de ancho, el plafón ~2.4–2.7 m; DI tus estimaciones para que el usuario las corrija. (b) Si el total difiere de la huella actual, usa "ajustar_huella". (c) Crea UN ÁREA POR AMBIENTE/FOTO (oficina, baño, bodega…) con posiciones que embonen. (d) Aplica los ACABADOS que ves (piso de la foto por área, muros). (e) Crea los OBJETOS visibles (escritorio, silla, TV, lavabo, WC…) donde aparecen. (f) Resume qué armaste y qué asumiste, e invita a corregir medidas.
 9) Español, claro y breve. Di siempre QUÉ hiciste y DÓNDE quedó (área y posición).`;
 
@@ -592,6 +593,20 @@ const TOOLS_DISENADOR: Anthropic.Tool[] = [
     description: 'Elimina un ÁREA del plano. OJO: los objetos que estén dentro se eliminan con ella. Confirma con el usuario antes.',
     strict: true,
     input_schema: { type: 'object', additionalProperties: false, properties: { area: { type: 'string' } }, required: ['area'] },
+  },
+  {
+    name: 'crear_elemento',
+    description: 'Dibuja un MURO, PUERTA o VENTANA interior como segmento recto entre dos puntos (metros). Para ENCERRAR un área (ej. el baño): muros por sus bordes dejando un hueco de ~0.8 m, y una puerta exactamente en ese hueco. Las puertas/ventanas ocupan su propio tramo (no encimes un muro en el mismo segmento).',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        tipo: { type: 'string', enum: ['muro', 'puerta', 'ventana'] },
+        x1: { type: 'number' }, y1: { type: 'number' },
+        x2: { type: 'number' }, y2: { type: 'number' },
+      },
+      required: ['tipo', 'x1', 'y1', 'x2', 'y2'],
+    },
   },
   {
     name: 'ajustar_huella',

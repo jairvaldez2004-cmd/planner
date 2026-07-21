@@ -8,7 +8,7 @@ import { correrDisenador3D } from '@/adapters/ai/arquitecto-agent';
 import type { EjecutorHerramienta, MensajeChat } from '@/adapters/ai/arquitecto-agent';
 import {
   obtenerSede, listarEspacios, listarObjetos, crearObjeto, actualizarObjeto, eliminarObjeto,
-  actualizarEspacio, actualizarSede, crearEspacio, eliminarEspacio,
+  actualizarEspacio, actualizarSede, crearEspacio, eliminarEspacio, crearElemento, eliminarElemento, listarElementos,
 } from '@/app/actions/espacios.actions';
 import { esRectanguloLL, medidasDeRect, rectRotado, centroide } from '@/app/ui/huella-geo';
 import type { LL } from '@/app/ui/huella-geo';
@@ -30,7 +30,8 @@ export type InversaDisenador =
   | { tipo: 'eliminar_area'; id: string }
   | { tipo: 'actualizar_area'; id: string; patch: { nombre?: string; x?: number; y?: number; ancho?: number; alto?: number } }
   | { tipo: 'recrear_area'; sedeId: string; datos: { tipo: string; nombre: string; capa: number; x: number; y: number; ancho: number; alto: number; rot: number; ucIds: string[]; campos: Record<string, string>; objetos: { nombre: string; categoria: CategoriaObjeto; x: number; y: number; ancho: number; alto: number; rot: number; campos: Record<string, string> }[] } }
-  | { tipo: 'huella'; sedeId: string; footAncho: number; footAlto: number; poligono: [number, number][] };
+  | { tipo: 'huella'; sedeId: string; footAncho: number; footAlto: number; poligono: [number, number][] }
+  | { tipo: 'eliminar_elemento'; id: string };
 
 export interface RespuestaDisenador {
   reply: string;
@@ -64,6 +65,7 @@ export async function aplicarInversaDisenador(proyectoId: string, op: InversaDis
     return;
   }
   if (op.tipo === 'huella') { await actualizarSede(op.sedeId, { footAncho: op.footAncho, footAlto: op.footAlto, poligono: op.poligono }); return; }
+  if (op.tipo === 'eliminar_elemento') { await eliminarElemento(op.id); return; }
 }
 
 export async function conversarDisenador3D(
@@ -236,6 +238,17 @@ export async function conversarDisenador3D(
         return `Área "${a.nombre}" eliminada${dentro.length ? ` (con sus ${dentro.length} objetos)` : ''}.`;
       }
 
+      if (nombre === 'crear_elemento') {
+        const tipoE = String(input.tipo ?? '');
+        if (!['muro', 'puerta', 'ventana'].includes(tipoE)) return 'Tipo no válido: usa muro, puerta o ventana.';
+        const x1 = num(input.x1), y1 = num(input.y1), x2 = num(input.x2), y2 = num(input.y2);
+        if (x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined) return 'Faltan coordenadas.';
+        if (Math.hypot(x2 - x1, y2 - y1) < 0.1) return 'El segmento es demasiado corto (mínimo 0.1 m).';
+        const el = await crearElemento(proyectoId, sedeId, { capa, tipo: tipoE as 'muro' | 'puerta' | 'ventana', x1: redondo(x1), y1: redondo(y1), x2: redondo(x2), y2: redondo(y2), ...(tipoE === 'muro' ? { grosor: 0.12 } : {}) });
+        inversas.push({ descripcion: `dibujar ${tipoE}`, op: { tipo: 'eliminar_elemento', id: el.id } });
+        return `${tipoE} creado de (${redondo(x1)}, ${redondo(y1)}) a (${redondo(x2)}, ${redondo(y2)}).`;
+      }
+
       if (nombre === 'ajustar_huella') {
         const ancho = num(input.ancho), fondo = num(input.fondo);
         if (!ancho || !fondo || ancho < 1 || fondo < 1 || ancho > 500 || fondo > 500) return 'Medidas de huella no válidas (1–500 m).';
@@ -294,5 +307,12 @@ async function snapshotSede(sedeId: string, capa: number): Promise<string> {
   L.push(`Objetos (${obj.length}):`);
   for (const o of obj) L.push(`  · "${o.nombre}" [${o.categoria}] en "${areaDe.get(o.espacioId) ?? '?'}" — x=${o.x} y=${o.y} ancho=${o.ancho} fondo=${o.alto}${o.rot ? ` giro=${o.rot}°` : ''}`);
   if (!obj.length) L.push('  (ninguno todavía)');
+  const elems = (await listarElementos(sedeId)).filter((e) => e.capa === capa);
+  if (elems.length) {
+    L.push(`Muros/puertas/ventanas interiores (${elems.length}):`);
+    for (const e of elems) L.push(`  · ${e.tipo} (${e.x1}, ${e.y1}) → (${e.x2}, ${e.y2})`);
+  } else {
+    L.push('Muros interiores: ninguno (solo el perímetro).');
+  }
   return L.join('\n');
 }
