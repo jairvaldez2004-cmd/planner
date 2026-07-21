@@ -7,10 +7,11 @@
 import { correrDisenador3D } from '@/adapters/ai/arquitecto-agent';
 import type { EjecutorHerramienta, MensajeChat } from '@/adapters/ai/arquitecto-agent';
 import {
-  obtenerSede, listarEspacios, listarObjetos, crearObjeto, actualizarObjeto, eliminarObjeto,
+  obtenerSede, listarEspacios, listarObjetos, crearObjeto, actualizarObjeto, eliminarObjeto, actualizarEspacio, actualizarSede,
 } from '@/app/actions/espacios.actions';
 import type { CategoriaObjeto } from '@/domain/espacios';
 import { buscarHueco, normalizarGrados, claveForma3D } from '@/domain/espacios';
+import { codificarAcabado, describeAcabado } from '@/domain/acabados';
 const tieneModeloGenerico = (n: string) => claveForma3D(n) !== null;
 import { cargarConversacion, guardarConversacion } from '@/app/actions/contexto.actions';
 import { modeloActual } from '@/app/actions/config.actions';
@@ -109,6 +110,27 @@ export async function conversarDisenador3D(
         return `"${o.nombre}" eliminado del plano.`;
       }
 
+      if (nombre === 'acabado_piso') {
+        const cod = codificarAcabado(String(input.tipo ?? ''), input.color ? String(input.color) : undefined, 'piso');
+        if (!cod) return `Tipo de piso no válido: "${String(input.tipo ?? '')}". Usa duela, porcelanato, azulejo, cemento, alfombra o pintura.`;
+        const areaTxt = String(input.area ?? '').trim();
+        if (areaTxt) {
+          const area = porNombre(espacios, areaTxt);
+          if (!area) return `No encontré el área "${areaTxt}". Áreas: ${espacios.map((e) => e.nombre).join(', ')}.`;
+          await actualizarEspacio(area.id, { campos: { acabadoPiso: cod } });
+          return `Piso de "${area.nombre}": ahora ${describeAcabado(cod)}.`;
+        }
+        await actualizarSede(sedeId, { acabadoPiso: cod });
+        return `Piso de toda la sede: ahora ${describeAcabado(cod)}.`;
+      }
+
+      if (nombre === 'acabado_muros') {
+        const cod = codificarAcabado(String(input.tipo ?? ''), input.color ? String(input.color) : undefined, 'muro');
+        if (!cod) return `Tipo de muro no válido: "${String(input.tipo ?? '')}". Usa pintura, azulejo, ladrillo, cemento o yeso.`;
+        await actualizarSede(sedeId, { acabadoMuros: cod });
+        return `Muros de la sede: ahora ${describeAcabado(cod)}.`;
+      }
+
       return `Herramienta desconocida: ${nombre}`;
     } catch (e) {
       return `Error al ejecutar ${nombre}: ${e instanceof Error ? e.message : String(e)}`;
@@ -118,7 +140,11 @@ export async function conversarDisenador3D(
   try {
     const estado = await snapshotSede(sedeId, capa);
     const r = await correrDisenador3D(historial, estado, ejecutar, await modeloActual('curador'));
-    await guardarConversacion(`SEDE3D:${sedeId}`, [...historial, { role: 'assistant', content: r.reply }]);
+    // Las fotos NO se persisten: engordarían la BD y se re-pagarían sus tokens en cada
+    // turno siguiente. Queda la marca "[foto adjunta]" en el texto del historial.
+    const sinFotos: MensajeChat[] = historial.map((m) =>
+      m.imagen ? { role: m.role, content: `${m.content || ''} [foto adjunta]`.trim() } : m);
+    await guardarConversacion(`SEDE3D:${sedeId}`, [...sinFotos, { role: 'assistant', content: r.reply }]);
     return { reply: r.reply, refrescar: r.huboCambios };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -141,8 +167,9 @@ async function snapshotSede(sedeId: string, capa: number): Promise<string> {
   const L: string[] = [];
   L.push(`# Estado del plano (nivel ${capa}) — se actualiza en cada turno`);
   L.push(`Huella de la sede "${sede?.nombre ?? '?'}": ${sede?.footAncho ?? 20} m de ancho (x) × ${sede?.footAlto ?? 15} m de fondo (y).`);
+  L.push(`Acabados actuales: piso general = ${describeAcabado(sede?.acabadoPiso)} · muros = ${describeAcabado(sede?.acabadoMuros)}.`);
   L.push(`Áreas (${esp.length}):`);
-  for (const e of esp) L.push(`  · "${e.nombre}" — x=${e.x} y=${e.y} ancho=${e.ancho} fondo=${e.alto}`);
+  for (const e of esp) L.push(`  · "${e.nombre}" — x=${e.x} y=${e.y} ancho=${e.ancho} fondo=${e.alto}${e.data.acabadoPiso ? ` · piso: ${describeAcabado(e.data.acabadoPiso)}` : ''}`);
   L.push(`Objetos (${obj.length}):`);
   for (const o of obj) L.push(`  · "${o.nombre}" [${o.categoria}] en "${areaDe.get(o.espacioId) ?? '?'}" — x=${o.x} y=${o.y} ancho=${o.ancho} fondo=${o.alto}${o.rot ? ` giro=${o.rot}°` : ''}`);
   if (!obj.length) L.push('  (ninguno todavía)');

@@ -34,12 +34,35 @@ interface Props {
   historialKey?: string;
   onCambio?: () => void;
   altura?: number;
+  permitirFotos?: boolean;   // adjuntar fotos de referencia (el agente las VE)
 }
 
-export function ChatArquitecto({ workspaceId, conversar, saludo, placeholder, cargarHistorial, historialKey, onCambio, altura = 380 }: Props) {
+// Reescala la foto a máx 1568 px (el tamaño óptimo para el modelo) y JPEG: una foto
+// de celular de 4 MB baja a ~200-400 KB sin perder lo que el agente necesita ver.
+async function comprimirFoto(f: File): Promise<{ mime: string; base64: string } | null> {
+  const url = URL.createObjectURL(f);
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i); i.onerror = rej; i.src = url;
+    });
+    const MAX = 1568;
+    const esc = Math.min(1, MAX / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * esc); c.height = Math.round(img.height * esc);
+    c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+    const dataUrl = c.toDataURL('image/jpeg', 0.85);
+    return { mime: 'image/jpeg', base64: dataUrl.split(',')[1] ?? '' };
+  } catch { return null; }
+  finally { URL.revokeObjectURL(url); }
+}
+
+export function ChatArquitecto({ workspaceId, conversar, saludo, placeholder, cargarHistorial, historialKey, onCambio, altura = 380, permitirFotos }: Props) {
   const [historial, setHistorial] = useState<MensajeChat[]>([{ role: 'assistant', content: saludo ?? SALUDO }]);
   const [entrada, setEntrada] = useState('');
   const [pensando, setPensando] = useState(false);
+  const [foto, setFoto] = useState<{ mime: string; base64: string } | null>(null);
+  const fotoRef = useRef<HTMLInputElement | null>(null);
   const finRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { finRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [historial, pensando]);
@@ -55,10 +78,11 @@ export function ChatArquitecto({ workspaceId, conversar, saludo, placeholder, ca
 
   async function enviar() {
     const texto = entrada.trim();
-    if (!texto || pensando) return;
-    const nuevo: MensajeChat[] = [...historial, { role: 'user', content: texto }];
+    if ((!texto && !foto) || pensando) return;
+    const nuevo: MensajeChat[] = [...historial, { role: 'user', content: texto, ...(foto ? { imagen: foto } : {}) }];
     setHistorial(nuevo);
     setEntrada('');
+    setFoto(null);
     setPensando(true);
     try {
       const r = conversar ? await conversar(nuevo) : await conversarCurador(nuevo, workspaceId ?? '');
@@ -72,11 +96,34 @@ export function ChatArquitecto({ workspaceId, conversar, saludo, placeholder, ca
   return (
     <div>
       <div style={{ ...card, display: 'flex', flexDirection: 'column', height: altura, overflowY: 'auto' }}>
-        {historial.map((m, i) => <div key={i} style={burbuja(m.role)}>{m.content}</div>)}
+        {historial.map((m, i) => (
+          <div key={i} style={burbuja(m.role)}>
+            {m.imagen && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`data:${m.imagen.mime};base64,${m.imagen.base64}`} alt="foto de referencia" style={{ maxWidth: 180, borderRadius: 8, display: 'block', marginBottom: m.content ? 6 : 0 }} />
+            )}
+            {m.content}
+          </div>
+        ))}
         {pensando && <div style={burbuja('assistant')}>…</div>}
         <div ref={finRef} />
       </div>
+      {foto && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: '0.4rem' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`data:${foto.mime};base64,${foto.base64}`} alt="adjunta" style={{ height: 44, borderRadius: 6 }} />
+          <span style={{ fontSize: 12, color: '#666' }}>Foto lista para enviar — describe qué quieres de ella.</span>
+          <button style={{ ...btn, padding: '0.15rem 0.5rem' }} onClick={() => setFoto(null)}>✕</button>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+        {permitirFotos && (
+          <>
+            <input ref={fotoRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) void comprimirFoto(f).then((r) => { if (r) setFoto(r); }); e.target.value = ''; }} />
+            <button style={btn} title="Adjuntar foto de referencia (el agente la ve)" onClick={() => fotoRef.current?.click()} disabled={pensando}>📷</button>
+          </>
+        )}
         <input
           style={{ ...inp, flex: 1 }}
           value={entrada}
@@ -85,7 +132,7 @@ export function ChatArquitecto({ workspaceId, conversar, saludo, placeholder, ca
           placeholder={placeholder ?? 'Escribe al Curador…'}
           disabled={pensando}
         />
-        <button style={btn} onClick={() => void enviar()} disabled={pensando || !entrada.trim()}>Enviar</button>
+        <button style={btn} onClick={() => void enviar()} disabled={pensando || (!entrada.trim() && !foto)}>Enviar</button>
       </div>
     </div>
   );

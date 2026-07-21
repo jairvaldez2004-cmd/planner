@@ -84,7 +84,7 @@ export function lente(id: LenteId): Lente {
 
 // --- tipos serializables (lo que viaja al front) ---
 export interface UnidadComercial { id: string; nombre: string; tipo?: string | undefined; descripcion?: string | undefined }
-export interface Sede { id: string; nombre: string; direccion?: string | undefined; lat?: number | undefined; lng?: number | undefined; medidas?: string | undefined; rentaMensual?: number | undefined; footAncho?: number | undefined; footAlto?: number | undefined; poligono?: [number, number][] | undefined; muroExterior?: number | undefined; muroInterior?: number | undefined }
+export interface Sede { id: string; nombre: string; direccion?: string | undefined; lat?: number | undefined; lng?: number | undefined; medidas?: string | undefined; rentaMensual?: number | undefined; footAncho?: number | undefined; footAlto?: number | undefined; poligono?: [number, number][] | undefined; muroExterior?: number | undefined; muroInterior?: number | undefined; acabadoPiso?: string | undefined; acabadoMuros?: string | undefined }
 
 // Proyecta un polígono geográfico [lat,lng][] a metros locales (para el editor).
 export function poligonoAMetros(pts: [number, number][]): { puntos: { x: number; y: number }[]; ancho: number; alto: number } {

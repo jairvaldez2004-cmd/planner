@@ -19,7 +19,30 @@ function getClient(): Anthropic {
   return _client;
 }
 
-export type MensajeChat = { role: 'user' | 'assistant'; content: string };
+// `imagen` = foto de referencia adjunta (base64, solo en el turno en que se manda;
+// al persistir el historial se quita para no engordar la BD ni re-pagar sus tokens).
+export type MensajeChat = {
+  role: 'user' | 'assistant';
+  content: string;
+  imagen?: { mime: string; base64: string } | undefined;
+};
+
+// Convierte el historial a mensajes de la API; un mensaje con imagen se vuelve
+// bloques [imagen, texto] para que el modelo la VEA.
+export function aMensajesApi(historial: MensajeChat[]): Anthropic.MessageParam[] {
+  return historial.map((m) => {
+    if (m.role === 'user' && m.imagen) {
+      return {
+        role: 'user' as const,
+        content: [
+          { type: 'image' as const, source: { type: 'base64' as const, media_type: m.imagen.mime as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif', data: m.imagen.base64 } },
+          { type: 'text' as const, text: m.content || 'Foto de referencia.' },
+        ],
+      };
+    }
+    return { role: m.role, content: m.content };
+  });
+}
 
 export type ResultadoArquitecto =
   | { tipo: 'pregunta'; texto: string }
@@ -198,7 +221,7 @@ async function correrBucleTools(
   ejecutar: EjecutorHerramienta,
   modelo?: ModeloClaude,
 ): Promise<ResultadoCurador> {
-  const messages: Anthropic.MessageParam[] = historial.map((m) => ({ role: m.role, content: m.content }));
+  const messages: Anthropic.MessageParam[] = aMensajesApi(historial); // soporta fotos adjuntas
   const client = getClient();
   let huboCambios = false;
 
@@ -455,7 +478,9 @@ REGLAS:
 2) NOMBRES = FORMA 3D: la vista dibuja una forma reconocible si el nombre contiene una de estas palabras: camilla/sillón, silla(s), banco/taburete, mostrador/barra/recepción, vitrina, mesa/escritorio, lámpara, autoclave, tarja/lavabo, carro/carrito, estante/anaquel. Úsalas cuando apliquen ("Camilla de tatuaje", "Estante de insumos"). Si el objeto no matchea ninguna, se verá como caja: dilo y sugiere subir un .glb (escaneado, descargado de poly.pizza, o generado con IA en meshy.ai).
 3) Si el usuario no da medidas, usa medidas REALES sensatas (camilla 1.9×0.7 · silla 0.45×0.45 · mostrador 1.5×0.6 · vitrina 1.2×0.4 · banco 0.4×0.4 · carrito 0.5×0.4 · estante 0.9×0.35 · lámpara 0.4×0.4) y dilas en tu respuesta.
 4) Puedes crear VARIOS objetos en un turno, y también mover, girar, redimensionar, renombrar o eliminar los existentes (refiérelos por su nombre). Antes de ELIMINAR, confirma con el usuario.
-5) Español, claro y breve. Di siempre QUÉ hiciste y DÓNDE quedó (área y posición).`;
+5) ACABADOS: puedes vestir el espacio con "acabado_piso" (toda la sede u un área concreta) y "acabado_muros". Tipos de piso: duela · porcelanato · azulejo · cemento · alfombra · pintura. Tipos de muro: pintura · azulejo · ladrillo · cemento · yeso. El color acepta nombres en español (blanco, arena, verde menta, terracota, madera clara…) o hex (#a67c52).
+6) FOTOS DE REFERENCIA: el usuario puede mandarte fotos de ejemplos (muebles, acabados, diseños que le gustan). MÍRALAS y actúa: identifica materiales, colores y estilo, DI lo que ves ("veo duela clara y muros verde menta…") y aplícalo con las herramientas — acabados equivalentes, objetos con medidas parecidas. Si la foto muestra un mueble específico que las formas genéricas no cubren, créalo con el nombre más cercano y sugiere subir un .glb (escaneado o de meshy.ai) para el detalle fino.
+7) Español, claro y breve. Di siempre QUÉ hiciste y DÓNDE quedó (área y posición).`;
 
 const TOOLS_DISENADOR: Anthropic.Tool[] = [
   {
@@ -496,6 +521,33 @@ const TOOLS_DISENADOR: Anthropic.Tool[] = [
   {
     name: 'eliminar_objeto', description: 'Elimina un objeto del plano. Confirma con el usuario antes.', strict: true,
     input_schema: { type: 'object', additionalProperties: false, properties: { objeto: { type: 'string' } }, required: ['objeto'] },
+  },
+  {
+    name: 'acabado_piso',
+    description: 'Aplica un acabado al PISO: de toda la sede (omite area) o de un área concreta. El color acepta español ("madera clara", "verde menta") o hex.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        tipo: { type: 'string', enum: ['duela', 'porcelanato', 'azulejo', 'cemento', 'alfombra', 'pintura'] },
+        color: { type: 'string', description: 'Opcional: nombre en español o #hex. Sin él, el color típico del material.' },
+        area: { type: 'string', description: 'Opcional: nombre del área. Sin él, aplica a toda la sede.' },
+      },
+      required: ['tipo'],
+    },
+  },
+  {
+    name: 'acabado_muros',
+    description: 'Aplica un acabado a los MUROS de la sede. El color acepta español o #hex.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        tipo: { type: 'string', enum: ['pintura', 'azulejo', 'ladrillo', 'cemento', 'yeso'] },
+        color: { type: 'string', description: 'Opcional: nombre en español o #hex.' },
+      },
+      required: ['tipo'],
+    },
   },
 ];
 

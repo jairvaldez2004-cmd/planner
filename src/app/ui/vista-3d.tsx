@@ -18,6 +18,7 @@ import { modelosDeSede } from '@/app/actions/modelo3d.actions';
 import { actualizarObjeto, eliminarObjeto } from '@/app/actions/espacios.actions';
 import { conversarDisenador3D, cargarChatDisenador } from '@/app/actions/disenador.actions';
 import { modeloGenerico } from './modelos-genericos';
+import { materialAcabado } from './texturas';
 import { ChatArquitecto } from './chat-arquitecto';
 import { useEsMovil } from './use-movil';
 
@@ -113,9 +114,10 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
     terreno.receiveShadow = true;
     scene.add(terreno);
 
+    // piso general: acabado de la sede si lo hay (duela, porcelanato…), neutro si no
     const piso = new THREE.Mesh(
       new THREE.BoxGeometry(W, 0.05, D),
-      new THREE.MeshStandardMaterial({ color: 0xd8cfc2, roughness: 0.7 }), // porcelanato claro
+      materialAcabado(sede.acabadoPiso, W, D) ?? new THREE.MeshStandardMaterial({ color: 0xd8cfc2, roughness: 0.7 }),
     );
     piso.position.set(W / 2, 0.025, D / 2);
     piso.receiveShadow = true;
@@ -124,7 +126,9 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
     // --- muros perimetrales (se ocultan solos los que dan a la cámara) ---
     const T = 0.15, half = T / 2;
     const muros: { mesh: THREE.Mesh; normal: THREE.Vector3; centro: THREE.Vector3 }[] = [];
-    const matMuro = new THREE.MeshStandardMaterial({ color: 0xf3f0ea, roughness: 0.9 });
+    // muros: acabado de la sede (pintura de color, ladrillo, azulejo…) o neutro
+    const matMuro = materialAcabado(sede.acabadoMuros, Math.max(W, D), muroAlt)
+      ?? new THREE.MeshStandardMaterial({ color: 0xf3f0ea, roughness: 0.9 });
     const defMuros: { w: number; x: number; z: number; rotY: number; n: [number, number] }[] = [
       { w: W + T, x: W / 2, z: -half, rotY: 0, n: [0, -1] },
       { w: W + T, x: W / 2, z: D + half, rotY: 0, n: [0, 1] },
@@ -169,7 +173,11 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
       }
       const geo = new THREE.ShapeGeometry(shape);
       geo.rotateX(Math.PI / 2); // plano (x,y) → suelo (x,z)
-      const losa = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.8, side: THREE.DoubleSide }));
+      // acabado de piso PROPIO del área (campo `acabadoPiso`) o losa de color suave.
+      // ShapeGeometry genera UVs EN METROS (coords reales), así que repeat = 1.
+      const matArea = materialAcabado(s.data.acabadoPiso, 1, 1);
+      if (matArea) matArea.side = THREE.DoubleSide;
+      const losa = new THREE.Mesh(geo, matArea ?? new THREE.MeshStandardMaterial({ color, roughness: 0.8, side: THREE.DoubleSide }));
       losa.position.y = 0.06;
       losa.receiveShadow = true;
       scene.add(losa);
@@ -403,6 +411,7 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
           historialKey={`${sede.id}:${capa}`}
           onCambio={onCambio}
           altura={movil ? 300 : 480}
+          permitirFotos
         />
       </div>
     </section>

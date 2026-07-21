@@ -39,7 +39,7 @@ export async function eliminarUnidad(id: string): Promise<void> { await prisma.u
 function mapSede(r: { id: string; nombre: string; data: unknown }): Sede {
   const d = obj(r.data);
   const poligono = Array.isArray(d.poligono) ? (d.poligono as [number, number][]) : undefined;
-  return { id: r.id, nombre: r.nombre, direccion: str(d.direccion) || undefined, lat: num(d.lat), lng: num(d.lng), medidas: str(d.medidas) || undefined, rentaMensual: num(d.rentaMensual), footAncho: num(d.footAncho), footAlto: num(d.footAlto), poligono, muroExterior: num(d.muroExterior), muroInterior: num(d.muroInterior) };
+  return { id: r.id, nombre: r.nombre, direccion: str(d.direccion) || undefined, lat: num(d.lat), lng: num(d.lng), medidas: str(d.medidas) || undefined, rentaMensual: num(d.rentaMensual), footAncho: num(d.footAncho), footAlto: num(d.footAlto), poligono, muroExterior: num(d.muroExterior), muroInterior: num(d.muroInterior), acabadoPiso: str(d.acabadoPiso) || undefined, acabadoMuros: str(d.acabadoMuros) || undefined };
 }
 export async function listarSedes(proyectoId: string): Promise<Sede[]> {
   return (await prisma.sede.findMany({ where: { proyectoId } })).map(mapSede);
@@ -56,7 +56,7 @@ export async function actualizarSede(id: string, patch: Partial<Sede>): Promise<
   const r = await prisma.sede.findUnique({ where: { id } }); if (!r) return;
   const d = obj(r.data);
   const merged = { ...d } as Record<string, unknown>;
-  for (const k of ['direccion', 'lat', 'lng', 'medidas', 'rentaMensual', 'footAncho', 'footAlto', 'poligono', 'muroExterior', 'muroInterior'] as const) if (patch[k] !== undefined) merged[k] = patch[k];
+  for (const k of ['direccion', 'lat', 'lng', 'medidas', 'rentaMensual', 'footAncho', 'footAlto', 'poligono', 'muroExterior', 'muroInterior', 'acabadoPiso', 'acabadoMuros'] as const) if (patch[k] !== undefined) merged[k] = patch[k];
   await prisma.sede.update({ where: { id }, data: { ...(patch.nombre !== undefined ? { nombre: patch.nombre } : {}), data: toJson(merged) } });
 }
 export async function eliminarSede(id: string): Promise<void> {
