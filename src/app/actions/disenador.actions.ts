@@ -180,9 +180,9 @@ export async function conversarDisenador3D(
     const estado = await snapshotSede(sedeId, capa);
     const r = await correrDisenador3D(historial, estado, ejecutar, await modeloActual('curador'));
     // Las fotos NO se persisten: engordarían la BD y se re-pagarían sus tokens en cada
-    // turno siguiente. Queda la marca "[foto adjunta]" en el texto del historial.
+    // turno siguiente. Queda la marca "[N foto(s) adjunta(s)]" en el texto del historial.
     const sinFotos: MensajeChat[] = historial.map((m) =>
-      m.imagen ? { role: m.role, content: `${m.content || ''} [foto adjunta]`.trim() } : m);
+      m.imagenes?.length ? { role: m.role, content: `${m.content || ''} [${m.imagenes.length} foto${m.imagenes.length > 1 ? 's' : ''} adjunta${m.imagenes.length > 1 ? 's' : ''}]`.trim() } : m);
     await guardarConversacion(`SEDE3D:${sedeId}`, [...sinFotos, { role: 'assistant', content: r.reply }]);
     return { reply: r.reply, refrescar: r.huboCambios, inversas };
   } catch (e) {

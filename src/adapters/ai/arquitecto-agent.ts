@@ -19,24 +19,28 @@ function getClient(): Anthropic {
   return _client;
 }
 
-// `imagen` = foto de referencia adjunta (base64, solo en el turno en que se manda;
-// al persistir el historial se quita para no engordar la BD ni re-pagar sus tokens).
+// `imagenes` = fotos de referencia adjuntas (base64, solo en el turno en que se mandan;
+// al persistir el historial se quitan para no engordar la BD ni re-pagar sus tokens).
+export interface ImagenChat { mime: string; base64: string }
 export type MensajeChat = {
   role: 'user' | 'assistant';
   content: string;
-  imagen?: { mime: string; base64: string } | undefined;
+  imagenes?: ImagenChat[] | undefined;
 };
 
-// Convierte el historial a mensajes de la API; un mensaje con imagen se vuelve
-// bloques [imagen, texto] para que el modelo la VEA.
+// Convierte el historial a mensajes de la API; un mensaje con fotos se vuelve
+// bloques [imagen…, texto] para que el modelo las VEA todas (en su orden).
 export function aMensajesApi(historial: MensajeChat[]): Anthropic.MessageParam[] {
   return historial.map((m) => {
-    if (m.role === 'user' && m.imagen) {
+    if (m.role === 'user' && m.imagenes?.length) {
       return {
         role: 'user' as const,
         content: [
-          { type: 'image' as const, source: { type: 'base64' as const, media_type: m.imagen.mime as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif', data: m.imagen.base64 } },
-          { type: 'text' as const, text: m.content || 'Foto de referencia.' },
+          ...m.imagenes.map((img) => ({
+            type: 'image' as const,
+            source: { type: 'base64' as const, media_type: img.mime as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif', data: img.base64 },
+          })),
+          { type: 'text' as const, text: m.content || 'Fotos de referencia.' },
         ],
       };
     }
