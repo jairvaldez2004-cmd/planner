@@ -210,6 +210,24 @@ model ObjetoFisico {
   @@index([proyectoId])
 }
 
+// Render/plano/foto EXTERNO subido de una sede (ADITIVO). La imagen vive en Postgres
+// (bytea) porque el filesystem de Railway es efímero; tope 5 MB por imagen.
+// `data` = { calibracion: {x1,y1,x2,y2,metros} (px de la imagen natural),
+//            anclajes: [{id,x,y,tipo:'espacio'|'objeto',ref,nombre}] } — el anclaje
+// une un punto de la imagen con la entidad REAL del modelo (misma ficha/costos/procesos).
+model RenderSede {
+  id         String @id
+  proyectoId String
+  sedeId     String
+  nombre     String
+  mime       String
+  datos      Bytes
+  data       Json
+
+  @@index([sedeId])
+  @@index([proyectoId])
+}
+
 // Catálogo por UC (ADITIVO). Ref: PLANNER_CATALOG_TO_OFFERING_V1.md.
 // Oferta = {Entregable} + {Ruta base}. Presentación = SKU vendible que hereda la ruta.
 model Oferta {

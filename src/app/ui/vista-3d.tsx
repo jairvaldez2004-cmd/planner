@@ -1,20 +1,29 @@
 'use client';
 
-// VISTA 3D (isométrica "casa de muñecas") del plano de una sede. ADITIVO.
-// Extruye la geometría 2D que ya existe (huella + áreas + objetos con altura estimada)
-// a un volumen que se puede girar a los 4 lados. NO es fotorrealismo: es la misma data,
-// vista en 3D, para revisar el espacio. Se genera con SVG puro (sin dependencias 3D).
+// VISTA 3D REAL (Three.js) del plano de una sede. ADITIVO.
+// Escena interactiva con cámara orbital, luces con sombras y materiales PBR — se ve
+// como un render de arquitecto EN VIVO y sigue conectada a los datos (clic en un
+// objeto = su nombre). Sustituye a la isométrica SVG inicial. El fotorrealismo de
+// FOTO sigue viniendo de renders externos subidos (pieza aparte del roadmap).
+// Todo WebGL vive en useEffect (SSR-safe); se desmonta limpiando GPU.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { iso, rotarCuarto, profundidad, tapaCaja, caraVertical, sombra } from '@/domain/iso';
-import type { Iso, P2 } from '@/domain/iso';
-import { centroDe, esquinasDe, alturaObjeto } from '@/domain/espacios';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { alturaObjeto } from '@/domain/espacios';
 import type { Espacio, ObjetoFisico, Sede } from '@/domain/espacios';
 
 const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
 
-interface Cara { pts: Iso[]; fill: string; stroke: string; depth: number; z: number; label?: { x: number; y: number; t: string } | undefined }
+// Material por categoría de objeto (madera/metal/plástico aproximados).
+const MAT_OBJ: Record<string, { color: number; rough: number; metal: number }> = {
+  mueble: { color: 0xb98b5a, rough: 0.65, metal: 0.05 },
+  equipo: { color: 0x9fb0bf, rough: 0.35, metal: 0.55 },
+  herramienta: { color: 0x8494a8, rough: 0.4, metal: 0.5 },
+  insumo: { color: 0xcfc7ba, rough: 0.85, metal: 0 },
+};
+const COLORES_AREA = [0xdce7f5, 0xe8f0dd, 0xf5e9dc, 0xe9def0, 0xdff0ec, 0xf0e5de];
 
 interface Props {
   sede: Sede;
@@ -26,117 +35,203 @@ interface Props {
 }
 
 export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar }: Props) {
-  const [q, setQ] = useState(0);          // giro de cámara (0..3 = 90° cada uno)
-  const [muroAlt, setMuroAlt] = useState(2.6); // altura de muro (m)
-  const centro: P2 = { x: footAncho / 2, y: footAlto / 2 };
+  const montRef = useRef<HTMLDivElement | null>(null);
+  const [muroAlt, setMuroAlt] = useState(2.6);
+  const [info, setInfo] = useState<string>('');
 
-  const escena = useMemo(() => construirEscena({ espacios, objetos, footAncho, footAlto, muroAlt, q, centro }),
-    [espacios, objetos, footAncho, footAlto, muroAlt, q]);
+  useEffect(() => {
+    const mont = montRef.current;
+    if (!mont) return;
+    const W = footAncho, D = footAlto;
 
-  const S = 46; // px por metro
-  const PAD = 30;
-  const pts = escena.flatMap((c) => c.pts);
-  const minX = Math.min(...pts.map((p) => p.sx)), maxX = Math.max(...pts.map((p) => p.sx));
-  const minY = Math.min(...pts.map((p) => p.sy)), maxY = Math.max(...pts.map((p) => p.sy));
-  const W = (maxX - minX) * S + PAD * 2, H = (maxY - minY) * S + PAD * 2;
-  const px = (p: Iso) => `${(p.sx - minX) * S + PAD},${(p.sy - minY) * S + PAD}`;
-  const poly = (c: Cara) => c.pts.map(px).join(' ');
+    // --- escena / cámara / renderer ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xe8edf4);
+    const camera = new THREE.PerspectiveCamera(45, 4 / 3, 0.1, 200);
+    camera.position.set(W * 0.9, Math.max(W, D) * 0.85, D * 2.2);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    mont.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(W / 2, 0.6, D / 2);
+    controls.enableDamping = true;
+    controls.maxPolarAngle = Math.PI / 2 - 0.03; // no bajar del suelo
+    controls.minDistance = 2; controls.maxDistance = 60;
+
+    // --- luces: hemisferio (cielo) + sol direccional con sombras ---
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8a95a5, 1.0));
+    const sol = new THREE.DirectionalLight(0xfff4e0, 2.2);
+    sol.position.set(W * 1.2, 9, -D * 0.6);
+    sol.castShadow = true;
+    sol.shadow.mapSize.set(2048, 2048);
+    const sc = sol.shadow.camera;
+    sc.left = -W; sc.right = W * 1.5; sc.top = D * 1.5; sc.bottom = -D; sc.far = 40;
+    scene.add(sol);
+
+    // --- terreno alrededor + piso del local ---
+    const terreno = new THREE.Mesh(
+      new THREE.PlaneGeometry(W * 6, D * 8),
+      new THREE.MeshStandardMaterial({ color: 0xccd3dc, roughness: 0.95 }),
+    );
+    terreno.rotation.x = -Math.PI / 2; terreno.position.set(W / 2, -0.01, D / 2);
+    terreno.receiveShadow = true;
+    scene.add(terreno);
+
+    const piso = new THREE.Mesh(
+      new THREE.BoxGeometry(W, 0.05, D),
+      new THREE.MeshStandardMaterial({ color: 0xd8cfc2, roughness: 0.7 }), // porcelanato claro
+    );
+    piso.position.set(W / 2, 0.025, D / 2);
+    piso.receiveShadow = true;
+    scene.add(piso);
+
+    // --- muros perimetrales (se ocultan solos los que dan a la cámara) ---
+    const T = 0.15, half = T / 2;
+    const muros: { mesh: THREE.Mesh; normal: THREE.Vector3; centro: THREE.Vector3 }[] = [];
+    const matMuro = new THREE.MeshStandardMaterial({ color: 0xf3f0ea, roughness: 0.9 });
+    const defMuros: { w: number; x: number; z: number; rotY: number; n: [number, number] }[] = [
+      { w: W + T, x: W / 2, z: -half, rotY: 0, n: [0, -1] },
+      { w: W + T, x: W / 2, z: D + half, rotY: 0, n: [0, 1] },
+      { w: D + T, x: -half, z: D / 2, rotY: Math.PI / 2, n: [-1, 0] },
+      { w: D + T, x: W + half, z: D / 2, rotY: Math.PI / 2, n: [1, 0] },
+    ];
+    for (const m of defMuros) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(m.w, muroAlt, T), matMuro);
+      mesh.rotation.y = m.rotY;
+      mesh.position.set(m.x, muroAlt / 2 + 0.05, m.z);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      scene.add(mesh);
+      muros.push({ mesh, normal: new THREE.Vector3(m.n[0], 0, m.n[1]), centro: mesh.position.clone() });
+    }
+
+    // --- áreas: losa de color + etiqueta (sprite con texto) ---
+    const etiqueta = (texto: string): THREE.Sprite => {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+      const g = c.getContext('2d')!;
+      g.font = 'bold 44px system-ui, sans-serif';
+      const tw = Math.min(480, g.measureText(texto).width + 36);
+      g.fillStyle = 'rgba(255,255,255,0.88)';
+      g.beginPath(); (g as CanvasRenderingContext2D & { roundRect: (x: number, y: number, w: number, h: number, r: number) => void }).roundRect((512 - tw) / 2, 28, tw, 72, 16); g.fill();
+      g.fillStyle = '#33415c'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(texto, 256, 66, 460);
+      const tex = new THREE.CanvasTexture(c);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+      sp.scale.set(2.4, 0.6, 1);
+      return sp;
+    };
+
+    espacios.forEach((s, i) => {
+      const color = COLORES_AREA[i % COLORES_AREA.length]!;
+      let shape: THREE.Shape;
+      if (s.poligono && s.poligono.length >= 3) {
+        shape = new THREE.Shape(s.poligono.map((p) => new THREE.Vector2(p.x, p.y)));
+      } else {
+        shape = new THREE.Shape([
+          new THREE.Vector2(s.x, s.y), new THREE.Vector2(s.x + s.ancho, s.y),
+          new THREE.Vector2(s.x + s.ancho, s.y + s.alto), new THREE.Vector2(s.x, s.y + s.alto),
+        ]);
+      }
+      const geo = new THREE.ShapeGeometry(shape);
+      geo.rotateX(Math.PI / 2); // plano (x,y) → suelo (x,z)
+      const losa = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.8, side: THREE.DoubleSide }));
+      losa.position.y = 0.06;
+      losa.receiveShadow = true;
+      scene.add(losa);
+      const et = etiqueta(s.nombre);
+      et.position.set(s.x + s.ancho / 2, 0.35, s.y + s.alto / 2);
+      scene.add(et);
+    });
+
+    // --- objetos: cajas con material por categoría (clicables) ---
+    const clicables: THREE.Mesh[] = [];
+    for (const o of objetos) {
+      const h = alturaObjeto(o.nombre, o.categoria);
+      const m = MAT_OBJ[o.categoria] ?? MAT_OBJ.mueble!;
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(o.ancho, h, o.alto),
+        new THREE.MeshStandardMaterial({ color: m.color, roughness: m.rough, metalness: m.metal }),
+      );
+      mesh.position.set(o.x + o.ancho / 2, h / 2 + 0.05, o.y + o.alto / 2);
+      mesh.rotation.y = -(o.rot ?? 0) * Math.PI / 180; // giro del plano → giro en Y
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      mesh.userData.nombre = `${o.nombre} · ${o.categoria}`;
+      scene.add(mesh);
+      clicables.push(mesh);
+    }
+
+    // --- clic = identificar objeto (raycast) ---
+    const ray = new THREE.Raycaster();
+    const onClick = (e: MouseEvent) => {
+      const r = renderer.domElement.getBoundingClientRect();
+      const p = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(p, camera);
+      const hit = ray.intersectObjects(clicables)[0];
+      setInfo(hit ? String(hit.object.userData.nombre) : '');
+    };
+    renderer.domElement.addEventListener('click', onClick);
+
+    // --- tamaño y bucle ---
+    const centro = new THREE.Vector3(W / 2, 0, D / 2);
+    const ajustar = () => {
+      const w = mont.clientWidth || 800;
+      const h = Math.max(360, Math.min(620, Math.round(w * 0.62)));
+      renderer.setSize(w, h);
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+    };
+    ajustar();
+    const ro = new ResizeObserver(ajustar); ro.observe(mont);
+
+    let vivo = true;
+    const dir = new THREE.Vector3();
+    const tick = () => {
+      if (!vivo) return;
+      controls.update();
+      // dollhouse: oculta los muros que quedan entre la cámara y el interior
+      dir.copy(camera.position).sub(centro);
+      for (const m of muros) m.mesh.visible = m.normal.dot(dir) <= 0.1;
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    };
+    tick();
+
+    return () => {
+      vivo = false;
+      ro.disconnect();
+      renderer.domElement.removeEventListener('click', onClick);
+      controls.dispose();
+      scene.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+        const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
+        if (Array.isArray(mat)) mat.forEach((x) => x.dispose()); else mat?.dispose();
+      });
+      renderer.dispose();
+      mont.removeChild(renderer.domElement);
+    };
+  }, [espacios, objetos, footAncho, footAlto, muroAlt]);
 
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h3 style={{ margin: 0 }}>🧊 Vista 3D <span style={{ fontSize: 12.5, color: '#888' }}>· {sede.nombre} · isométrica del plano</span></h3>
+        <h3 style={{ margin: 0 }}>🧊 Vista 3D <span style={{ fontSize: 12.5, color: '#888' }}>· {sede.nombre} · arrastra para orbitar · rueda/pellizco = zoom</span></h3>
         {onCerrar && <button style={btn} onClick={onCerrar}>← Editor 2D</button>}
       </div>
-
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', margin: '0.5rem 0' }}>
-        <button style={btn} onClick={() => setQ((v) => (v + 3) % 4)} title="Girar la cámara">↺ Girar</button>
-        <button style={btn} onClick={() => setQ((v) => (v + 1) % 4)}>Girar ↻</button>
-        <span style={{ fontSize: 12, color: '#666' }}>Vista {q * 90}°</span>
-        <span style={{ marginLeft: 12, fontSize: 12, color: '#666' }}>Altura de muro</span>
+        <span style={{ fontSize: 12, color: '#666' }}>Altura de muro</span>
         <input type="range" min={0} max={3.5} step={0.1} value={muroAlt} onChange={(e) => setMuroAlt(Number(e.target.value))} />
         <span style={{ fontSize: 12, color: '#666' }}>{muroAlt.toFixed(1)} m</span>
+        {info && <span style={{ fontSize: 12.5, background: '#33415c', color: '#fff', borderRadius: 12, padding: '0.15rem 0.7rem' }}>{info}</span>}
       </div>
-
-      <div style={{ border: '1px solid #ddd', borderRadius: 10, background: 'linear-gradient(#f4f6fa,#eaeef4)', overflow: 'auto' }}>
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '72vh' }}>
-          {escena.map((c, i) => (
-            <polygon key={i} points={poly(c)} fill={c.fill} stroke={c.stroke} strokeWidth={0.8} strokeLinejoin="round" />
-          ))}
-          {escena.filter((c) => c.label).map((c, i) => (
-            <text key={`l${i}`} x={(c.label!.x - minX) * S + PAD} y={(c.label!.y - minY) * S + PAD}
-              textAnchor="middle" fontSize={10} fill="#3a4a63" fontWeight="bold" style={{ pointerEvents: 'none' }}>{c.label!.t}</text>
-          ))}
-        </svg>
-      </div>
+      <div ref={montRef} style={{ border: '1px solid #ddd', borderRadius: 10, overflow: 'hidden', lineHeight: 0 }} />
       <p style={{ fontSize: 11.5, color: '#888', margin: '0.4rem 0 0' }}>
-        Vista 3D generada del plano 2D (áreas y objetos extruidos por su altura estimada). No es un render fotorrealista;
-        es tu mismo modelo en volumen para revisarlo. Gira la cámara para ver detrás de los muros.
+        Escena 3D generada de tu plano (luces, sombras y materiales reales; los muros hacia la cámara se ocultan solos).
+        Clic en un objeto para identificarlo. Para fotorrealismo de foto, sube un render externo en 🖼 Renders.
       </p>
     </section>
   );
-}
-
-function construirEscena({ espacios, objetos, footAncho, footAlto, muroAlt, q, centro }: {
-  espacios: Espacio[]; objetos: ObjetoFisico[]; footAncho: number; footAlto: number; muroAlt: number; q: number; centro: P2;
-}): Cara[] {
-  const R = (x: number, y: number) => rotarCuarto({ x, y }, centro, q);
-  const caras: Cara[] = [];
-
-  // --- piso (huella completa) ---
-  const e0 = R(0, 0), e1 = R(footAncho, 0), e2 = R(footAncho, footAlto), e3 = R(0, footAlto);
-  caras.push({
-    pts: [e0, e1, e2, e3].map((p) => iso(p.x, p.y, 0)),
-    fill: '#e9ecf2', stroke: '#cfd6e2', depth: -Infinity, z: 0,
-  });
-
-  // --- áreas (losas de color a ras de piso) ---
-  for (const s of espacios) {
-    const puntos = (s.poligono && s.poligono.length >= 3)
-      ? s.poligono.map((p) => R(p.x, p.y))
-      : esquinasDe({ x: s.x, y: s.y, ancho: s.ancho, alto: s.alto, rot: s.rot }).map((p) => R(p.x, p.y));
-    const c = puntos.reduce((a, p) => ({ x: a.x + p.x / puntos.length, y: a.y + p.y / puntos.length }), { x: 0, y: 0 });
-    const li = iso(c.x, c.y, 0.02);
-    // Las losas son planas a ras de piso: se dibujan TODAS antes que muros y objetos
-    // (offset grande negativo) para que nada quede tapado por una losa más cercana.
-    caras.push({
-      pts: puntos.map((p) => iso(p.x, p.y, 0.02)),
-      fill: '#dbe6f5', stroke: '#a9c0e0', depth: -100000 + profundidad(c.x, c.y), z: 0.02,
-      label: { x: li.sx, y: li.sy, t: s.nombre.length > 16 ? s.nombre.slice(0, 15) + '…' : s.nombre },
-    });
-  }
-
-  // --- muros perimetrales: solo los 2 del fondo (dollhouse abierto) ---
-  const esquinas = [R(0, 0), R(footAncho, 0), R(footAncho, footAlto), R(0, footAlto)];
-  // ordena las aristas por profundidad de su punto medio; dibuja solo las 2 más lejanas
-  const aristas: [P2, P2][] = [[esquinas[0]!, esquinas[1]!], [esquinas[1]!, esquinas[2]!], [esquinas[2]!, esquinas[3]!], [esquinas[3]!, esquinas[0]!]];
-  const conProf = aristas.map((ar) => ({ ar, d: profundidad((ar[0].x + ar[1].x) / 2, (ar[0].y + ar[1].y) / 2) })).sort((a, b) => a.d - b.d);
-  for (const { ar, d } of conProf.slice(0, 2)) {
-    caras.push({ pts: caraVertical(ar[0], ar[1], 0, muroAlt), fill: '#f2f4f8', stroke: '#c7cfdc', depth: d - 5, z: muroAlt });
-  }
-
-  // --- objetos: cajas extruidas ---
-  for (const o of objetos) {
-    const h = alturaObjeto(o.nombre, o.categoria);
-    // esquinas del objeto (ya con su rot propia) y luego rotadas por la cámara
-    const esq = esquinasDe({ x: o.x, y: o.y, ancho: o.ancho, alto: o.alto, rot: o.rot }).map((p) => R(p.x, p.y));
-    const cx = esq.reduce((a, p) => a + p.x, 0) / 4, cy = esq.reduce((a, p) => a + p.y, 0) / 4;
-    const base = '#e0a96b';
-    // 4 caras laterales, ordenadas para pintar de atrás hacia adelante
-    const lados: [P2, P2][] = [[esq[0]!, esq[1]!], [esq[1]!, esq[2]!], [esq[2]!, esq[3]!], [esq[3]!, esq[0]!]];
-    const ladosProf = lados.map((ar) => ({ ar, d: profundidad((ar[0].x + ar[1].x) / 2, (ar[0].y + ar[1].y) / 2) }))
-      .sort((a, b) => a.d - b.d);
-    for (const { ar, d } of ladosProf) {
-      caras.push({ pts: caraVertical(ar[0], ar[1], 0, h), fill: sombra(base, d <= profundidad(cx, cy) ? 0.72 : 0.88), stroke: '#b5813f', depth: profundidad(cx, cy) - 0.3 + (d - profundidad(cx, cy)) * 0.001, z: h });
-    }
-    // tapa
-    caras.push({
-      pts: esq.map((p) => iso(p.x, p.y, h)), fill: sombra(base, 1.12), stroke: '#b5813f',
-      depth: profundidad(cx, cy), z: h,
-      label: (() => { const li = iso(cx, cy, h); return { x: li.sx, y: li.sy, t: o.nombre.length > 12 ? o.nombre.slice(0, 11) + '…' : o.nombre }; })(),
-    });
-  }
-
-  // painter's algorithm: de más lejano (menor profundidad) a más cercano
-  return caras.sort((a, b) => a.depth - b.depth || a.z - b.z);
 }

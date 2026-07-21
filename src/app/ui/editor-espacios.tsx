@@ -21,6 +21,7 @@ import type {
   Sede, Espacio, ObjetoFisico, ElementoArq, UnidadComercial, LenteId, TipoEspacio, CategoriaObjeto, TipoElemento,
 } from '@/domain/espacios';
 import { Vista3D } from './vista-3d';
+import { VistaRenders } from './vista-renders';
 import { useEsMovil } from './use-movil';
 
 const VBW = 900, VBH = 600;
@@ -61,7 +62,8 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
   const [dragEl, setDragEl] = useState<DragEl>(null);
   const [giro, setGiro] = useState<Giro>(null);
   const [modo, setModo] = useState<Modo>('sel');
-  const [ver3D, setVer3D] = useState(false);
+  const [panel, setPanel] = useState<'2d' | '3d' | 'renders'>('2d');
+  const primeraCarga = useRef(true);
   const [pend, setPend] = useState<Pt | null>(null);
   const [roomPts, setRoomPts] = useState<Pt[]>([]);
   const [cursor, setCursor] = useState<Pt | null>(null);
@@ -84,6 +86,18 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
       obtenerSede(sedeId), listarEspacios(sedeId), listarObjetos(sedeId), listarElementos(sedeId), listarUnidades(proyectoId), costeoSede(sedeId),
     ]);
     setSede(s); setEspacios(e); setObjetos(o); setElementos(el); setUcs(u); setCosteo(c);
+    // Abrir en el NIVEL que tiene contenido: si el layout vive en Piso 1 y el editor
+    // abre en Planta baja, el usuario ve un lienzo vacío y cree que no hay nada.
+    if (primeraCarga.current) {
+      primeraCarga.current = false;
+      const conContenido = [...e.map((x) => x.capa), ...o.map((x) => x.capa), ...el.map((x) => x.capa)];
+      if (conContenido.length && !conContenido.includes(0)) {
+        // el nivel con más elementos gana
+        const cuenta = new Map<number, number>();
+        for (const cp of conContenido) cuenta.set(cp, (cuenta.get(cp) ?? 0) + 1);
+        setCapa([...cuenta.entries()].sort((a, b) => b[1] - a[1])[0]![0]);
+      }
+    }
   };
   useEffect(() => { void cargar(); /* eslint-disable-next-line */ }, [sedeId]);
 
@@ -180,16 +194,21 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h3 style={{ margin: 0 }}>🏢 {sede?.nombre ?? 'Sede'} · editor 2D</h3>
         <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={{ ...btn, background: ver3D ? '#33415c' : '#fff', color: ver3D ? '#fff' : '#333', borderColor: ver3D ? '#33415c' : '#999', fontWeight: 'bold' }}
-            onClick={() => setVer3D((v) => !v)} title="Ver el plano en 3D (isométrico)">🧊 {ver3D ? 'Ver 2D' : 'Ver 3D'}</button>
+          <button style={{ ...btn, background: panel === '3d' ? '#33415c' : '#fff', color: panel === '3d' ? '#fff' : '#333', borderColor: panel === '3d' ? '#33415c' : '#999', fontWeight: 'bold' }}
+            onClick={() => setPanel(panel === '3d' ? '2d' : '3d')} title="Escena 3D con luces y materiales">🧊 {panel === '3d' ? 'Ver 2D' : 'Ver 3D'}</button>
+          <button style={{ ...btn, background: panel === 'renders' ? '#33415c' : '#fff', color: panel === 'renders' ? '#fff' : '#333', borderColor: panel === 'renders' ? '#33415c' : '#999', fontWeight: 'bold' }}
+            onClick={() => setPanel(panel === 'renders' ? '2d' : 'renders')} title="Sube tu render/plano/foto y únelo al modelo">🖼 Renders</button>
           <button style={btn} onClick={onVolver}>← Sedes</button>
         </div>
       </div>
 
-      {ver3D && sede && (
-        <Vista3D sede={sede} espacios={espCapa} objetos={objCapa} footAncho={footAncho} footAlto={footAlto} onCerrar={() => setVer3D(false)} />
+      {panel === '3d' && sede && (
+        <Vista3D sede={sede} espacios={espCapa} objetos={objCapa} footAncho={footAncho} footAlto={footAlto} onCerrar={() => setPanel('2d')} />
       )}
-      {!ver3D && (<>
+      {panel === 'renders' && (
+        <VistaRenders proyectoId={proyectoId} sedeId={sedeId} espacios={espacios} objetos={objetos} onCerrar={() => setPanel('2d')} />
+      )}
+      {panel === '2d' && (<>
 
       {/* Lentes */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', margin: '0.5rem 0' }}>
