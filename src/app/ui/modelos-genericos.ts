@@ -30,6 +30,12 @@ function cilindro(g: THREE.Group, r: number, h: number, mat: THREE.Material, x: 
   g.add(m);
   return m;
 }
+function esfera(g: THREE.Group, r: number, mat: THREE.Material, x: number, y: number, z: number): THREE.Mesh {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat);
+  m.position.set(x, y, z);
+  g.add(m);
+  return m;
+}
 // 4 patas en las esquinas de una huella w×d, de altura h.
 function patas(g: THREE.Group, w: number, d: number, h: number, r: number, mat: THREE.Material): void {
   const px = w / 2 - r * 1.6, pz = d / 2 - r * 1.6;
@@ -131,12 +137,125 @@ function estante(g: THREE.Group, w: number, d: number): void {
   for (const y of [0.1, 0.55, 1.0, 1.45]) caja(g, w - 0.06, 0.03, d, M.madera(), 0, y, 0);
 }
 
+function sofa(g: THREE.Group, w: number, d: number): void {
+  caja(g, w, 0.38, d, M.tela(0x8d8d8d), 0, 0.19, 0);                            // base/asiento
+  caja(g, w, 0.42, d * 0.28, M.tela(0x8d8d8d), 0, 0.6, -d / 2 + d * 0.14);      // respaldo
+  caja(g, w * 0.12, 0.55, d, M.tela(0x7d7d7d), -w / 2 + w * 0.06, 0.28, 0);     // brazos
+  caja(g, w * 0.12, 0.55, d, M.tela(0x7d7d7d), w / 2 - w * 0.06, 0.28, 0);
+  patas(g, w, d, 0.08, 0.02, M.metalOscuro());
+}
+
+function escritorioL(g: THREE.Group, w: number, d: number): void {
+  // dos cubiertas en L cubriendo la huella
+  caja(g, w, 0.04, d * 0.45, M.maderaOscura(), 0, 0.74, -d / 2 + d * 0.225);
+  caja(g, w * 0.4, 0.04, d, M.maderaOscura(), -w / 2 + w * 0.2, 0.74, 0);
+  patas(g, w, d, 0.72, 0.025, M.metalOscuro());
+}
+
+function tv(g: THREE.Group, w: number, d: number): void {
+  // panel montado (flota a la altura de muro típica; se coloca pegada a la pared)
+  const h = Math.min(0.7, w * 0.56);
+  caja(g, w, h, Math.min(0.06, d), new THREE.MeshStandardMaterial({ color: 0x101418, roughness: 0.3, metalness: 0.4 }), 0, 1.35, 0);
+  caja(g, w * 0.96, h * 0.9, 0.01, new THREE.MeshStandardMaterial({ color: 0x1c2733, roughness: 0.1, metalness: 0.1, emissive: 0x0e1720, emissiveIntensity: 0.6 }), 0, 1.35, Math.min(0.06, d) / 2 + 0.006);
+}
+
+function pizarron(g: THREE.Group, w: number, d: number): void {
+  const h = Math.min(0.95, w * 0.62);
+  caja(g, w, h, Math.min(0.05, d), M.metal(0xcfd4d9), 0, 1.4, 0);               // marco
+  caja(g, w * 0.95, h * 0.92, 0.015, M.blanco(), 0, 1.4, Math.min(0.05, d) / 2 + 0.008); // superficie
+  caja(g, w * 0.5, 0.03, 0.06, M.metal(0xcfd4d9), 0, 1.4 - h / 2 - 0.015, 0.04); // charola
+}
+
+function refrigerador(g: THREE.Group, w: number, d: number, nombre: string): void {
+  const h = /frigobar|mini/.test(nombre) ? 0.85 : 1.7;
+  caja(g, w, h, d, M.metal(0xd9dde1), 0, h / 2, 0);
+  caja(g, w * 0.94, 0.01, d * 0.94, M.metalOscuro(), 0, h * 0.62, 0);           // línea de puerta
+  cilindro(g, 0.015, h * 0.35, M.metalOscuro(), w / 2 - 0.05, h * 0.55, d / 2 + 0.01); // manija
+}
+
+function dispensador(g: THREE.Group, w: number, d: number): void {
+  const r = Math.min(w, d) / 2;
+  caja(g, w, 1.0, d, M.blanco(), 0, 0.5, 0);                                     // gabinete
+  caja(g, w * 0.8, 0.08, 0.04, M.metalOscuro(), 0, 0.86, d / 2 - 0.02);          // llaves
+  const agua = new THREE.MeshPhysicalMaterial({ color: 0x7db9e8, roughness: 0.1, transparent: true, opacity: 0.55 });
+  cilindro(g, r * 0.62, 0.3, agua, 0, 1.15, 0);                                  // botellón
+  esfera(g, r * 0.62, agua, 0, 1.3, 0);
+}
+
+function impresora(g: THREE.Group, w: number, d: number): void {
+  caja(g, w, 0.26, d, M.metal(0xe3e6e9), 0, 0.13, 0);
+  caja(g, w * 0.86, 0.05, d * 0.8, M.metalOscuro(), 0, 0.285, 0);                // escáner/tapa
+  caja(g, w * 0.6, 0.02, d * 0.3, M.metal(0xcfd4d9), 0, 0.1, d / 2 + d * 0.12);  // bandeja
+}
+
+function espejo(g: THREE.Group, w: number, d: number): void {
+  const h = Math.min(1.1, w * 1.4 + 0.4);
+  caja(g, w, h, Math.min(0.05, d), M.maderaOscura(), 0, 1.35, 0);                // marco
+  caja(g, w * 0.9, h * 0.92, 0.01, new THREE.MeshStandardMaterial({ color: 0xdfe9ef, roughness: 0.04, metalness: 0.9 }), 0, 1.35, Math.min(0.05, d) / 2 + 0.007);
+}
+
+function computadora(g: THREE.Group, w: number, d: number): void {
+  caja(g, w, 0.015, d * 0.6, M.metalOscuro(), 0, 0.008, d * 0.15);               // base/teclado
+  const p = caja(g, w * 0.92, Math.min(0.35, w * 0.6), 0.015, new THREE.MeshStandardMaterial({ color: 0x1c2733, roughness: 0.15, emissive: 0x101a24, emissiveIntensity: 0.5 }), 0, Math.min(0.35, w * 0.6) / 2 + 0.02, -d * 0.2);
+  p.rotation.x = -0.28;                                                           // pantalla inclinada
+}
+
+function planta(g: THREE.Group, w: number, d: number): void {
+  const r = Math.min(w, d) / 2;
+  cilindro(g, r * 0.55, 0.32, M.madera(0xb0623f), 0, 0.16, 0);                   // maceta
+  cilindro(g, 0.015, 0.5, M.madera(0x5d7a3a), 0, 0.55, 0);                       // tallo
+  const hoja = new THREE.MeshStandardMaterial({ color: 0x4e7d46, roughness: 0.8 });
+  esfera(g, r * 0.75, hoja, 0, 0.95, 0);
+  esfera(g, r * 0.5, hoja, r * 0.3, 1.15, 0.1);
+  esfera(g, r * 0.45, hoja, -r * 0.35, 1.1, -0.1);
+}
+
+function cortina(g: THREE.Group, w: number, d: number): void {
+  cilindro(g, 0.012, w, M.metalOscuro(), 0, 2.0, 0).rotation.z = Math.PI / 2;    // barral
+  const tela = caja(g, w * 0.96, 1.75, Math.min(0.04, d), M.tela(0x565b63), 0, 1.05, 0);
+  tela.rotation.y = 0.02;
+}
+
+function archivero(g: THREE.Group, w: number, d: number): void {
+  caja(g, w, 1.05, d, M.metalOscuro(), 0, 0.525, 0);
+  for (const y of [0.25, 0.58, 0.9]) {
+    caja(g, w * 0.9, 0.26, 0.015, M.metal(0x707a84), 0, y, d / 2 + 0.005);       // frentes de cajón
+    caja(g, w * 0.35, 0.025, 0.02, M.metal(0xc9ced3), 0, y + 0.08, d / 2 + 0.02); // manijas
+  }
+}
+
+function bote(g: THREE.Group, w: number, d: number): void {
+  const r = Math.min(w, d) / 2 * 0.85;
+  cilindro(g, r, 0.5, M.metalOscuro(), 0, 0.25, 0);
+  cilindro(g, r * 1.05, 0.04, M.metalOscuro(), 0, 0.52, 0);                      // aro
+}
+
+function wc(g: THREE.Group, w: number, d: number): void {
+  const r = Math.min(w, d) / 2 * 0.8;
+  caja(g, w * 0.75, 0.42, 0.2, M.blanco(), 0, 0.5, -d / 2 + 0.1);                // tanque
+  cilindro(g, r, 0.38, M.blanco(), 0, 0.19, d * 0.08);                            // base
+  cilindro(g, r * 1.12, 0.06, M.blanco(), 0, 0.41, d * 0.08);                     // asiento
+}
+
+function minisplit(g: THREE.Group, w: number, d: number): void {
+  // unidad montada en alto (se coloca pegada al muro)
+  caja(g, w, 0.3, Math.min(0.25, d), M.blanco(), 0, 2.05, 0);
+  caja(g, w * 0.92, 0.04, 0.01, M.metal(0xc9ced3), 0, 1.94, Math.min(0.25, d) / 2 + 0.006); // rejilla
+}
+
+function microondas(g: THREE.Group, w: number, d: number): void {
+  caja(g, w, 0.32, d, M.metal(0xd9dde1), 0, 0.16, 0);
+  caja(g, w * 0.62, 0.24, 0.01, new THREE.MeshStandardMaterial({ color: 0x22262b, roughness: 0.2 }), -w * 0.1, 0.16, d / 2 + 0.006); // puerta
+}
+
 // ---------- selección por nombre (patrones en domain/espacios FORMAS_3D) ----------
 
 import { claveForma3D } from '@/domain/espacios';
 
-const POR_CLAVE: Record<string, (g: THREE.Group, w: number, d: number) => void> = {
+const POR_CLAVE: Record<string, (g: THREE.Group, w: number, d: number, nombre: string) => void> = {
   camilla, sillas, banco, mostrador, vitrina, lampara, autoclave, tarja, carrito, estante, mesa,
+  sofa, escritorioL, tv, pizarron, refrigerador, dispensador, impresora, espejo, computadora,
+  planta, cortina, archivero, bote, wc, minisplit, microondas,
 };
 
 // ¿Hay forma reconocible para este nombre? (para que la UI pueda decirlo)
@@ -151,7 +270,7 @@ export function modeloGenerico(nombre: string, ancho: number, fondo: number): TH
   const construir = clave ? POR_CLAVE[clave] : undefined;
   if (!construir) return null;
   const g = new THREE.Group();
-  construir(g, Math.max(0.1, ancho), Math.max(0.1, fondo));
+  construir(g, Math.max(0.1, ancho), Math.max(0.1, fondo), nombre.toLowerCase());
   g.traverse((n) => { n.castShadow = true; n.receiveShadow = true; });
   return g;
 }

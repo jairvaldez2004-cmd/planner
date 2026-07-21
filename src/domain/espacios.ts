@@ -182,17 +182,35 @@ export function buscarHueco(area: RectM, ocupados: RectM[], ancho: number, fondo
 // Qué nombres de objeto tienen forma paramétrica en la vista 3D (ui/modelos-genericos
 // construye la geometría; aquí viven los PATRONES para que el server pueda saberlo sin
 // importar Three.js). Mantener ambos lados en sincronía por `clave`.
+// El ORDEN importa: lo específico va antes que lo general (p. ej. "sillón de tatuaje"
+// → camilla antes de que "sillón" caiga en sofá; "escritorio en L" antes que "escritorio").
 export const FORMAS_3D: { clave: string; patron: RegExp }[] = [
-  { clave: 'camilla', patron: /camilla|cama|sill[oó]n de tatu/ },
+  { clave: 'camilla', patron: /camilla|cama\b|sill[oó]n de tatu/ },
+  { clave: 'sofa', patron: /sof[aá]|sill[oó]n|loveseat|couch/ },
   { clave: 'sillas', patron: /sillas?|asiento/ },
   { clave: 'banco', patron: /banco|taburete/ },
+  { clave: 'escritorioL', patron: /escritorio en l|esquinero/ },
   { clave: 'mostrador', patron: /mostrador|barra|recepci[oó]n|caja/ },
   { clave: 'vitrina', patron: /vitrina|exhibidor|aparador/ },
   { clave: 'lampara', patron: /l[aá]mpara/ },
   { clave: 'autoclave', patron: /autoclave|esteriliza/ },
   { clave: 'tarja', patron: /tarja|lavabo|fregadero|lavamanos/ },
+  { clave: 'wc', patron: /\bwc\b|inodoro|excusado|escusado|retrete/ },
   { clave: 'carrito', patron: /carro|carrito/ },
-  { clave: 'estante', patron: /estante|anaquel|repisa|librero/ },
+  { clave: 'estante', patron: /estante|anaquel|repisa|librero|\brack\b/ },
+  { clave: 'tv', patron: /\btv\b|televisor|televisi[oó]n|pantalla|monitor/ },
+  { clave: 'pizarron', patron: /pizarr[oó]n|pintarr[oó]n|whiteboard|tablero blanco/ },
+  { clave: 'refrigerador', patron: /refri|nevera|frigobar|frigor[ií]fico/ },
+  { clave: 'dispensador', patron: /dispensador|garraf[oó]n/ },
+  { clave: 'impresora', patron: /impresora|multifuncional|copiadora/ },
+  { clave: 'espejo', patron: /espejo/ },
+  { clave: 'computadora', patron: /computadora|laptop|\bpc\b|ordenador/ },
+  { clave: 'planta', patron: /planta|maceta|palma/ },
+  { clave: 'cortina', patron: /cortina|divisor|biombo/ },
+  { clave: 'archivero', patron: /archivero|cajonera|gabinete/ },
+  { clave: 'bote', patron: /bote de basura|basurero|cesto|papelera/ },
+  { clave: 'minisplit', patron: /minisplit|mini split|aire acondicionado|\bclima\b/ },
+  { clave: 'microondas', patron: /microondas|horno/ },
   { clave: 'mesa', patron: /mesa|escritorio/ },
 ];
 
