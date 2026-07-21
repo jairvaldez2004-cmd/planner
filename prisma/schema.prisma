@@ -228,6 +228,20 @@ model RenderSede {
   @@index([proyectoId])
 }
 
+// Modelo 3D ESCANEADO/EXTERNO de un ObjetoFisico (ADITIVO): el usuario escanea la
+// herramienta/mueble real con el teléfono (Polycam, Scaniverse — LiDAR o fotogrametría),
+// exporta .glb y lo sube; la vista 3D lo muestra en lugar de la caja genérica.
+// 1 modelo por objeto (subir otro lo reemplaza). Máx 25 MB, en Postgres (bytea).
+model Modelo3DObjeto {
+  id         String @id
+  proyectoId String
+  objetoId   String @unique
+  nombre     String
+  datos      Bytes
+
+  @@index([proyectoId])
+}
+
 // Catálogo por UC (ADITIVO). Ref: PLANNER_CATALOG_TO_OFFERING_V1.md.
 // Oferta = {Entregable} + {Ruta base}. Presentación = SKU vendible que hereda la ruta.
 model Oferta {

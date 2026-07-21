@@ -22,6 +22,8 @@ import type {
 } from '@/domain/espacios';
 import { Vista3D } from './vista-3d';
 import { VistaRenders } from './vista-renders';
+import { subirModelo3D, idsConModelo3D, eliminarModelo3D } from '@/app/actions/modelo3d.actions';
+import { MAX_GLB_BYTES } from '@/domain/render';
 import { useEsMovil } from './use-movil';
 
 const VBW = 900, VBH = 600;
@@ -68,6 +70,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
   const [roomPts, setRoomPts] = useState<Pt[]>([]);
   const [cursor, setCursor] = useState<Pt | null>(null);
   const [costeo, setCosteo] = useState<{ total: number; objetos: number; espacios: number }>({ total: 0, objetos: 0, espacios: 0 });
+  const [conModelo, setConModelo] = useState<Set<string>>(new Set()); // objetos con escaneo .glb
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const lente = getLente(lenteId);
@@ -86,6 +89,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
       obtenerSede(sedeId), listarEspacios(sedeId), listarObjetos(sedeId), listarElementos(sedeId), listarUnidades(proyectoId), costeoSede(sedeId),
     ]);
     setSede(s); setEspacios(e); setObjetos(o); setElementos(el); setUcs(u); setCosteo(c);
+    idsConModelo3D(o.map((x) => x.id)).then((ids) => setConModelo(new Set(ids))).catch(() => {});
     // Abrir en el NIVEL que tiene contenido: si el layout vive en Piso 1 y el editor
     // abre en Planta baja, el usuario ve un lienzo vacío y cree que no hay nada.
     if (primeraCarga.current) {
@@ -352,7 +356,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
         <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: '0.75rem', background: '#fafafa', minHeight: 200 }}>
           {!sel && <p style={{ color: '#666', fontSize: 13 }}>Selecciona un elemento en el lienzo para editar su ficha.<br />Lente activa: <strong style={{ color: lente.color }}>{lente.etiqueta}</strong>.</p>}
           {selEspacio && <FichaEspacio key={selEspacio.id} espacio={selEspacio} ucs={ucs} lenteId={lenteId} onCambio={cargar} onEliminar={async () => { await eliminarEspacio(selEspacio.id); setSel(null); cargar(); }} />}
-          {selObjeto && <FichaObjeto key={selObjeto.id} objeto={selObjeto} espacios={espacios} lenteId={lenteId} onCambio={cargar} onEliminar={async () => { await eliminarObjeto(selObjeto.id); setSel(null); cargar(); }} />}
+          {selObjeto && <FichaObjeto key={selObjeto.id} objeto={selObjeto} espacios={espacios} lenteId={lenteId} proyectoId={proyectoId} tieneModelo={conModelo.has(selObjeto.id)} onCambio={cargar} onEliminar={async () => { await eliminarObjeto(selObjeto.id); setSel(null); cargar(); }} />}
           {selElemento && (
             <div>
               <strong style={{ fontSize: 14 }}>{ESTILO_ELEMENTO[selElemento.tipo].label}</strong>
@@ -408,8 +412,24 @@ function FichaEspacio({ espacio, ucs, lenteId, onCambio, onEliminar }: { espacio
 }
 
 // --- ficha de un objeto ---
-function FichaObjeto({ objeto, espacios, lenteId, onCambio, onEliminar }: { objeto: ObjetoFisico; espacios: Espacio[]; lenteId: LenteId; onCambio: () => void; onEliminar: () => void }) {
+function FichaObjeto({ objeto, espacios, lenteId, proyectoId, tieneModelo, onCambio, onEliminar }: { objeto: ObjetoFisico; espacios: Espacio[]; lenteId: LenteId; proyectoId: string; tieneModelo: boolean; onCambio: () => void; onEliminar: () => void }) {
   const lente = getLente(lenteId);
+  const glbRef = useRef<HTMLInputElement | null>(null);
+  const [msgGlb, setMsgGlb] = useState('');
+
+  async function subirGlb(f: File) {
+    if (f.size > MAX_GLB_BYTES) { setMsgGlb(`Pesa ${(f.size / 1024 / 1024).toFixed(1)} MB; máximo 25 MB. Exporta con menos resolución.`); return; }
+    setMsgGlb('Subiendo escaneo…');
+    const b64 = await new Promise<string>((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(String(fr.result).split(',')[1] ?? '');
+      fr.onerror = rej;
+      fr.readAsDataURL(f);
+    });
+    const r = await subirModelo3D(proyectoId, objeto.id, f.name.replace(/\.[^.]+$/, ''), b64);
+    setMsgGlb(r.ok ? 'Escaneo guardado: en la vista 3D este objeto ya se ve real.' : r.error);
+    if (r.ok) onCambio();
+  }
   return (
     <div>
       <strong style={{ fontSize: 14 }}>Objeto físico</strong>
@@ -428,6 +448,19 @@ function FichaObjeto({ objeto, espacios, lenteId, onCambio, onEliminar }: { obje
         <div style={{ flex: 1 }}><label style={lbl}>Alto (m)</label><input style={inp} type="number" defaultValue={objeto.alto} onBlur={(e) => void actualizarObjeto(objeto.id, { alto: Number(e.target.value) || objeto.alto }).then(onCambio)} /></div>
       </div>
       <Giro rot={objeto.rot} onCambio={(rot) => void actualizarObjeto(objeto.id, { rot }).then(onCambio)} />
+
+      {/* Escaneo 3D real del objeto (LiDAR/fotogrametría del teléfono → .glb) */}
+      <label style={lbl}>🧊 Modelo 3D real {tieneModelo && <span style={{ color: '#2e9e63' }}>✓ tiene escaneo</span>}</label>
+      <input ref={glbRef} type="file" accept=".glb,model/gltf-binary" style={{ display: 'none' }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirGlb(f); e.target.value = ''; }} />
+      <div style={{ display: 'flex', gap: 4 }}>
+        <button style={btn} onClick={() => glbRef.current?.click()}>⬆ Subir escaneo (.glb)</button>
+        {tieneModelo && <button style={{ ...btn, color: '#b33' }} onClick={() => void eliminarModelo3D(objeto.id).then(() => { setMsgGlb('Escaneo eliminado.'); onCambio(); })}>×</button>}
+      </div>
+      <p style={{ fontSize: 10.5, color: msgGlb.includes('guardado') ? '#2e9e63' : '#8a6d3b', margin: '2px 0 0' }}>
+        {msgGlb || 'Escanea el objeto real con Polycam o Scaniverse (LiDAR o con fotos), exporta ".glb" y súbelo: en la vista 3D sustituye a la caja, ajustado a las medidas de arriba.'}
+      </p>
+
       <CamposLente elementoData={objeto.data} soloObjeto lenteId={lenteId} onGuardar={(campos) => void actualizarObjeto(objeto.id, { campos }).then(onCambio)} />
       <button style={{ ...btn, color: '#a00', marginTop: '0.6rem' }} onClick={onEliminar}>Eliminar objeto</button>
       <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>Lente: <span style={{ color: lente.color }}>{lente.etiqueta}</span></div>

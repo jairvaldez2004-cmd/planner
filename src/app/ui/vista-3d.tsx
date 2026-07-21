@@ -11,8 +11,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { alturaObjeto } from '@/domain/espacios';
 import type { Espacio, ObjetoFisico, Sede } from '@/domain/espacios';
+import { modelosDeSede } from '@/app/actions/modelo3d.actions';
 
 const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
 
@@ -38,6 +40,24 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar
   const montRef = useRef<HTMLDivElement | null>(null);
   const [muroAlt, setMuroAlt] = useState(2.6);
   const [info, setInfo] = useState<string>('');
+  // Escaneos .glb subidos por objeto (LiDAR/fotogrametría): se cargan una vez por sede.
+  const [modelos, setModelos] = useState<Map<string, ArrayBuffer> | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    modelosDeSede(sede.id).then((ms) => {
+      if (!vivo) return;
+      const map = new Map<string, ArrayBuffer>();
+      for (const m of ms) {
+        const bin = atob(m.base64);
+        const buf = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+        map.set(m.objetoId, buf.buffer);
+      }
+      setModelos(map);
+    }).catch(() => { if (vivo) setModelos(new Map()); });
+    return () => { vivo = false; };
+  }, [sede.id]);
 
   useEffect(() => {
     const mont = montRef.current;
@@ -146,21 +166,51 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar
       scene.add(et);
     });
 
-    // --- objetos: cajas con material por categoría (clicables) ---
-    const clicables: THREE.Mesh[] = [];
+    // --- objetos: escaneo .glb si existe, caja genérica si no (ambos clicables) ---
+    const clicables: THREE.Object3D[] = [];
+    const loader = new GLTFLoader();
     for (const o of objetos) {
+      const glb = modelos?.get(o.id);
+      // ancla del objeto: su lugar y giro del plano
+      const ancla = new THREE.Group();
+      ancla.position.set(o.x + o.ancho / 2, 0.05, o.y + o.alto / 2);
+      ancla.rotation.y = -(o.rot ?? 0) * Math.PI / 180;
+      ancla.userData.nombre = `${o.nombre} · ${o.categoria}${glb ? ' · escaneo' : ''}`;
+      scene.add(ancla);
+      clicables.push(ancla);
+
+      if (glb) {
+        // Escaneo real: se AJUSTA a la huella declarada (ancho×alto del plano) y se
+        // apoya en el piso — así un GLB de cualquier escala queda en su lugar exacto.
+        loader.parse(glb.slice(0), '', (gltf) => {
+          const g = gltf.scene;
+          const caja = new THREE.Box3().setFromObject(g);
+          const dim = caja.getSize(new THREE.Vector3());
+          const centro = caja.getCenter(new THREE.Vector3());
+          const s = Math.min(o.ancho / Math.max(0.01, dim.x), o.alto / Math.max(0.01, dim.z), 3 / Math.max(0.01, dim.y));
+          g.scale.setScalar(s);
+          g.position.set(-centro.x * s, -caja.min.y * s, -centro.z * s);
+          g.traverse((n) => { n.castShadow = true; n.receiveShadow = true; });
+          ancla.add(g);
+        }, () => {
+          // GLB ilegible (p.ej. comprimido con Draco): caja de respaldo para no dejar hueco.
+          ancla.add(cajaGenerica(o));
+        });
+      } else {
+        ancla.add(cajaGenerica(o));
+      }
+    }
+
+    function cajaGenerica(o: ObjetoFisico): THREE.Mesh {
       const h = alturaObjeto(o.nombre, o.categoria);
       const m = MAT_OBJ[o.categoria] ?? MAT_OBJ.mueble!;
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(o.ancho, h, o.alto),
         new THREE.MeshStandardMaterial({ color: m.color, roughness: m.rough, metalness: m.metal }),
       );
-      mesh.position.set(o.x + o.ancho / 2, h / 2 + 0.05, o.y + o.alto / 2);
-      mesh.rotation.y = -(o.rot ?? 0) * Math.PI / 180; // giro del plano → giro en Y
+      mesh.position.y = h / 2;
       mesh.castShadow = true; mesh.receiveShadow = true;
-      mesh.userData.nombre = `${o.nombre} · ${o.categoria}`;
-      scene.add(mesh);
-      clicables.push(mesh);
+      return mesh;
     }
 
     // --- clic = identificar objeto (raycast) ---
@@ -169,8 +219,11 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar
       const r = renderer.domElement.getBoundingClientRect();
       const p = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       ray.setFromCamera(p, camera);
-      const hit = ray.intersectObjects(clicables)[0];
-      setInfo(hit ? String(hit.object.userData.nombre) : '');
+      const hit = ray.intersectObjects(clicables, true)[0];
+      // el nombre vive en el ANCLA del objeto; sube desde el mesh golpeado hasta encontrarlo
+      let n: THREE.Object3D | null = hit?.object ?? null;
+      while (n && !n.userData.nombre) n = n.parent;
+      setInfo(n ? String(n.userData.nombre) : '');
     };
     renderer.domElement.addEventListener('click', onClick);
 
@@ -213,7 +266,7 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, onCerrar
       renderer.dispose();
       mont.removeChild(renderer.domElement);
     };
-  }, [espacios, objetos, footAncho, footAlto, muroAlt]);
+  }, [espacios, objetos, footAncho, footAlto, muroAlt, modelos]);
 
   return (
     <section>

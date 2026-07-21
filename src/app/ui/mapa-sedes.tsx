@@ -7,7 +7,8 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
-import type { Sede, Espacio } from '@/domain/espacios';
+import type { Sede, Espacio, ObjetoFisico } from '@/domain/espacios';
+import { esquinasDe } from '@/domain/espacios';
 import { medidasDeRect, anguloInterior, bearingDeg } from './huella-geo';
 import type { LL } from './huella-geo';
 
@@ -17,6 +18,7 @@ interface Props {
   sedes: Sede[];
   selectedId: string | null;
   overlaySpaces: Espacio[];
+  overlayObjetos: ObjetoFisico[];
   onSelect: (id: string) => void;
   onMove: (id: string, lat: number, lng: number) => void;
   onPolygon: (id: string, pts: [number, number][]) => void;
@@ -25,7 +27,7 @@ interface Props {
   onAlinear?: (bearingN: number) => void;
 }
 
-export default function MapaSedes({ sedes, selectedId, overlaySpaces, onSelect, onMove, onPolygon, alinearActivo, onAlinear }: Props) {
+export default function MapaSedes({ sedes, selectedId, overlaySpaces, overlayObjetos, onSelect, onMove, onPolygon, alinearActivo, onAlinear }: Props) {
   const contRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const capaRef = useRef<L.LayerGroup | null>(null);
@@ -162,9 +164,9 @@ export default function MapaSedes({ sedes, selectedId, overlaySpaces, onSelect, 
       }
 
       // overlay interior dentro del bbox del polígono
-      if (sel && overlaySpaces.length) {
+      if (sel && (overlaySpaces.length || overlayObjetos.length)) {
         const lats = poly.map((p) => p[0]), lngs = poly.map((p) => p[1]);
-        dibujarOverlay(capa, Math.max(...lats), Math.min(...lats), Math.min(...lngs), Math.max(...lngs), overlaySpaces);
+        dibujarOverlay(capa, Math.max(...lats), Math.min(...lats), Math.min(...lngs), Math.max(...lngs), overlaySpaces, overlayObjetos);
       }
     }
 
@@ -172,7 +174,7 @@ export default function MapaSedes({ sedes, selectedId, overlaySpaces, onSelect, 
       fitRef.current = true;
       if (pts.length === 1) map.setView(pts[0]!, 18); else map.fitBounds(pts, { padding: [40, 40] });
     }
-  }, [sedes, selectedId, overlaySpaces]);
+  }, [sedes, selectedId, overlaySpaces, overlayObjetos]);
 
   return <div ref={contRef} style={{ width: '100%', height: 400, borderRadius: 10, overflow: 'hidden', border: '1px solid #ddd' }} />;
 }
@@ -200,14 +202,18 @@ function areaPoligonoM2(poly: [number, number][]): number {
   return Math.abs(s) / 2;
 }
 
-// dibuja los espacios (metros) dentro de un bbox geográfico
-function dibujarOverlay(capa: L.LayerGroup, north: number, south: number, west: number, east: number, espacios: Espacio[]) {
+// dibuja el layout interior (áreas + objetos, CON su rotación) dentro de un bbox geográfico
+function dibujarOverlay(capa: L.LayerGroup, north: number, south: number, west: number, east: number, espacios: Espacio[], objetos: ObjetoFisico[]) {
   const lat0 = (north + south) / 2, cos = Math.cos(lat0 * Math.PI / 180);
   const Wm = Math.max(1, (east - west) * 111320 * cos), Hm = Math.max(1, (north - south) * 111320);
+  // metros del plano → lat/lng dentro del bbox de la huella
+  const aLL = (p: { x: number; y: number }): [number, number] => [north - (p.y / Hm) * (north - south), west + (p.x / Wm) * (east - west)];
   for (const e of espacios) {
-    const fx = e.x / Wm, fy = e.y / Hm, fw = e.ancho / Wm, fh = e.alto / Hm;
-    const eW = west + fx * (east - west), eE = west + (fx + fw) * (east - west);
-    const eN = north - fy * (north - south), eS = north - (fy + fh) * (north - south);
-    L.rectangle([[eS, eW], [eN, eE]], { color: '#33415c', weight: 1, fillColor: '#5b8def', fillOpacity: 0.25, pmIgnore: true }).addTo(capa).bindTooltip(e.nombre);
+    const pts = (e.poligono && e.poligono.length >= 3) ? e.poligono : esquinasDe(e);
+    L.polygon(pts.map(aLL), { color: '#33415c', weight: 1, fillColor: '#5b8def', fillOpacity: 0.22, pmIgnore: true }).addTo(capa).bindTooltip(e.nombre);
+  }
+  // los objetos también, para que el mapa muestre el layout TAL COMO ESTÁ
+  for (const o of objetos) {
+    L.polygon(esquinasDe(o).map(aLL), { color: '#b5813f', weight: 1, fillColor: '#e0a96b', fillOpacity: 0.5, pmIgnore: true }).addTo(capa).bindTooltip(o.nombre);
   }
 }

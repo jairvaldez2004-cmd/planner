@@ -55,3 +55,20 @@ export function validarRender(mime: string, bytes: number): string | null {
   if (bytes > MAX_RENDER_BYTES) return `La imagen pesa ${(bytes / 1024 / 1024).toFixed(1)} MB; el máximo es 5 MB.`;
   return null;
 }
+
+// ---------- MODELOS 3D ESCANEADOS (.glb) ----------
+// El teléfono escanea (LiDAR o fotogrametría con Polycam/Scaniverse), exporta .glb y
+// se sube al objeto. Solo GLB (binario, un solo archivo); .gltf multi-archivo no.
+
+export const MAX_GLB_BYTES = 25 * 1024 * 1024; // los escaneos pesan más que una imagen
+
+// Un GLB válido empieza con los bytes ASCII "glTF" (magic del formato).
+export function validarGlb(primerosBytes: Uint8Array, totalBytes: number): string | null {
+  if (totalBytes <= 0) return 'El archivo está vacío.';
+  if (totalBytes > MAX_GLB_BYTES) return `El modelo pesa ${(totalBytes / 1024 / 1024).toFixed(1)} MB; el máximo es 25 MB. Exporta con menos resolución de textura.`;
+  const magic = [0x67, 0x6c, 0x54, 0x46]; // "glTF"
+  if (primerosBytes.length < 4 || !magic.every((b, i) => primerosBytes[i] === b)) {
+    return 'No es un archivo GLB válido. Exporta el escaneo como ".glb" (GLTF binario).';
+  }
+  return null;
+}

@@ -5,8 +5,8 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
-import { listarSedes, crearSede, actualizarSede, eliminarSede, listarEspacios } from '@/app/actions/espacios.actions';
-import type { Sede, Espacio } from '@/domain/espacios';
+import { listarSedes, crearSede, actualizarSede, eliminarSede, listarEspacios, listarObjetos } from '@/app/actions/espacios.actions';
+import type { Sede, Espacio, ObjetoFisico } from '@/domain/espacios';
 import { EditorEspacios } from './editor-espacios';
 import { rectRotado, medidasDeRect, centroide } from './huella-geo';
 import type { LL } from './huella-geo';
@@ -24,12 +24,17 @@ export function VistaSedes({ proyectoId }: { proyectoId: string }) {
   const [abierta, setAbierta] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<Espacio[]>([]);
+  const [overlayObj, setOverlayObj] = useState<ObjetoFisico[]>([]);
   const [huella, setHuella] = useState<{ W: number; H: number; orient: number }>({ W: 20, H: 15, orient: 0 });
   const [alineando, setAlineando] = useState(false);
 
   const cargar = () => { setLoading(true); listarSedes(proyectoId).then(setSedes).catch(() => {}).finally(() => setLoading(false)); };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
-  useEffect(() => { if (selectedId) listarEspacios(selectedId).then(setOverlay).catch(() => setOverlay([])); else setOverlay([]); }, [selectedId]);
+  useEffect(() => {
+    if (!selectedId) { setOverlay([]); setOverlayObj([]); return; }
+    listarEspacios(selectedId).then(setOverlay).catch(() => setOverlay([]));
+    listarObjetos(selectedId).then(setOverlayObj).catch(() => setOverlayObj([]));
+  }, [selectedId]);
 
   const selSede = sedes.find((s) => s.id === selectedId) ?? null;
   // Al cambiar de sede, el tablero lee Ancho/Alto/Orientación de su huella actual (o de footAncho/Alto).
@@ -75,7 +80,7 @@ export function VistaSedes({ proyectoId }: { proyectoId: string }) {
       </div>
 
       {/* Mapa real */}
-      <MapaSedes sedes={sedes} selectedId={selectedId} overlaySpaces={overlay} onSelect={setSelectedId} onMove={(id, lat, lng) => void mover(id, lat, lng)} onPolygon={(id, pts) => void setPoligono(id, pts)} alinearActivo={alineando} onAlinear={alinearACalle} />
+      <MapaSedes sedes={sedes} selectedId={selectedId} overlaySpaces={overlay} overlayObjetos={overlayObj} onSelect={setSelectedId} onMove={(id, lat, lng) => void mover(id, lat, lng)} onPolygon={(id, pts) => void setPoligono(id, pts)} alinearActivo={alineando} onAlinear={alinearACalle} />
       <p style={{ fontSize: 12, color: '#888', margin: '0.35rem 0 0.5rem' }}>
         Cada sede aparece como una <strong>huella editable</strong> (rectángulo punteado por defecto, según su ancho×alto). Con las herramientas de Geoman (arriba-izq) puedes <strong>editar vértices</strong> ✎, <strong>rotarla</strong> ↻ o redibujarla con la de <strong>polígono</strong>. Para <strong>mover</strong> toda la huella (incluso tras rotarla) arrastra el <strong>recuadro central ✥</strong>. El recuadro muestra <strong>área</strong>, <strong>orientación</strong> (∠° vs Norte) y cada lado su medida; los <strong>ángulos</strong> de cada esquina se ven en la sede seleccionada. Usa el tablero de abajo para medidas exactas y alinear a las cuadras. El layout azul = tus espacios superpuestos. Tiles © OpenStreetMap.
       </p>
