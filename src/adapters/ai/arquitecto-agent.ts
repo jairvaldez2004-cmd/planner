@@ -484,7 +484,9 @@ REGLAS:
 4) Puedes crear VARIOS objetos en un turno, y también mover, girar, redimensionar, renombrar o eliminar los existentes (refiérelos por su nombre). Antes de ELIMINAR, confirma con el usuario.
 5) ACABADOS: puedes vestir el espacio con "acabado_piso" (toda la sede u un área concreta) y "acabado_muros". Tipos de piso: duela · porcelanato · azulejo · cemento · alfombra · pintura. Tipos de muro: pintura · azulejo · ladrillo · cemento · yeso. El color acepta nombres en español (blanco, arena, verde menta, terracota, madera clara…) o hex (#a67c52).
 6) FOTOS DE REFERENCIA: el usuario puede mandarte fotos de ejemplos (muebles, acabados, diseños que le gustan). MÍRALAS y actúa: identifica materiales, colores y estilo, DI lo que ves ("veo duela clara y muros verde menta…") y aplícalo con las herramientas — acabados equivalentes, objetos con medidas parecidas. Si la foto muestra un mueble específico que las formas genéricas no cubren, créalo con el nombre más cercano y sugiere subir un .glb (escaneado o de meshy.ai) para el detalle fino.
-7) Español, claro y breve. Di siempre QUÉ hiciste y DÓNDE quedó (área y posición).`;
+7) ÁREAS Y HUELLA: también puedes crear/ajustar/eliminar ÁREAS (habitaciones) con "crear_area"/"actualizar_area"/"eliminar_area" y cambiar el tamaño total con "ajustar_huella". Las áreas se acomodan como un plano real: pegadas entre sí, cubriendo la huella, sin encimarse (revisa las posiciones que ya existen en el estado).
+8) RECREAR UN ESPACIO DESDE FOTOS: si el usuario te pasa fotos de SU local y pide recrearlo, NO digas que no puedes — hazlo así, en este orden: (a) ESTIMA medidas reales con pistas visuales: las losetas de piso miden ~33×33 cm (cuéntalas), una puerta ~0.9 m de ancho, el plafón ~2.4–2.7 m; DI tus estimaciones para que el usuario las corrija. (b) Si el total difiere de la huella actual, usa "ajustar_huella". (c) Crea UN ÁREA POR AMBIENTE/FOTO (oficina, baño, bodega…) con posiciones que embonen. (d) Aplica los ACABADOS que ves (piso de la foto por área, muros). (e) Crea los OBJETOS visibles (escritorio, silla, TV, lavabo, WC…) donde aparecen. (f) Resume qué armaste y qué asumiste, e invita a corregir medidas.
+9) Español, claro y breve. Di siempre QUÉ hiciste y DÓNDE quedó (área y posición).`;
 
 const TOOLS_DISENADOR: Anthropic.Tool[] = [
   {
@@ -551,6 +553,54 @@ const TOOLS_DISENADOR: Anthropic.Tool[] = [
         color: { type: 'string', description: 'Opcional: nombre en español o #hex.' },
       },
       required: ['tipo'],
+    },
+  },
+  {
+    name: 'crear_area',
+    description: 'Crea un ÁREA/habitación en el plano (oficina, baño, bodega, cabina…). Colócala pegada a las demás, sin encimarse, dentro de la huella.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        nombre: { type: 'string' },
+        ancho: { type: 'number', description: 'Metros en x.' },
+        fondo: { type: 'number', description: 'Metros en y.' },
+        x: { type: 'number', description: 'Esquina sup-izq (m). Opcional: sin ella se pone a la derecha de lo existente.' },
+        y: { type: 'number', description: 'Esquina sup-izq (m). Opcional.' },
+        tipo: { type: 'string', enum: ['habitacion', 'area'], description: 'habitacion = con muros propios · area = zona abierta. Por defecto: area.' },
+      },
+      required: ['nombre', 'ancho', 'fondo'],
+    },
+  },
+  {
+    name: 'actualizar_area',
+    description: 'Mueve, redimensiona o renombra un ÁREA existente (refiérela por su nombre).',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        area: { type: 'string' },
+        nuevoNombre: { type: 'string' },
+        x: { type: 'number' }, y: { type: 'number' },
+        ancho: { type: 'number' }, fondo: { type: 'number' },
+      },
+      required: ['area'],
+    },
+  },
+  {
+    name: 'eliminar_area',
+    description: 'Elimina un ÁREA del plano. OJO: los objetos que estén dentro se eliminan con ella. Confirma con el usuario antes.',
+    strict: true,
+    input_schema: { type: 'object', additionalProperties: false, properties: { area: { type: 'string' } }, required: ['area'] },
+  },
+  {
+    name: 'ajustar_huella',
+    description: 'Cambia el tamaño TOTAL de la sede (ancho × fondo en metros). Úsalo al recrear un espacio real cuyas medidas difieren de la huella actual.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: { ancho: { type: 'number' }, fondo: { type: 'number' } },
+      required: ['ancho', 'fondo'],
     },
   },
 ];

@@ -435,7 +435,7 @@ export function Vista3D({ sede, espacios, objetos, footAncho, footAlto, proyecto
             }
             return r;
           }}
-          saludo={'Soy el Diseñador 3D. Descríbeme lo que quieres en el espacio y lo coloco: "pon una camilla de tatuaje en la Cabina 2", "una vitrina de 1.2 m junto a recepción", "gira la camilla 90°", "quita el banco"…'}
+          saludo={'Soy el Diseñador 3D. Descríbeme lo que quieres y lo construyo: "pon una camilla en la Cabina 2", "crea un área de bodega de 2×3", "gira la camilla 90°"… También puedo RECREAR tu espacio real: mándame fotos 📷 de cada ambiente y armo las áreas, acabados y muebles (estimo medidas de las fotos; corrígeme las que no cuadren).'}
           placeholder="Describe el objeto y dónde va…"
           cargarHistorial={() => cargarChatDisenador(sede.id)}
           historialKey={`${sede.id}:${capa}`}
