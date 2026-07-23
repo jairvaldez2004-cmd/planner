@@ -11,6 +11,9 @@ import { listarEmpleados, guardarEmpleado, eliminarEmpleado } from '@/app/action
 import { listarDepartamentos, listarProcesos } from '@/app/actions/mapa.actions';
 import { ESTADOS_EMPLEADO, estadoEmpleado, empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
+import { flujoDePersona } from '@/domain/flujo-persona';
+import { FASES_MAPA } from '@/domain/mapa';
+import type { ProcesoNodo } from '@/domain/mapa';
 import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -23,19 +26,32 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
   const [emps, setEmps] = useState<Empleado[]>([]);
   const [depts, setDepts] = useState<string[]>([]);
   const [procs, setProcs] = useState<string[]>([]);
+  const [procesosFull, setProcesosFull] = useState<ProcesoNodo[]>([]);
+  const [deptoNombreMap, setDeptoNombreMap] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<string | null>(null);
+  const [verFlujo, setVerFlujo] = useState(false);
   const [loading, setLoading] = useState(true);
   const movil = useEsMovil();
 
   const cargar = () => {
     setLoading(true);
     Promise.all([listarEmpleados(proyectoId), listarDepartamentos(proyectoId), listarProcesos(proyectoId)])
-      .then(([e, d, p]) => { setEmps(e); setDepts(d.map((x) => x.nombre)); setProcs(p.filter((x) => !x.padreProcesoId).map((x) => x.nombre)); })
+      .then(([e, d, p]) => {
+        setEmps(e); setDepts(d.map((x) => x.nombre));
+        setDeptoNombreMap(Object.fromEntries(d.map((x) => [x.id, x.nombre])));
+        setProcesosFull(p); setProcs(p.filter((x) => !x.padreProcesoId).map((x) => x.nombre));
+      })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
 
   const se = emps.find((e) => e.id === sel) ?? null;
+  const nombreDepto = (id: string) => deptoNombreMap[id] ?? id;
+
+  // Vista de FLUJO de una persona (su n8n: procesos + disparadores + quién los entrega).
+  if (se && verFlujo) {
+    return <FlujoPersona emp={se} procesos={procesosFull} empleados={emps} nombreDepto={nombreDepto} onVolver={() => setVerFlujo(false)} />;
+  }
 
   async function agregar() {
     const nuevo = await guardarEmpleado(proyectoId, { ...empleadoVacio(''), nombre: 'Nueva persona', estado: 'candidato' });
@@ -95,6 +111,8 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
               <button style={btnSm} onClick={() => setSel(null)}>✕</button>
             </div>
 
+            <button style={{ ...btnSm, width: '100%', marginTop: 6, background: '#eef4ff', borderColor: '#cdd8ef', color: '#2b5a97', fontWeight: 'bold' }} onClick={() => setVerFlujo(true)}>🔀 Ver sus flujos de trabajo</button>
+
             <label style={lbl}>Nombre</label>
             <input style={inp} defaultValue={se.nombre} key={`n-${se.id}`} onBlur={(ev) => { if (ev.target.value !== se.nombre) void patch({ nombre: ev.target.value }); }} />
 
@@ -146,6 +164,69 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
           </div>
         )}
       </div>
+    </section>
+  );
+}
+
+// ===== FLUJO DE TRABAJO DE UNA PERSONA (su n8n: disparadores + quién los entrega) =====
+function FlujoPersona({ emp, procesos, empleados, nombreDepto, onVolver }: {
+  emp: Empleado; procesos: ProcesoNodo[]; empleados: Empleado[]; nombreDepto: (id: string) => string; onVolver: () => void;
+}) {
+  const pasos = flujoDePersona(emp, procesos, empleados, nombreDepto);
+  const faseLabel = (f: string) => (FASES_MAPA.find((x) => x.id === f)?.label ?? f).split(' · ')[0];
+  const quienTxt = (quien: string[], depto: string) =>
+    quien.length ? quien.map((n) => n === emp.nombre ? `${n} (tú)` : n).join(', ') : `sin responsable · ${depto}`;
+
+  const linea: CSSProperties = { fontSize: 12, padding: '0.15rem 0.5rem', borderRadius: 6, margin: '2px 0' };
+
+  return (
+    <section>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <h2 style={{ margin: 0 }}>🔀 Flujo de trabajo de {emp.nombre || 'la persona'}</h2>
+        <button style={btn} onClick={onVolver}>← Personas</button>
+      </div>
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center', margin: '0.4rem 0 0.7rem' }}>
+        <span style={{ fontSize: 12, color: '#666' }}>Roles:</span>
+        {emp.roles.length ? emp.roles.map((r) => <span key={r} style={tag}>{r}</span>) : <span style={{ fontSize: 12, color: '#a60' }}>sin roles — asígnalos en su ficha</span>}
+        <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>{pasos.length} procesos a su cargo</span>
+      </div>
+
+      {pasos.length === 0 && (
+        <p style={{ color: '#999', fontSize: 13 }}>No tiene procesos asignados. Dale <strong>roles</strong> que coincidan con los del Mapa (Perforador, Recepcionista, Director…) o asígnale procesos por nombre en su ficha.</p>
+      )}
+
+      <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+        {pasos.map((p, i) => (
+          <li key={p.id} style={{ border: '1px solid #e2ddea', borderRadius: 10, padding: '0.5rem 0.7rem', background: '#fff' }}>
+            {/* de quién le llega el disparador */}
+            {p.recibeDe.length === 0
+              ? <div style={{ ...linea, color: '#2e9e63', background: '#eefaf2' }}>▶ Inicia el flujo (nadie se lo dispara)</div>
+              : p.recibeDe.map((d, j) => (
+                <div key={j} style={{ ...linea, color: '#2b5a97', background: '#eef4ff' }}>
+                  ⤶ cuando <strong>«{d.evento || 'continúa'}»</strong> — te lo entrega <strong>{quienTxt(d.quien, d.departamento)}</strong> <span style={{ color: '#888' }}>(«{d.proceso}»)</span>
+                </div>
+              ))}
+
+            {/* el proceso (nodo) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.35rem 0' }}>
+              <span style={{ background: '#8a4fbf', color: '#fff', borderRadius: 9, fontSize: 11, fontWeight: 'bold', padding: '1px 7px', flexShrink: 0 }}>{i + 1}</span>
+              <div>
+                <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{p.nombre}</div>
+                <div style={{ fontSize: 11, color: '#888' }}>{faseLabel(p.fase)} · {p.departamento} · roles: {p.roles.join(', ') || '—'}</div>
+              </div>
+            </div>
+
+            {/* qué dispara al terminar y hacia quién */}
+            {p.entregaA.length === 0
+              ? <div style={{ ...linea, color: '#888', background: '#f5f5f7' }}>⏹ Cierra aquí (no dispara nada más)</div>
+              : p.entregaA.map((d, j) => (
+                <div key={j} style={{ ...linea, color: '#7a4fbf', background: '#f6f2fb' }}>
+                  ⤷ al terminar disparas <strong>«{d.evento || 'continúa'}»</strong> → <strong>«{d.proceso}»</strong> <span style={{ color: '#888' }}>(lo hace {quienTxt(d.quien, d.departamento)})</span>
+                </div>
+              ))}
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

@@ -18,6 +18,7 @@ import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, superficies
 import type { EspacioSrc, ProcesoSrc } from '@/domain/proyeccion';
 import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
+import { personaHaceProceso, flujoDePersona } from '@/domain/flujo-persona';
 
 let ok = 0, fail = 0;
 const fails: string[] = [];
@@ -195,6 +196,34 @@ check('El puesto lista a sus ocupantes (Ana, Beto)', (puestosRH.find((p) => p['p
 const personasRH = personasDeSuperficies([], [], roster);
 check('El roster alimenta la tabla personas (ORG/OPE) con nombre real', personasRH.some((p) => p['persona'] === 'Carla'));
 check('superficiesDePlano(RH) incluye Personas & RH', superficiesDePlano('RH').some((s) => s.superficie === 'personas'));
+
+// ============================================================
+// 8) FLUJO POR PERSONA — sus procesos, disparadores y quién se los entrega
+// ============================================================
+h('8) Al seleccionar a una persona: su n8n (disparadores + quién los entrega)');
+const pr = (id: string, nombre: string, roles: string[], ramas: { evento: string; destino: string }[]): ProcesoNodo => ({
+  id, departamentoId: id === 'consent' ? 'dep-recep' : 'dep-pierc', nombre, fase: 'durante', etapaDesde: 'arrancar', orden: id === 'consent' ? 1 : 2,
+  roles, herramientas: [], insumos: [], espacios: [],
+  ramas: ramas.map((r, i) => ({ id: `${id}-r${i}`, evento: r.evento, destinoProcesoId: r.destino })),
+});
+const procsFlujo: ProcesoNodo[] = [
+  pr('consent', 'Verificar edad y firmar consentimiento', ['Recepcionista'], [{ evento: 'Consentimiento firmado', destino: 'perf' }]),
+  pr('perf', 'Perforación con aguja estéril', ['Perforador'], []),
+];
+const flor = { ...empleadoVacio('flor'), nombre: 'Flor', roles: ['Recepcionista'] };
+const suzet = { ...empleadoVacio('suzet'), nombre: 'Suzet', roles: ['Perforador'] };
+const equipo = [flor, suzet];
+const depN = (id: string) => id === 'dep-recep' ? 'Recepción' : 'Piercings';
+
+check('personaHaceProceso: Flor (Recepcionista) hace "Consentimiento"', personaHaceProceso(flor, procsFlujo[0]!));
+check('personaHaceProceso: Flor NO hace "Perforación"', !personaHaceProceso(flor, procsFlujo[1]!));
+const flujoSuzet = flujoDePersona(suzet, procsFlujo, equipo, depN);
+check('El flujo de Suzet tiene 1 proceso (Perforación)', flujoSuzet.length === 1 && flujoSuzet[0]!.nombre.includes('Perforación'));
+const rec = flujoSuzet[0]!.recibeDe[0];
+check('Su disparador de entrada es "Consentimiento firmado"', rec?.evento === 'Consentimiento firmado');
+check('Y se lo entrega Flor (quién entrega el disparador)', (rec?.quien ?? []).includes('Flor'));
+const flujoFlor = flujoDePersona(flor, procsFlujo, equipo, depN);
+check('Flor entrega a Suzet: su salida va a "Perforación"', flujoFlor[0]!.entregaA[0]?.quien.includes('Suzet') === true);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado
