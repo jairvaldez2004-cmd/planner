@@ -20,6 +20,9 @@ import type { ProyectoNodo } from '@/app/actions/workspace.actions';
 import type { UnidadComercial } from '@/domain/espacios';
 import { ETAPAS_OBJETIVO, etapaInfo } from '@/domain/etapas';
 import type { EtapaObjetivo } from '@/domain/etapas';
+import { ENRIQUECE } from '@/domain/proyeccion';
+import type { Superficie } from '@/domain/proyeccion';
+import { PLANOS_MAESTROS } from '@/domain/diagnostico';
 import { ChatArquitecto } from './chat-arquitecto';
 import { MapaOperativo } from './mapa-operativo';
 import { useEsMovil } from './use-movil';
@@ -29,6 +32,18 @@ import { VistaUnidad } from './vista-unidad';
 
 const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 14 };
 const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 14 };
+
+// Banner "lo que captures aquí enriquece estos planos" — hace visible el flujo de datos.
+function BannerEnriquece({ superficie }: { superficie: Superficie }) {
+  return (
+    <div style={{ fontSize: 12.5, color: '#5a4a1f', background: '#fdf6e3', border: '1px solid #ecd9a0', borderRadius: 8, padding: '0.45rem 0.7rem', margin: '0.4rem 0' }}>
+      🔗 Lo que captures aquí <strong>enriquece</strong> los planos:{' '}
+      {ENRIQUECE[superficie].map((a, i) => (
+        <span key={a.planoId}>{i > 0 ? ' · ' : ''}<strong>{PLANOS_MAESTROS[a.planoId] ?? a.planoId}</strong> ({a.nota})</span>
+      ))}
+    </div>
+  );
+}
 
 type Nodo = { tipo: 'admin' | 'sedes' | 'mapa' | 'uc'; id?: string } | null;
 type NodoGrafo = { key: string; tipo: 'admin' | 'sedes' | 'mapa' | 'uc' | 'negocio'; id?: string; label: string; color: string };
@@ -65,22 +80,31 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   if (nodo?.tipo === 'sedes') return (
     <section>
       <button style={btn} onClick={() => { setNodo(null); cargar(); }}>← {nombre || 'Proyecto'}</button>
-      <div style={{ marginTop: '0.5rem' }}><VistaSedes proyectoId={proyectoId} /></div>
+      <BannerEnriquece superficie="sedes" />
+      <div style={{ marginTop: '0.25rem' }}><VistaSedes proyectoId={proyectoId} /></div>
     </section>
   );
   if (nodo?.tipo === 'mapa') return (
-    <MapaOperativo proyectoId={proyectoId} nombreProyecto={nombre}
-      onVolver={() => { setNodo(null); cargar(); }}
-      onIrSedes={() => setNodo({ tipo: 'sedes' })} />
+    <section>
+      <BannerEnriquece superficie="mapa" />
+      <MapaOperativo proyectoId={proyectoId} nombreProyecto={nombre}
+        onVolver={() => { setNodo(null); cargar(); }}
+        onIrSedes={() => setNodo({ tipo: 'sedes' })} />
+    </section>
   );
   if (nodo?.tipo === 'uc') {
     const uc = ucs.find((u) => u.id === nodo.id);
-    if (uc) return <VistaUnidad proyectoId={proyectoId} uc={uc} onVolver={() => { setNodo(null); cargar(); }} onIrSedes={() => setNodo({ tipo: 'sedes' })} />;
+    if (uc) return (
+      <section>
+        <BannerEnriquece superficie="uc" />
+        <VistaUnidad proyectoId={proyectoId} uc={uc} onVolver={() => { setNodo(null); cargar(); }} onIrSedes={() => setNodo({ tipo: 'sedes' })} />
+      </section>
+    );
   }
 
   // --- grafo del proyecto ---
   const nodos: NodoGrafo[] = [
-    { key: 'admin', tipo: 'admin', label: 'Administración', color: '#33415c' },
+    { key: 'admin', tipo: 'admin', label: 'Planos', color: '#33415c' },
     { key: 'sedes', tipo: 'sedes', label: 'Sedes & Espacios', color: '#e0795b' },
     { key: 'mapa', tipo: 'mapa', label: 'Mapa Operativo', color: '#d9a23b' },
     ...hijos.map((h): NodoGrafo => ({ key: h.proyectoId, tipo: 'negocio', id: h.proyectoId, label: h.nombre, color: '#b06be0' })),
@@ -90,7 +114,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   const W = 780, H = 560, cx = W / 2, cy = H / 2;
   const R = Math.min(220, 120 + nodos.length * 10);
   const posOf = (i: number, n: number) => { const a = (i / Math.max(1, n)) * Math.PI * 2 - Math.PI / 2; return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) }; };
-  const abrev = (t: NodoGrafo['tipo']) => t === 'uc' ? 'UC' : t === 'admin' ? 'ADM' : t === 'sedes' ? 'SED' : t === 'mapa' ? 'MAP' : 'NEG';
+  const abrev = (t: NodoGrafo['tipo']) => t === 'uc' ? 'UC' : t === 'admin' ? '📄' : t === 'sedes' ? 'SED' : t === 'mapa' ? 'MAP' : 'NEG';
 
   function abrirNodo(n: NodoGrafo) {
     if (n.tipo === 'negocio' && n.id) { setHijoAbierto(n.id); return; }
@@ -119,9 +143,9 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
           <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.75rem', background: '#f7f9ff' }}>
             <strong style={{ fontSize: 14 }}>Estructura</strong>
             <p style={{ margin: '0.25rem 0 0.5rem', fontSize: 12, color: '#555' }}>
-              Un proyecto tiene <strong>Administración</strong> (transversal) y puede contener <strong>Negocios</strong> (sub-empresas, cada una con lo suyo) y/o <strong>Unidades Comerciales</strong> (líneas de venta directa). Clic en un nodo para entrar.
+              El nodo <strong>📄 Planos</strong> es donde <strong>ves y descargas</strong> los documentos; los nodos <strong>Sedes</strong>, <strong>Mapa</strong> y <strong>Unidades</strong> son donde <strong>capturas</strong> y desde ahí alimentan varios planos. Un proyecto también puede contener <strong>Negocios</strong> (sub-empresas). Clic en un nodo para entrar.
             </p>
-            <div style={{ fontSize: 12, color: '#777', marginBottom: '0.5rem' }}>Administración: {seleccionados} planos · {hijos.length} negocios · {ucs.length} unidades comerciales.</div>
+            <div style={{ fontSize: 12, color: '#777', marginBottom: '0.5rem' }}>📄 Planos: {seleccionados} seleccionados · {hijos.length} negocios · {ucs.length} unidades comerciales.</div>
 
             {/* Etapa objetivo del negocio (la ruta de 5 fases) */}
             <div style={{ border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.5rem 0.6rem', background: '#eef4ff', marginBottom: '0.6rem' }}>
@@ -183,7 +207,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
                 );
               })}
             </svg>
-            <p style={{ fontSize: 12, color: '#888', padding: '0 0.75rem 0.5rem' }}>ADM = Administración · SED = Sedes & Espacios · <span style={{ color: '#b8860b' }}>MAP = Mapa Operativo (departamentos y flujos de procesos)</span> · <span style={{ color: '#8a4fbf' }}>NEG = Negocio (sub-empresa)</span> · UC = Unidad Comercial. Clic para entrar.</p>
+            <p style={{ fontSize: 12, color: '#888', padding: '0 0.75rem 0.5rem' }}><span style={{ color: '#33415c' }}>📄 Planos = ver y descargar los documentos</span> · SED = Sedes & Espacios · <span style={{ color: '#b8860b' }}>MAP = Mapa Operativo</span> · <span style={{ color: '#8a4fbf' }}>NEG = Negocio (sub-empresa)</span> · UC = Unidad Comercial. Los nodos SED/MAP/UC <strong>alimentan</strong> los planos; en 📄 los ves. Clic para entrar.</p>
           </div>
         </div>
       )}

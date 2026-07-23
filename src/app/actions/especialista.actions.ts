@@ -23,6 +23,9 @@ import type { Fila } from '@/app/captura/csv';
 import { modeloActual } from '@/app/actions/config.actions';
 import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { DocumentoPlano } from '@/domain/plano-doc';
+import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies } from '@/domain/proyeccion';
+import { listarSedes, listarEspacios } from '@/app/actions/espacios.actions';
+import { listarProcesos } from '@/app/actions/mapa.actions';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nowISO(): string { return new Date().toISOString(); }
@@ -38,6 +41,31 @@ async function cargarFilasPorTabla(proyectoId: string): Promise<Record<string, n
   const out: Record<string, number> = {};
   for (const r of rs) out[r.tablaRef] = Array.isArray(r.filas) ? (r.filas as unknown[]).length : 0;
   return out;
+}
+
+// PROYECCIÓN: filas DERIVADAS de las superficies reales (Sedes/Mapa) para las tablas que
+// un plano lee. Es el "flujo de datos real": un espacio de Sedes se vuelve un ambiente del
+// plano Arquitectónico sin re-teclearlo. Carga cada superficie una sola vez y solo si hace falta.
+async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<Record<string, Fila[]>> {
+  const out: Record<string, Fila[]> = {};
+  let espacios: Awaited<ReturnType<typeof listarEspacios>> | null = null;
+  let procesos: Awaited<ReturnType<typeof listarProcesos>> | null = null;
+  const getEspacios = async () => {
+    if (!espacios) { const sedes = await listarSedes(proyectoId); espacios = (await Promise.all(sedes.map((s) => listarEspacios(s.id)))).flat(); }
+    return espacios;
+  };
+  const getProcesos = async () => { if (!procesos) procesos = await listarProcesos(proyectoId); return procesos; };
+  if (refs.has('ambientes')) out['ambientes'] = ambientesDeEspacios(await getEspacios());
+  if (refs.has('procesos')) out['procesos'] = procesosDeMapa(await getProcesos());
+  if (refs.has('personas')) out['personas'] = personasDeSuperficies(await getEspacios(), await getProcesos());
+  return out;
+}
+
+// Fusiona filas derivadas (proyectadas) con las capturadas a mano: lo MANUAL manda sobre lo
+// derivado (misma llave). Así editar a mano una fila proyectada la fija sin perder el resto.
+function fusionarProyeccion(proyectadas: Fila[], manuales: Fila[], tablaRef: string): Fila[] {
+  const llave = TABLAS_BASE[tablaRef]?.llave ?? 'id';
+  return upsertPorLlave(proyectadas, manuales, llave);
 }
 
 // Columnas de la vista de un especialista sobre una tabla (base + contexto unido entre bloques).
@@ -109,7 +137,7 @@ export async function obtenerGrafoPlanos(proyectoId: string): Promise<GrafoPlano
 }
 
 // --- detalle de un plano (para la Vista de Plano) ---
-export interface TablaResumen { tablaRef: string; etiqueta: string; columnas: Columna[]; filas: Fila[]; disparadorCSV: number }
+export interface TablaResumen { tablaRef: string; etiqueta: string; columnas: Columna[]; filas: Fila[]; disparadorCSV: number; proyectadas: number }
 export interface DetallePlano {
   planoId: string;
   nombre: string;
@@ -130,18 +158,25 @@ export async function obtenerDetallePlano(proyectoId: string, planoId: string): 
   const seleccionado = det.blueprint.planos.some((p) => p.id === planoId);
   const campos = await cargarCampos(proyectoId, planoId);
   const filasPorTabla = await cargarFilasPorTabla(proyectoId);
-  const readiness = calcularReadiness(cfg, det.blueprint.profundidadProyecto, { campos, filasPorTabla }, seleccionado);
 
-  // tablas de este plano (refs únicos)
+  // tablas de este plano (refs únicos) — con filas DERIVADAS de las superficies fusionadas
   const refs = Array.from(new Set(cfg.bloques.filter((b) => b.tabla).map((b) => b.tabla!.tablaRef)));
+  const proj = await proyectarTablas(proyectoId, new Set(refs));
   const tablas: TablaResumen[] = [];
   for (const ref of refs) {
     const columnas = await columnasDeVista(planoId, ref);
     const fila = await prisma.tablaProyecto.findUnique({ where: { proyectoId_tablaRef: { proyectoId, tablaRef: ref } } });
-    const filas = fila && Array.isArray(fila.filas) ? (fila.filas as Fila[]) : [];
+    const manuales = fila && Array.isArray(fila.filas) ? (fila.filas as Fila[]) : [];
+    const derivadas = proj[ref] ?? [];
+    const filas = fusionarProyeccion(derivadas, manuales, ref);
     const bloque = cfg.bloques.find((b) => b.tabla?.tablaRef === ref)!;
-    tablas.push({ tablaRef: ref, etiqueta: bloque.tabla!.etiqueta ?? TABLAS_BASE[ref]?.nombre ?? ref, columnas, filas, disparadorCSV: bloque.tabla!.disparadorCSV });
+    tablas.push({ tablaRef: ref, etiqueta: bloque.tabla!.etiqueta ?? TABLAS_BASE[ref]?.nombre ?? ref, columnas, filas, disparadorCSV: bloque.tabla!.disparadorCSV, proyectadas: derivadas.length });
   }
+
+  // readiness contando las filas efectivas (manuales + derivadas de superficies)
+  const filasEff: Record<string, number> = { ...filasPorTabla };
+  for (const t of tablas) filasEff[t.tablaRef] = t.filas.length;
+  const readiness = calcularReadiness(cfg, det.blueprint.profundidadProyecto, { campos, filasPorTabla: filasEff }, seleccionado);
 
   return {
     planoId, nombre: cfg.nombre, seleccionado, lenguajeTecnico: cfg.lenguajeTecnico,
@@ -196,11 +231,13 @@ export async function generarDocumentoDePlano(proyectoId: string, planoId: strin
   const cfg = especialista(planoId);
   if (!det || !cfg) return null;
   const campos = await cargarCampos(proyectoId, planoId);
-  const refs = Array.from(new Set(cfg.bloques.filter((b) => b.tabla).map((b) => b.tabla!.tablaRef)));
+  const refs = new Set(cfg.bloques.filter((b) => b.tabla).map((b) => b.tabla!.tablaRef));
+  const proj = await proyectarTablas(proyectoId, refs);
   const tablas: Record<string, Fila[]> = {};
   for (const ref of refs) {
     const r = await prisma.tablaProyecto.findUnique({ where: { proyectoId_tablaRef: { proyectoId, tablaRef: ref } } });
-    tablas[ref] = r && Array.isArray(r.filas) ? (r.filas as Fila[]) : [];
+    const manuales = r && Array.isArray(r.filas) ? (r.filas as Fila[]) : [];
+    tablas[ref] = fusionarProyeccion(proj[ref] ?? [], manuales, ref);
   }
   return generarDocumentoPlano(cfg, det.blueprint.profundidadProyecto, { campos, tablas });
 }

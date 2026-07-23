@@ -13,6 +13,7 @@ import {
 } from '@/app/actions/especialista.actions';
 import type { DetallePlano } from '@/app/actions/especialista.actions';
 import type { DocumentoPlano } from '@/domain/plano-doc';
+import { superficiesDePlano, LABEL_SUPERFICIE } from '@/domain/proyeccion';
 import type { Readiness } from '@/app/readiness/readiness-engine';
 import { COLOR_ESTADO, LABEL_ESTADO } from '@/app/readiness/readiness-engine';
 
@@ -118,6 +119,14 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
             </div>
           </div>
           {!det.seleccionado && <p style={{ color: '#a60', fontSize: 13 }}>⚠ Este plano NO fue seleccionado por el blueprint del proyecto. Puedes explorarlo, pero no es necesario.</p>}
+          {superficiesDePlano(planoId).length > 0 && (
+            <p style={{ fontSize: 12.5, color: '#2f6b4d', background: '#eefaf2', border: '1px solid #bfe6cf', borderRadius: 8, padding: '0.4rem 0.6rem', margin: '0.3rem 0' }}>
+              🔗 Este plano se <strong>enriquece automáticamente</strong> desde:{' '}
+              {superficiesDePlano(planoId).map((s, i) => (
+                <span key={s.superficie}>{i > 0 ? ' · ' : ''}<strong>{LABEL_SUPERFICIE[s.superficie]}</strong> ({s.nota})</span>
+              ))}. No hace falta re-teclear ahí lo que ya está en esas superficies.
+            </p>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(320px, 5fr) 7fr', gap: '1rem', alignItems: 'start', marginTop: '0.5rem' }}>
             {/* Izq: chat especialista */}
@@ -155,7 +164,7 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
               {det.tablas.map((t) => (
                 <div key={t.tablaRef} style={card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
-                    <strong style={{ fontSize: 13 }}>{t.etiqueta} <span style={{ color: '#888', fontWeight: 'normal' }}>({t.filas.length} filas)</span></strong>
+                    <strong style={{ fontSize: 13 }}>{t.etiqueta} <span style={{ color: '#888', fontWeight: 'normal' }}>({t.filas.length} filas{t.proyectadas > 0 ? ` · ${t.proyectadas} 🔗 desde superficies` : ''})</span></strong>
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
                       <button style={btn} onClick={() => void descargar(t.tablaRef)}>⬇ Plantilla CSV</button>
                       <button style={btn} onClick={() => fileRefs.current[t.tablaRef]?.click()}>⬆ Subir CSV</button>

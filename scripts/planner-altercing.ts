@@ -13,6 +13,8 @@ import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { CapturaPlano } from '@/domain/plano-doc';
 import { construirGrafoDependencias, bloqueadosSi, tablasCompartidas } from '@/domain/dependencias';
 import type { ProcesoNodo } from '@/domain/mapa';
+import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, superficiesDePlano } from '@/domain/proyeccion';
+import type { EspacioSrc, ProcesoSrc } from '@/domain/proyeccion';
 
 let ok = 0, fail = 0;
 const fails: string[] = [];
@@ -120,6 +122,35 @@ const bloqRec = bloqueadosSi(grafoOp, 'proceso:recepcion');
 console.log(`  Si falla "Recepción" se bloquean ${bloqRec.length} procesos aguas abajo`);
 check('Si falla Recepción se bloquea toda la cadena (4 procesos)', bloqRec.length === 4 && bloqRec.includes('proceso:seguimiento'));
 check('Si falla Cobro solo se bloquea Seguimiento (1)', bloqueadosSi(grafoOp, 'proceso:cobro').length === 1);
+
+// ============================================================
+// 5) FLUJO DE DATOS REAL — superficies (Sedes/Mapa) proyectan a los planos
+// ============================================================
+h('5) Proyección: los espacios y procesos reales SE VUELVEN filas del plano (sin re-teclear)');
+// Espacios reales de Altercing (como los dibuja el propietario en Sedes & Espacios).
+const espacios: EspacioSrc[] = [
+  { nombre: 'Recepción y espera', tipo: 'area', ancho: 3, alto: 4, data: { uso: 'Recibir y registrar al cliente', org_responsable: 'Recepcionista' } },
+  { nombre: 'Cabina de perforación', tipo: 'area', ancho: 2.5, alto: 4, data: { uso: 'Perforación', proc_rol: 'Perforador, Asistente' } },
+  { nombre: 'Esterilización', tipo: 'area', ancho: 2, alto: 2, data: { uso: 'Esterilizar instrumental', org_responsable: 'Asistente' } },
+  { nombre: 'Planta baja', tipo: 'capa', ancho: 9, alto: 4, data: {} }, // capa: NO es ambiente
+];
+const ambientes = ambientesDeEspacios(espacios);
+console.log(`  Espacios reales: ${espacios.length} → ambientes del plano ARQ: ${ambientes.length}`);
+check('Solo áreas/cuartos se vuelven ambientes (la "capa" no)', ambientes.length === 3);
+check('El ambiente conserva su objetivo y m² desde el espacio real', ambientes[0]!.objetivo === 'Recibir y registrar al cliente' && ambientes[0]!.m2 === '12');
+
+const procesosSrc: ProcesoSrc[] = [
+  { nombre: 'Recepción y registro', entrada: 'Cliente llega', salida: 'Cliente registrado', roles: ['Recepcionista'] },
+  { nombre: 'Perforación', entrada: 'Consentimiento firmado', salida: 'Servicio hecho', roles: ['Perforador', 'Asistente'] },
+];
+const procTabla = procesosDeMapa(procesosSrc);
+check('Cada nodo del Mapa se vuelve un proceso del plano PRO', procTabla.length === 2 && procTabla[1]!.responsable === 'Perforador, Asistente');
+
+const personas = personasDeSuperficies(espacios, procesosSrc);
+console.log(`  Roles únicos derivados (espacios + procesos): ${personas.map((p) => p['rol']).join(', ')}`);
+check('Roles se derivan y deduplican para ORG/OPE (Asistente no se repite)', personas.filter((p) => p['rol'] === 'Asistente').length === 1);
+check('superficiesDePlano(ARQ) incluye Sedes & Espacios', superficiesDePlano('ARQ').some((s) => s.superficie === 'sedes'));
+check('superficiesDePlano(PRO) incluye Mapa Operativo', superficiesDePlano('PRO').some((s) => s.superficie === 'mapa'));
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado
