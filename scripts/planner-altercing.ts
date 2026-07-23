@@ -13,6 +13,7 @@ import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { CapturaPlano } from '@/domain/plano-doc';
 import { construirGrafoDependencias, bloqueadosSi, tablasCompartidas } from '@/domain/dependencias';
 import type { ProcesoNodo } from '@/domain/mapa';
+import { procesosDeNivel, contarSubprocesos, subprocesosDe } from '@/domain/mapa';
 import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, superficiesDePlano } from '@/domain/proyeccion';
 import type { EspacioSrc, ProcesoSrc } from '@/domain/proyeccion';
 
@@ -151,6 +152,28 @@ console.log(`  Roles únicos derivados (espacios + procesos): ${personas.map((p)
 check('Roles se derivan y deduplican para ORG/OPE (Asistente no se repite)', personas.filter((p) => p['rol'] === 'Asistente').length === 1);
 check('superficiesDePlano(ARQ) incluye Sedes & Espacios', superficiesDePlano('ARQ').some((s) => s.superficie === 'sedes'));
 check('superficiesDePlano(PRO) incluye Mapa Operativo', superficiesDePlano('PRO').some((s) => s.superficie === 'mapa'));
+
+// ============================================================
+// 6) FLUJOS ANIDADOS — subprocesos dentro de un paso del Mapa Operativo
+// ============================================================
+h('6) Subflujos: un paso puede contener su propio flujo de trabajo (anidado)');
+const sub = (id: string, nombre: string, padre?: string): ProcesoNodo => ({
+  id, departamentoId: 'd', nombre, fase: 'durante', etapaDesde: 'arrancar', orden: 0,
+  roles: [], herramientas: [], insumos: [], espacios: [], ramas: [],
+  ...(padre ? { padreProcesoId: padre } : {}),
+});
+const conSub: ProcesoNodo[] = [
+  sub('perforacion', 'Perforación'),
+  sub('cobro', 'Cobro'),
+  sub('per-1', 'Marcar el punto', 'perforacion'),
+  sub('per-2', 'Desinfectar', 'perforacion'),
+  sub('per-3', 'Perforar y colocar', 'perforacion'),
+];
+check('Nivel raíz = solo los pasos sin padre (2)', procesosDeNivel(conSub, null).length === 2);
+check('Dentro de "Perforación" hay 3 subprocesos', procesosDeNivel(conSub, 'perforacion').length === 3);
+check('subprocesosDe coincide (3)', subprocesosDe(conSub, 'perforacion').length === 3);
+check('contarSubprocesos marca perforacion=3', (contarSubprocesos(conSub).get('perforacion') ?? 0) === 3);
+check('El plano PRO solo lista procesos de nivel raíz (no los subprocesos)', procesosDeMapa(conSub).length === 2);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

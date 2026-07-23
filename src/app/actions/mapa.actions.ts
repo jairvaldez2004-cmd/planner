@@ -144,6 +144,7 @@ function mapProceso(r: { id: string; departamentoId: string; nombre: string; fas
     instructivo: str(d.instructivo) || undefined,
     ramas: arr<unknown>(d.ramas).map(normRama),
     origen: (str(origen.ofertaId) && str(origen.pasoId)) ? { ofertaId: str(origen.ofertaId), pasoId: str(origen.pasoId) } : undefined,
+    padreProcesoId: str(d.padreProcesoId) || undefined,
   };
 }
 
@@ -152,15 +153,16 @@ export async function listarProcesos(proyectoId: string): Promise<ProcesoNodo[]>
   return rows.map(mapProceso);
 }
 
-export async function crearProceso(proyectoId: string, departamentoId: string, nombre: string, fase: FaseMapa, pos?: { x: number; y: number }, etapaDesde?: EtapaObjetivo): Promise<ProcesoNodo> {
+export async function crearProceso(proyectoId: string, departamentoId: string, nombre: string, fase: FaseMapa, pos?: { x: number; y: number }, etapaDesde?: EtapaObjetivo, padreProcesoId?: string): Promise<ProcesoNodo> {
   const max = await prisma.proceso.aggregate({ where: { proyectoId, fase }, _max: { orden: true } });
   const id = nid('PROC');
   const orden = (max._max.orden ?? 0) + 1;
   const posX = pos?.x ?? 40 + ((orden - 1) % 4) * 240;
   const posY = pos?.y ?? 40 + Math.floor((orden - 1) / 4) * 150;
   const et = etapa(etapaDesde, ETAPA_BASE)!;
-  await prisma.proceso.create({ data: { id, proyectoId, departamentoId, nombre: nombre.trim() || 'Proceso', fase, orden, data: toJson({ posX, posY, etapaDesde: et, roles: [], herramientas: [], insumos: [], espacios: [], ramas: [] }) } });
-  return { id, departamentoId, nombre: nombre.trim() || 'Proceso', fase, etapaDesde: et, orden, posX, posY, roles: [], herramientas: [], insumos: [], espacios: [], ramas: [] };
+  const padre = padreProcesoId?.trim() || undefined;
+  await prisma.proceso.create({ data: { id, proyectoId, departamentoId, nombre: nombre.trim() || 'Proceso', fase, orden, data: toJson({ posX, posY, etapaDesde: et, roles: [], herramientas: [], insumos: [], espacios: [], ramas: [], ...(padre ? { padreProcesoId: padre } : {}) }) } });
+  return { id, departamentoId, nombre: nombre.trim() || 'Proceso', fase, etapaDesde: et, orden, posX, posY, roles: [], herramientas: [], insumos: [], espacios: [], ramas: [], padreProcesoId: padre };
 }
 
 export interface ProcesoPatch {
@@ -206,18 +208,34 @@ export async function moverProceso(id: string, departamentoId: string, fase: Fas
 
 export async function eliminarProceso(id: string): Promise<void> {
   const r = await prisma.proceso.findUnique({ where: { id } }); if (!r) return;
-  // Limpia las ramas de otros procesos que apuntaban a este.
-  const hermanos = await prisma.proceso.findMany({ where: { proyectoId: r.proyectoId } });
-  for (const h of hermanos) {
-    if (h.id === id) continue;
+  const todos = await prisma.proceso.findMany({ where: { proyectoId: r.proyectoId } });
+
+  // Recolecta el proceso + TODOS sus subprocesos (recursivo): borrar un paso borra su subflujo.
+  const hijosDe = new Map<string, string[]>();
+  for (const p of todos) {
+    const padre = str(obj(p.data).padreProcesoId);
+    if (padre) hijosDe.set(padre, [...(hijosDe.get(padre) ?? []), p.id]);
+  }
+  const aBorrar = new Set<string>();
+  const cola = [id];
+  while (cola.length) {
+    const cur = cola.shift()!;
+    if (aBorrar.has(cur)) continue;
+    aBorrar.add(cur);
+    cola.push(...(hijosDe.get(cur) ?? []));
+  }
+
+  // Limpia las ramas de los procesos que sobreviven y apuntaban a algún borrado.
+  for (const h of todos) {
+    if (aBorrar.has(h.id)) continue;
     const d = obj(h.data);
     const ramas = arr<unknown>(d.ramas).map(normRama);
-    if (ramas.some((x) => x.destinoProcesoId === id)) {
-      const limpias = ramas.map((x) => x.destinoProcesoId === id ? { ...x, destinoProcesoId: undefined } : x);
+    if (ramas.some((x) => x.destinoProcesoId && aBorrar.has(x.destinoProcesoId))) {
+      const limpias = ramas.map((x) => x.destinoProcesoId && aBorrar.has(x.destinoProcesoId) ? { ...x, destinoProcesoId: undefined } : x);
       await prisma.proceso.update({ where: { id: h.id }, data: { data: toJson({ ...d, ramas: limpias }) } });
     }
   }
-  await prisma.proceso.delete({ where: { id } });
+  await prisma.proceso.deleteMany({ where: { id: { in: Array.from(aBorrar) } } });
 }
 
 // =================== SEMBRAR DESDE EL CATÁLOGO ===================

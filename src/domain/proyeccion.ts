@@ -57,7 +57,7 @@ export interface EspacioSrc {
 }
 export interface ProcesoSrc {
   nombre: string; entrada?: string | undefined; salida?: string | undefined;
-  roles: string[]; tiempoMin?: number | undefined;
+  roles: string[]; tiempoMin?: number | undefined; padreProcesoId?: string | undefined;
 }
 
 // Divide un campo "Rol1, Rol2 / Rol3" en roles individuales.
@@ -80,9 +80,10 @@ export function ambientesDeEspacios(espacios: EspacioSrc[]): Fila[] {
     }));
 }
 
-// Nodos del Mapa Operativo → filas de `procesos` (plano de Procesos).
+// Nodos del Mapa Operativo → filas de `procesos` (plano de Procesos). Solo nivel raíz:
+// los subprocesos (subflujos dentro de un paso) son el detalle, no procesos de primer nivel.
 export function procesosDeMapa(procesos: ProcesoSrc[]): Fila[] {
-  return procesos.map((p): Fila => ({
+  return procesos.filter((p) => !p.padreProcesoId).map((p): Fila => ({
     proceso: p.nombre,
     entrada: p.entrada ?? '',
     salida: p.salida ?? '',

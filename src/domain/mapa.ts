@@ -80,6 +80,22 @@ export interface ProcesoNodo {
   instructivo?: string | undefined;    // el paso a paso (vista instructivo)
   ramas: Rama[];                       // salidas por disparador (el flujo)
   origen?: { ofertaId: string; pasoId: string } | undefined; // si vino sembrado del catálogo
+  padreProcesoId?: string | undefined; // si es un SUBPROCESO dentro de otro paso (flujo anidado)
+}
+
+// Hijos directos de un paso: el subflujo que vive DENTRO de ese paso (recursivo).
+export function subprocesosDe(procesos: ProcesoNodo[], padreId: string): ProcesoNodo[] {
+  return procesos.filter((p) => p.padreProcesoId === padreId);
+}
+// Procesos de un nivel: los del padre dado (null = nivel raíz del mapa).
+export function procesosDeNivel(procesos: ProcesoNodo[], padreId: string | null): ProcesoNodo[] {
+  return procesos.filter((p) => (p.padreProcesoId ?? null) === padreId);
+}
+// Nº de subprocesos directos de cada paso (para el badge "⤵ N").
+export function contarSubprocesos(procesos: ProcesoNodo[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const p of procesos) if (p.padreProcesoId) m.set(p.padreProcesoId, (m.get(p.padreProcesoId) ?? 0) + 1);
+  return m;
 }
 
 // =================== EJE ETAPA (acumulativo) ===================

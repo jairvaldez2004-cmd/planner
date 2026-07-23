@@ -18,7 +18,7 @@ import {
 } from '@/app/actions/mapa.actions';
 import type { RecursosProyecto } from '@/app/actions/mapa.actions';
 import { obtenerProyectoBase } from '@/app/actions/workspace.actions';
-import { FASES_MAPA, VISTAS_MAPA, ETAPA_BASE, colorDepto, ordenCronologico, recursosCompartidos, vigenteEn, naceEn, seRetiraEn, procesosDeEtapa, nEtapa } from '@/domain/mapa';
+import { FASES_MAPA, VISTAS_MAPA, ETAPA_BASE, colorDepto, ordenCronologico, recursosCompartidos, vigenteEn, naceEn, seRetiraEn, procesosDeEtapa, nEtapa, procesosDeNivel, contarSubprocesos } from '@/domain/mapa';
 import type { AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, VistaMapa } from '@/domain/mapa';
 import { ETAPAS_OBJETIVO, etapaInfo } from '@/domain/etapas';
 import type { EtapaObjetivo } from '@/domain/etapas';
@@ -55,6 +55,10 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const [nuevoDepto, setNuevoDepto] = useState('');
   const [panel, setPanel] = useState<'mapa' | 'instructivo' | 'agenda'>('mapa');
   const [msg, setMsg] = useState('');
+  // Flujos ANIDADOS: `nivel` = el paso dentro del que estamos (null = mapa raíz);
+  // `ruta` = migas de pan para navegar hacia arriba.
+  const [nivel, setNivel] = useState<string | null>(null);
+  const [ruta, setRuta] = useState<{ id: string; nombre: string }[]>([]);
   const movil = useEsMovil();
 
   // drag de nodos (posición libre)
@@ -94,11 +98,14 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const proc = procesos.find((p) => p.id === selProc) ?? null;
   const depto = deptos.find((d) => d.id === selDepto) ?? null;
   const compartidos = recursosCompartidos(deptos);
+  // NIVEL actual: solo los procesos hijos del paso en el que estamos (null = raíz).
+  const procesosNivel = procesosDeNivel(procesos, nivel);
+  const subCount = contarSubprocesos(procesos);   // nº de subprocesos por paso (badge ⤵)
   // El mapa de una etapa = lo acumulado hasta ella (herencia). La numeración cronológica
   // se calcula SOLO sobre lo vigente, para que cada etapa tenga su propio "primer paso".
-  const vigentes = procesosDeEtapa(procesos, etapa);
+  const vigentes = procesosDeEtapa(procesosNivel, etapa);
   const numeracion = ordenCronologico(vigentes);
-  const byId = new Map(procesos.map((p) => [p.id, p]));
+  const byId = new Map(procesosNivel.map((p) => [p.id, p]));
   const colorDe = (deptoId: string) => { const i = deptos.findIndex((d) => d.id === deptoId); return i >= 0 ? colorDepto(deptos[i]!, i) : '#888'; };
   const deptoNombre = (id: string) => deptos.find((d) => d.id === id)?.nombre ?? '?';
   const enFase = vigentes.filter((p) => p.fase === fase);
@@ -125,13 +132,26 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   }
 
   async function altaProceso(x?: number, y?: number) {
-    const nombre = window.prompt('Nombre del proceso:');
+    const nombre = window.prompt(nivel ? 'Nombre del subproceso:' : 'Nombre del proceso:');
     if (!nombre?.trim()) return;
     const admin = deptos.find((d) => d.tipo === 'admin') ?? deptos[0];
     if (!admin) return;
-    const nuevo = await crearProceso(proyectoId, admin.id, nombre.trim(), fase, x !== undefined && y !== undefined ? { x, y } : undefined, etapa);
+    const nuevo = await crearProceso(proyectoId, admin.id, nombre.trim(), fase, x !== undefined && y !== undefined ? { x, y } : undefined, etapa, nivel ?? undefined);
     setProcesos((ps) => [...ps, nuevo]);
     setSelProc(nuevo.id); setSelDepto(null);
+  }
+
+  // Entrar al subflujo de un paso (flujo anidado dentro de ese paso).
+  function entrarSubflujo(p: ProcesoNodo) {
+    setRuta((r) => [...r, { id: p.id, nombre: p.nombre }]);
+    setNivel(p.id); setSelProc(null); setSelDepto(null); setFase('antes');
+  }
+  // Volver a un nivel de la ruta (idx = -1 → raíz).
+  function irANivel(idx: number) {
+    const nuevaRuta = ruta.slice(0, idx + 1);
+    setRuta(nuevaRuta);
+    setNivel(idx < 0 ? null : (nuevaRuta[idx]?.id ?? null));
+    setSelProc(null); setSelDepto(null); setFase('antes');
   }
 
   async function altaDepto() {
@@ -215,8 +235,8 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const etapaN = (e: EtapaObjetivo) => nEtapa(e);
   // por etapa: cuántos procesos hay vigentes (acumulado) y cuántos nacen ahí (lo nuevo)
   const cuentaEtapa = (e: EtapaObjetivo) => ({
-    total: procesosDeEtapa(procesos, e).length,
-    nuevos: procesos.filter((p) => p.etapaDesde === e).length,
+    total: procesosDeEtapa(procesosNivel, e).length,
+    nuevos: procesosNivel.filter((p) => p.etapaDesde === e).length,
   });
   const info = etapaInfo(etapa);
   const heredados = vigentes.filter((p) => !naceEn(p, etapa)).length;
@@ -238,6 +258,22 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
         <h2 style={{ margin: 0 }}>🗺️ Mapa Operativo <span style={{ fontSize: 13, color: '#888' }}>· {nombreProyecto ?? 'proyecto'} · un solo flujo cronológico</span></h2>
         <button style={btn} onClick={onVolver}>← Proyecto</button>
       </div>
+
+      {/* MIGAS: navegación de flujos anidados (subflujo dentro de un paso) */}
+      {nivel && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', margin: '0.5rem 0 0', fontSize: 13, background: '#eef4ff', border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.4rem 0.6rem' }}>
+          <span style={{ color: '#2b5a97', fontWeight: 'bold' }}>Subflujo dentro de →</span>
+          <span style={{ cursor: 'pointer', color: '#2b5a97' }} onClick={() => irANivel(-1)}>🗺️ Mapa</span>
+          {ruta.map((r, i) => (
+            <span key={r.id}>
+              <span style={{ color: '#8a93a8' }}> ▸ </span>
+              <span onClick={() => { if (i < ruta.length - 1) irANivel(i); }}
+                style={{ cursor: i < ruta.length - 1 ? 'pointer' : 'default', color: i < ruta.length - 1 ? '#2b5a97' : '#333', fontWeight: i === ruta.length - 1 ? 'bold' : 'normal' }}>{r.nombre}</span>
+            </span>
+          ))}
+          <button style={{ ...btnSm, marginLeft: 'auto' }} onClick={() => irANivel(ruta.length - 2)}>← Subir un nivel</button>
+        </div>
+      )}
 
       {/* ETAPAS de la ruta — cada una es SU mapa (acumulativo: hereda las anteriores) */}
       <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', margin: '0.6rem 0 0.3rem' }}>
@@ -288,8 +324,8 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
         <button style={btnSm} onClick={() => void altaProceso()}>＋ Proceso</button>
         <button style={btnSm} onClick={() => setPanel('instructivo')} title="Documento imprimible con el paso a paso de esta etapa">🖨️ Instructivo</button>
         <button style={btnSm} onClick={() => setPanel('agenda')} title="Semana de los recursos compartidos y sus choques">🗓️ Agenda</button>
-        <button style={btnSm} onClick={() => void importar()} title="Siembra en el mapa los pasos de las rutas del catálogo">⬇ Importar catálogo</button>
-        <button style={btnSm} onClick={() => void rescatarTiempos()} title="Lee el tiempo que traen las presentaciones del catálogo y lo baja a los pasos">⏱ Rescatar tiempos</button>
+        {!nivel && <button style={btnSm} onClick={() => void importar()} title="Siembra en el mapa los pasos de las rutas del catálogo">⬇ Importar catálogo</button>}
+        {!nivel && <button style={btnSm} onClick={() => void rescatarTiempos()} title="Lee el tiempo que traen las presentaciones del catálogo y lo baja a los pasos">⏱ Rescatar tiempos</button>}
       </div>
 
       {/* etiquetas de departamento */}
@@ -398,6 +434,12 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
                     {seRetira && <span title="Se retira al pasar a la siguiente etapa" style={{ background: '#c0392b', color: '#fff', borderRadius: 8, padding: '0 5px', fontSize: 9 }}>⊘ último uso</span>}
                   </div>
                   {lenteCard(p) && <div style={{ fontSize: 11, color: '#777', marginTop: 1 }}>{lenteCard(p)}</div>}
+                  {/* subflujo anidado: abrir/crear el flujo de trabajo DENTRO de este paso */}
+                  <div data-portal onClick={(ev) => { ev.stopPropagation(); entrarSubflujo(p); }}
+                    title="Abrir el subflujo de este paso (flujos de trabajo dentro del paso)"
+                    style={{ marginTop: 3, fontSize: 10, color: '#2b5a97', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3, background: '#eef4ff', border: '1px solid #cdd8ef', borderRadius: 6, padding: '1px 6px' }}>
+                    ⤵ {subCount.get(p.id) ? `subflujo (${subCount.get(p.id)})` : 'crear subflujo'}
+                  </div>
                   {/* portales de SALIDA hacia otras fases */}
                   {salientesCrossFase.map((r) => {
                     const dest = byId.get(r.destinoProcesoId!)!;
@@ -434,7 +476,9 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
 
         {/* ==== PANEL PROCESO ==== */}
         {proc && (
-          <PanelProceso key={proc.id} proyectoId={proyectoId} proc={proc} procesos={procesos} deptos={deptos} recursos={recursos}
+          <PanelProceso key={proc.id} proyectoId={proyectoId} proc={proc} procesos={procesosNivel} deptos={deptos} recursos={recursos}
+            subprocesos={subCount.get(proc.id) ?? 0}
+            onEntrarSubflujo={() => entrarSubflujo(proc)}
             onPatch={(patch) => guardar(proc.id, patch)}
             onRecargarRecursos={() => { listarRecursosProyecto(proyectoId).then(setRecursos).catch(() => {}); }}
             onEliminar={async () => { await eliminarProceso(proc.id); setSelProc(null); cargar(); }}
@@ -458,8 +502,9 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
 
 // =================== PANEL: PROCESO ===================
 
-function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, onRecargarRecursos, onEliminar, onCerrar, onIrSedes }: {
+function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, subprocesos, onEntrarSubflujo, onPatch, onRecargarRecursos, onEliminar, onCerrar, onIrSedes }: {
   proyectoId: string; proc: ProcesoNodo; procesos: ProcesoNodo[]; deptos: Departamento[]; recursos: RecursosProyecto;
+  subprocesos: number; onEntrarSubflujo: () => void;
   onPatch: (p: PatchProceso) => void; onRecargarRecursos: () => void;
   onEliminar: () => Promise<void>; onCerrar: () => void; onIrSedes: () => void;
 }) {
@@ -499,6 +544,11 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, onPatch, o
 
       <label style={lbl}>Nombre</label>
       <input style={inp} defaultValue={proc.nombre} onBlur={(e) => { if (e.target.value.trim() && e.target.value !== proc.nombre) onPatch({ nombre: e.target.value.trim() }); }} />
+
+      {/* SUBFLUJO: el flujo de trabajo que vive DENTRO de este paso (anidado, recursivo) */}
+      <button style={{ ...btnSm, width: '100%', marginTop: 6, background: '#eef4ff', borderColor: '#cdd8ef', color: '#2b5a97', fontWeight: 'bold' }} onClick={onEntrarSubflujo}>
+        ⤵ {subprocesos ? `Abrir subflujo (${subprocesos} paso${subprocesos > 1 ? 's' : ''})` : 'Crear subflujo dentro de este paso'}
+      </button>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
         <div>
