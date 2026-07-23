@@ -23,9 +23,10 @@ import type { Fila } from '@/app/captura/csv';
 import { modeloActual } from '@/app/actions/config.actions';
 import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { DocumentoPlano } from '@/domain/plano-doc';
-import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies } from '@/domain/proyeccion';
+import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados } from '@/domain/proyeccion';
 import { listarSedes, listarEspacios } from '@/app/actions/espacios.actions';
 import { listarProcesos } from '@/app/actions/mapa.actions';
+import { listarEmpleados } from '@/app/actions/rh.actions';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nowISO(): string { return new Date().toISOString(); }
@@ -50,14 +51,17 @@ async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<R
   const out: Record<string, Fila[]> = {};
   let espacios: Awaited<ReturnType<typeof listarEspacios>> | null = null;
   let procesos: Awaited<ReturnType<typeof listarProcesos>> | null = null;
+  let empleados: Awaited<ReturnType<typeof listarEmpleados>> | null = null;
   const getEspacios = async () => {
     if (!espacios) { const sedes = await listarSedes(proyectoId); espacios = (await Promise.all(sedes.map((s) => listarEspacios(s.id)))).flat(); }
     return espacios;
   };
   const getProcesos = async () => { if (!procesos) procesos = await listarProcesos(proyectoId); return procesos; };
+  const getEmpleados = async () => { if (!empleados) empleados = await listarEmpleados(proyectoId); return empleados; };
   if (refs.has('ambientes')) out['ambientes'] = ambientesDeEspacios(await getEspacios());
   if (refs.has('procesos')) out['procesos'] = procesosDeMapa(await getProcesos());
-  if (refs.has('personas')) out['personas'] = personasDeSuperficies(await getEspacios(), await getProcesos());
+  if (refs.has('puestos')) out['puestos'] = puestosDeEmpleados(await getEmpleados());
+  if (refs.has('personas')) out['personas'] = personasDeSuperficies(await getEspacios(), await getProcesos(), await getEmpleados());
   return out;
 }
 

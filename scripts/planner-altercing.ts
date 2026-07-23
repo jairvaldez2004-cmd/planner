@@ -14,8 +14,10 @@ import type { CapturaPlano } from '@/domain/plano-doc';
 import { construirGrafoDependencias, bloqueadosSi, tablasCompartidas } from '@/domain/dependencias';
 import type { ProcesoNodo } from '@/domain/mapa';
 import { procesosDeNivel, contarSubprocesos, subprocesosDe } from '@/domain/mapa';
-import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, superficiesDePlano } from '@/domain/proyeccion';
+import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, superficiesDePlano, puestosDeEmpleados } from '@/domain/proyeccion';
 import type { EspacioSrc, ProcesoSrc } from '@/domain/proyeccion';
+import { empleadoVacio } from '@/domain/rh';
+import type { Empleado } from '@/domain/rh';
 
 let ok = 0, fail = 0;
 const fails: string[] = [];
@@ -174,6 +176,25 @@ check('Dentro de "Perforación" hay 3 subprocesos', procesosDeNivel(conSub, 'per
 check('subprocesosDe coincide (3)', subprocesosDe(conSub, 'perforacion').length === 3);
 check('contarSubprocesos marca perforacion=3', (contarSubprocesos(conSub).get('perforacion') ?? 0) === 3);
 check('El plano PRO solo lista procesos de nivel raíz (no los subprocesos)', procesosDeMapa(conSub).length === 2);
+
+// ============================================================
+// 7) PERSONAS & RH — el roster alimenta el plano RH (puestos) y ORG/OPE (personas)
+// ============================================================
+h('7) Roster de Personas → plano RH y planos ORG/OPE (sin re-teclear)');
+const emp = (nombre: string, puesto: string, depto: string, roles: string[], comp: string[]): Empleado =>
+  ({ ...empleadoVacio(`EMP-${nombre}`), nombre, puesto, departamento: depto, estado: 'activo', roles, competencias: comp, kpis: 'Reseñas ≥4.7' });
+const roster: Empleado[] = [
+  emp('Ana', 'Perforador/a', 'Piercings', ['Perforador'], ['Asepsia', 'Anatomía']),
+  emp('Beto', 'Perforador/a', 'Piercings', ['Perforador'], ['Asepsia']),        // mismo puesto → 1 descripción, 2 personas
+  emp('Carla', 'Recepcionista', 'Recepción', ['Recepción', 'Caja'], ['Atención']),
+];
+const puestosRH = puestosDeEmpleados(roster);
+console.log(`  ${roster.length} personas → ${puestosRH.length} descripciones de puesto`);
+check('Puestos dedup por nombre (Perforador/a una vez)', puestosRH.length === 2);
+check('El puesto lista a sus ocupantes (Ana, Beto)', (puestosRH.find((p) => p['puesto'] === 'Perforador/a')?.['ocupantes'] ?? '').includes('Ana') && (puestosRH.find((p) => p['puesto'] === 'Perforador/a')?.['ocupantes'] ?? '').includes('Beto'));
+const personasRH = personasDeSuperficies([], [], roster);
+check('El roster alimenta la tabla personas (ORG/OPE) con nombre real', personasRH.some((p) => p['persona'] === 'Carla'));
+check('superficiesDePlano(RH) incluye Personas & RH', superficiesDePlano('RH').some((s) => s.superficie === 'personas'));
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

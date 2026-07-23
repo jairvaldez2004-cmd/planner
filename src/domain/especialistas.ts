@@ -387,22 +387,33 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
 
   RH: {
     planoId: 'RH', nombre: 'Recursos Humanos',
-    lenguajeTecnico: 'Profundiza la GENTE sobre la estructura de ORG (ORG define roles/autoridad; RH define ciclo de vida del empleado). Produce manual del empleado y procesos de contratación→onboarding→evaluación→salida. Puestos repetibles (tabla). No contradice ORG/CUL.',
+    lenguajeTecnico: 'Profundiza la GENTE sobre la estructura de ORG. Produce el manual del empleado y el ciclo de vida completo: descripción de puesto, contratación (entrevistas/pruebas), onboarding, capacitación, evaluación, bonos, carrera, sucesión y offboarding/despido. La PLANTILLA (personas dadas de alta con su departamento, roles, procesos, nómina y KPIs) se captura en la superficie "Personas & RH" y proyecta la tabla de puestos. No inventa personas. No contradice ORG/CUL.',
     dependencias: ['ORG'],
-    contratoEntrega: { tipo: 'documento', descripcion: 'Manual del empleado + procesos de gente (contratación, onboarding, evaluación, salida).' },
+    contratoEntrega: { tipo: 'documento', descripcion: 'Manual del empleado + descripciones de puesto + ciclo de vida (contratación→onboarding→capacitación→evaluación→salida).' },
     bloques: [
-      { id: 'puestos', titulo: 'Descripciones de puesto', capas: 'C11',
-        tabla: { tablaRef: 'puestos', requeridoEn: E, disparadorCSV: 3,
-          columnasContexto: [ { id: 'competencias', etiqueta: 'Competencias clave', tipo: 'texto' }, { id: 'kpis', etiqueta: 'KPIs del puesto', tipo: 'texto' } ] } },
+      { id: 'manual', titulo: 'Manual del empleado', capas: 'C11·C12', campos: [
+        { id: 'manual', pregunta: '¿Reglas de convivencia, horarios, código de conducta y de imagen del empleado?', tipo: 'parrafo', requeridoEn: S },
+      ] },
+      { id: 'puestos', titulo: 'Descripciones de puesto (plantilla)', capas: 'C11',
+        tabla: { tablaRef: 'puestos', etiqueta: 'Puestos y ocupantes', requeridoEn: E, disparadorCSV: 3,
+          columnasContexto: [
+            { id: 'competencias', etiqueta: 'Competencias clave', tipo: 'texto' },
+            { id: 'kpis', etiqueta: 'KPIs del puesto', tipo: 'texto' },
+            { id: 'ocupantes', etiqueta: 'Personas en el puesto', tipo: 'texto' },
+          ] } },
       { id: 'contratacion', titulo: 'Contratación', capas: 'C11', campos: [
-        { id: 'reclutamiento', pregunta: '¿Cómo se recluta, entrevista y selecciona (pruebas incluidas)?', tipo: 'parrafo', requeridoEn: E },
+        { id: 'reclutamiento', pregunta: '¿Cómo se recluta y selecciona? (fuentes, entrevistas y pruebas)', tipo: 'parrafo', requeridoEn: E },
         { id: 'onboarding', pregunta: '¿Cómo es el onboarding de los primeros 30 días?', tipo: 'parrafo', requeridoEn: S },
       ] },
-      { id: 'desarrollo', titulo: 'Evaluación y desarrollo', capas: 'C11', campos: [
-        { id: 'evaluacion', pregunta: '¿Cómo se evalúa el desempeño y se dan bonos/ascensos (plan de carrera)?', tipo: 'parrafo', requeridoEn: S },
+      { id: 'capacitacion', titulo: 'Capacitación', capas: 'C11', campos: [
+        { id: 'capacitacion', pregunta: '¿Qué capacitación reciben (inicial y continua) y cómo se certifica?', tipo: 'parrafo', requeridoEn: S },
       ] },
-      { id: 'salida', titulo: 'Salida y sucesión', capas: 'C11', campos: [
-        { id: 'offboarding', pregunta: '¿Proceso de salida/despido, traspaso y sucesión de puestos clave?', tipo: 'parrafo', requeridoEn: C },
+      { id: 'desarrollo', titulo: 'Evaluación, bonos y carrera', capas: 'C11', campos: [
+        { id: 'evaluacion', pregunta: '¿Cómo se evalúa el desempeño y qué bonos/incentivos hay?', tipo: 'parrafo', requeridoEn: S },
+        { id: 'carrera', pregunta: '¿Plan de carrera y sucesión de los puestos clave?', tipo: 'parrafo', requeridoEn: C },
+      ] },
+      { id: 'salida', titulo: 'Salida y offboarding', capas: 'C11', campos: [
+        { id: 'offboarding', pregunta: '¿Proceso de salida/despido, finiquito, traspaso y baja de accesos?', tipo: 'parrafo', requeridoEn: C },
       ] },
     ],
   },

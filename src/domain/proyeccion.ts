@@ -7,9 +7,10 @@
 // Funciones puras (sin IO). El agregador que carga las superficies vive en la capa de actions.
 
 import type { Fila } from './plano-doc';
+import type { Empleado } from './rh';
 
 // ---------- Registro declarativo: qué planos enriquece cada superficie (para UI) ----------
-export type Superficie = 'sedes' | 'mapa' | 'uc';
+export type Superficie = 'sedes' | 'mapa' | 'uc' | 'personas';
 
 export interface Aporte {
   planoId: string;
@@ -36,10 +37,15 @@ export const ENRIQUECE: Record<Superficie, Aporte[]> = {
     { planoId: 'MKT', nota: 'campañas por unidad' },
     { planoId: 'FIN', nota: 'ingresos por unidad' },
   ],
+  personas: [
+    { planoId: 'RH', tablaRef: 'puestos', nota: 'cada persona → puesto, competencias, KPIs, nómina' },
+    { planoId: 'ORG', tablaRef: 'personas', nota: 'roles y jerarquía por persona' },
+    { planoId: 'OPE', nota: 'ejecutores por proceso' },
+  ],
 };
 
 export const LABEL_SUPERFICIE: Record<Superficie, string> = {
-  sedes: 'Sedes & Espacios', mapa: 'Mapa Operativo', uc: 'Unidad Comercial',
+  sedes: 'Sedes & Espacios', mapa: 'Mapa Operativo', uc: 'Unidad Comercial', personas: 'Personas & RH',
 };
 
 // Inverso: qué superficies alimentan un plano dado (para la vista del plano).
@@ -92,14 +98,18 @@ export function procesosDeMapa(procesos: ProcesoSrc[]): Fila[] {
   }));
 }
 
-// Roles asignados en espacios (lente Roles/Procesos) + en procesos → filas de `personas`
-// (planos ORG/OPE). Dedup por nombre de rol; el "área" es dónde se le vio primero.
-export function personasDeSuperficies(espacios: EspacioSrc[], procesos: ProcesoSrc[]): Fila[] {
+// Roles asignados en espacios (lente Roles/Procesos) + en procesos + el roster de RH →
+// filas de `personas` (planos ORG/OPE). Dedup por nombre de rol.
+export function personasDeSuperficies(espacios: EspacioSrc[], procesos: ProcesoSrc[], empleados: Empleado[] = []): Fila[] {
   const map = new Map<string, Fila>();
-  const add = (rol: string, area: string) => {
+  const add = (rol: string, area: string, persona = '') => {
     const key = rol.toLowerCase();
-    if (rol && !map.has(key)) map.set(key, { rol, persona: '', area, reportaA: '' });
+    if (rol && !map.has(key)) map.set(key, { rol, persona, area, reportaA: '' });
   };
+  for (const e of empleados) {
+    if (e.puesto) add(e.puesto, e.departamento, e.nombre);
+    for (const rol of e.roles) add(rol, e.departamento, e.nombre);
+  }
   for (const e of espacios) {
     for (const campo of ['org_responsable', 'proc_rol', 'org_acceso'] as const) {
       for (const rol of partirRoles(e.data[campo])) add(rol, e.nombre);
@@ -107,6 +117,32 @@ export function personasDeSuperficies(espacios: EspacioSrc[], procesos: ProcesoS
   }
   for (const p of procesos) for (const rol of p.roles) add(rol, p.nombre);
   return Array.from(map.values());
+}
+
+// Roster de RH → filas de `puestos` (plano de Recursos Humanos). Dedup por puesto:
+// varias personas con el mismo puesto = una descripción de puesto, con sus personas.
+interface PuestoAgg { puesto: string; mision: string; reportaA: string; competencias: string; kpis: string; personas: string[] }
+export function puestosDeEmpleados(empleados: Empleado[]): Fila[] {
+  const map = new Map<string, PuestoAgg>();
+  for (const e of empleados) {
+    const puesto = e.puesto.trim();
+    if (!puesto) continue;
+    const key = puesto.toLowerCase();
+    const prev = map.get(key);
+    if (prev) {
+      if (e.nombre) prev.personas.push(e.nombre);
+    } else {
+      map.set(key, {
+        puesto, mision: e.responsabilidades, reportaA: e.departamento,
+        competencias: e.competencias.join(', '), kpis: e.kpis,
+        personas: e.nombre ? [e.nombre] : [],
+      });
+    }
+  }
+  return Array.from(map.values()).map((r): Fila => ({
+    puesto: r.puesto, mision: r.mision, reportaA: r.reportaA,
+    competencias: r.competencias, kpis: r.kpis, ocupantes: r.personas.join(', '),
+  }));
 }
 
 // ¿Qué tablas maestras de un plano se proyectan desde superficies? (para el agregador)
