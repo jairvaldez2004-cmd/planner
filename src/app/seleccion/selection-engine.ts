@@ -49,8 +49,9 @@ function planosPunta(d: Diagnostico, clases: string[]): Set<string> {
   const punta = new Set<string>();
   if (clases.includes('Exportación/Comercio internacional')) punta.add('COM');
   if (clases.includes('Software/SaaS')) punta.add('TEC');
-  if (d.objetivo === 'levantar-capital') punta.add('FIN');
+  if (d.objetivo === 'levantar-capital') { punta.add('FIN'); punta.add('INV'); }
   if (d.objetivo === 'escalar') punta.add('ESC');
+  if (d.objetivo === 'lanzar') punta.add('MKT');
   return punta;
 }
 
@@ -92,6 +93,14 @@ function seleccionarPlanos(d: Diagnostico, clases: string[]): PlanoSeleccionado[
   if (d.complejidad === 'alta') add('IA', 'Complejidad alta (R-D2).');
   if (d.etapa === 'crecimiento' || d.etapa === 'consolidado' || d.escala === 'nacional' || d.escala === 'internacional' || (d.restricciones ?? '').trim() !== '') add('CTR', 'Escala/regulación (R-D3).');
   if (d.complejidad === 'media' || d.complejidad === 'alta' || d.etapa === 'crecimiento' || d.etapa === 'consolidado') add('PRO', 'Complejidad/operación (R-D4).');
+
+  // Capa E — planos nuevos (ARQ/RH/MKT/JUR/INV) por condición
+  const tienePresenciaFisica = clases.some((c) => ['Retail/Local', 'Servicios/Consultoría', 'Manufactura', 'Agrícola'].includes(c));
+  if (tienePresenciaFisica) add('ARQ', 'Presencia física: requiere programa de espacios (R-E1).');
+  if (razones.has('COM') || d.objetivo === 'lanzar' || d.objetivo === 'escalar') add('MKT', 'Salida al mercado: atracción y demanda (R-E2).');
+  if (d.recursos === 'equipo-pequeno' || d.recursos === 'equipo-completo' || d.etapa === 'crecimiento' || d.etapa === 'consolidado') add('RH', 'Hay equipo que contratar y desarrollar (R-E3).');
+  if (d.objetivo === 'lanzar' || d.objetivo === 'ordenar' || d.objetivo === 'franquiciar' || d.objetivo === 'levantar-capital' || d.escala === 'nacional' || d.escala === 'internacional') add('JUR', 'Constitución, permisos y contratos del giro (R-E4).');
+  if (d.objetivo === 'levantar-capital') add('INV', 'Levantar capital: documento para inversionistas (R-E5).');
 
   const base = profundidadBase(d);
   const punta = planosPunta(d, clases);

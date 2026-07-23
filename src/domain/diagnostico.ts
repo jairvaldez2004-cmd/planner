@@ -29,25 +29,30 @@ export interface Diagnostico {
   complejidad?: Complejidad;// refinador
 }
 
-// Catálogo canónico: los 13 planos maestros (PLANO ALV). El motor selecciona de aquí.
+// Catálogo canónico: los 18 planos maestros (PLANO ALV). El motor selecciona de aquí.
 export const PLANOS_MAESTROS: Record<string, string> = {
   META: 'Meta',
   EST: 'Estratégico',
   COM: 'Comercial',
+  MKT: 'Marketing',
   CUL: 'Cultural',
   ORG: 'Organizacional',
+  RH: 'Recursos Humanos',
   OPE: 'Operativo',
   PRO: 'Procesos',
+  ARQ: 'Arquitectónico',
   TEC: 'Tecnológico',
   IA: 'IA',
   FIN: 'Financiero',
+  INV: 'Inversionista',
   CTR: 'Control',
   IMP: 'Implementación',
   ESC: 'Escalamiento',
+  JUR: 'Jurídico',
 };
 
 // Orden canónico de producción (por dependencias del método).
-export const ORDEN_PLANOS = ['META', 'EST', 'COM', 'CUL', 'ORG', 'OPE', 'PRO', 'TEC', 'IA', 'FIN', 'CTR', 'IMP', 'ESC'];
+export const ORDEN_PLANOS = ['META', 'EST', 'COM', 'MKT', 'CUL', 'ORG', 'RH', 'OPE', 'PRO', 'ARQ', 'TEC', 'IA', 'FIN', 'INV', 'CTR', 'IMP', 'ESC', 'JUR'];
 
 export interface PlanoSeleccionado {
   id: string;

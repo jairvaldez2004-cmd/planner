@@ -23,11 +23,11 @@ export const ETAPAS_OBJETIVO: EtapaInfo[] = [
 
 // Matriz de % objetivo por plano en cada etapa (columna de la matriz del documento).
 export const MATRIZ_ETAPA: Record<EtapaObjetivo, Record<string, number>> = {
-  arrancar:    { META: 60, EST: 50, COM: 80, OPE: 70, PRO: 70, ORG: 50, FIN: 50, CUL: 30, CTR: 20, TEC: 20, IA: 0,  IMP: 40, ESC: 0 },
-  expandir:    { META: 80, EST: 70, COM: 95, OPE: 85, PRO: 85, ORG: 80, FIN: 80, CUL: 70, CTR: 60, TEC: 60, IA: 40, IMP: 60, ESC: 20 },
-  replicar:    { META: 90, EST: 85, COM: 95, OPE: 90, PRO: 95, ORG: 95, FIN: 85, CUL: 85, CTR: 75, TEC: 75, IA: 55, IMP: 95, ESC: 80 },
-  automatizar: { META: 95, EST: 90, COM: 95, OPE: 95, PRO: 95, ORG: 95, FIN: 90, CUL: 90, CTR: 95, TEC: 95, IA: 95, IMP: 95, ESC: 85 },
-  vender:      { META: 100, EST: 100, COM: 100, OPE: 100, PRO: 100, ORG: 100, FIN: 100, CUL: 95, CTR: 100, TEC: 95, IA: 95, IMP: 100, ESC: 95 },
+  arrancar:    { META: 60, EST: 50, COM: 80, OPE: 70, PRO: 70, ORG: 50, FIN: 50, CUL: 30, CTR: 20, TEC: 20, IA: 0,  IMP: 40, ESC: 0,  MKT: 40, RH: 30, ARQ: 50, INV: 0,  JUR: 40 },
+  expandir:    { META: 80, EST: 70, COM: 95, OPE: 85, PRO: 85, ORG: 80, FIN: 80, CUL: 70, CTR: 60, TEC: 60, IA: 40, IMP: 60, ESC: 20, MKT: 70, RH: 60, ARQ: 60, INV: 20, JUR: 60 },
+  replicar:    { META: 90, EST: 85, COM: 95, OPE: 90, PRO: 95, ORG: 95, FIN: 85, CUL: 85, CTR: 75, TEC: 75, IA: 55, IMP: 95, ESC: 80, MKT: 80, RH: 90, ARQ: 85, INV: 30, JUR: 85 },
+  automatizar: { META: 95, EST: 90, COM: 95, OPE: 95, PRO: 95, ORG: 95, FIN: 90, CUL: 90, CTR: 95, TEC: 95, IA: 95, IMP: 95, ESC: 85, MKT: 90, RH: 90, ARQ: 90, INV: 40, JUR: 90 },
+  vender:      { META: 100, EST: 100, COM: 100, OPE: 100, PRO: 100, ORG: 100, FIN: 100, CUL: 95, CTR: 100, TEC: 95, IA: 95, IMP: 100, ESC: 95, MKT: 95, RH: 100, ARQ: 90, INV: 95, JUR: 100 },
 };
 
 export function etapaInfo(e: EtapaObjetivo | undefined): EtapaInfo | undefined {

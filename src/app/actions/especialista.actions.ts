@@ -21,6 +21,8 @@ import type { MensajeChat } from '@/adapters/ai/especialista-agent';
 import { aCSV, desdeCSV, upsertPorLlave, columnasEfectivas } from '@/app/captura/csv';
 import type { Fila } from '@/app/captura/csv';
 import { modeloActual } from '@/app/actions/config.actions';
+import { generarDocumentoPlano } from '@/domain/plano-doc';
+import type { DocumentoPlano } from '@/domain/plano-doc';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nowISO(): string { return new Date().toISOString(); }
@@ -184,6 +186,23 @@ export async function conversarEspecialista(
       ? 'Falta ANTHROPIC_API_KEY en business-planner-alpha/.env.local.' : msg;
     return { reply: `⚠ No pude consultar al Especialista (IA): ${falta}`, readiness };
   }
+}
+
+// --- generar el DOCUMENTO del plano desde lo capturado (campos + tablas) ---
+// Motor genérico (domain/plano-doc): rinde bloques/campos/tablas a Markdown y marca
+// PENDIENTE lo requerido y vacío al nivel del proyecto. No inventa. Aplica a los 18 planos.
+export async function generarDocumentoDePlano(proyectoId: string, planoId: string): Promise<DocumentoPlano | null> {
+  const det = await obtenerProyecto(proyectoId);
+  const cfg = especialista(planoId);
+  if (!det || !cfg) return null;
+  const campos = await cargarCampos(proyectoId, planoId);
+  const refs = Array.from(new Set(cfg.bloques.filter((b) => b.tabla).map((b) => b.tabla!.tablaRef)));
+  const tablas: Record<string, Fila[]> = {};
+  for (const ref of refs) {
+    const r = await prisma.tablaProyecto.findUnique({ where: { proyectoId_tablaRef: { proyectoId, tablaRef: ref } } });
+    tablas[ref] = r && Array.isArray(r.filas) ? (r.filas as Fila[]) : [];
+  }
+  return generarDocumentoPlano(cfg, det.blueprint.profundidadProyecto, { campos, tablas });
 }
 
 // --- edición manual de un campo ---

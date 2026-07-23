@@ -9,9 +9,10 @@ import type { CSSProperties } from 'react';
 import { ChatEspecialista } from './chat-especialista';
 import { useEsMovil } from './use-movil';
 import {
-  obtenerDetallePlano, plantillaCSV, importarCSV, guardarCampo,
+  obtenerDetallePlano, plantillaCSV, importarCSV, guardarCampo, generarDocumentoDePlano,
 } from '@/app/actions/especialista.actions';
 import type { DetallePlano } from '@/app/actions/especialista.actions';
+import type { DocumentoPlano } from '@/domain/plano-doc';
 import type { Readiness } from '@/app/readiness/readiness-engine';
 import { COLOR_ESTADO, LABEL_ESTADO } from '@/app/readiness/readiness-engine';
 
@@ -27,6 +28,8 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
   const movil = useEsMovil();
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [msgCsv, setMsgCsv] = useState<string>('');
+  const [doc, setDoc] = useState<DocumentoPlano | null>(null);
+  const [genLoading, setGenLoading] = useState(false);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const cargar = () => {
@@ -57,6 +60,13 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
     cargar();
   }
 
+  async function generarDoc() {
+    setGenLoading(true);
+    try { setDoc(await generarDocumentoDePlano(proyectoId, planoId)); }
+    catch { setDoc(null); }
+    finally { setGenLoading(false); }
+  }
+
   const r = readiness ?? det?.readiness ?? null;
   const estado = r?.estado ?? 'LOCKED';
 
@@ -67,8 +77,29 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
           {ENTREGA_ICON[det?.entrega.tipo ?? 'documento']} {det?.nombre ?? planoId}
           {det && <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>entrega: {det.entrega.tipo}</span>}
         </h2>
-        <button style={btn} onClick={onVolver}>← Grafo de planos</button>
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+          {det && <button style={{ ...btn, borderColor: '#3b86c9', color: '#1f5c8f' }} onClick={() => void generarDoc()}>{genLoading ? '…' : '📄 Generar documento'}</button>}
+          <button style={btn} onClick={onVolver}>← Grafo de planos</button>
+        </div>
       </div>
+
+      {doc && (
+        <div style={{ ...card, background: '#fff', borderColor: '#3b86c9' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
+            <strong style={{ fontSize: 14 }}>
+              📄 Documento — {doc.titulo}{' '}
+              <span style={{ color: doc.pendientes ? '#c60' : '#2e9e63', fontWeight: 'normal' }}>
+                ({doc.pendientes} pendientes / {doc.totalRequerido} requeridos)
+              </span>
+            </strong>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <button style={btn} onClick={() => void navigator.clipboard?.writeText(doc.markup)}>Copiar</button>
+              <button style={btn} onClick={() => setDoc(null)}>Cerrar</button>
+            </div>
+          </div>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, maxHeight: 360, overflow: 'auto', background: '#fafafa', padding: '0.6rem', borderRadius: 6, marginTop: '0.5rem', lineHeight: 1.5 }}>{doc.markup}</pre>
+        </div>
+      )}
 
       {loading && <p style={{ color: '#666' }}>Cargando plano…</p>}
       {!loading && !det && <p style={{ color: '#a00' }}>Este plano no tiene especialista configurado.</p>}

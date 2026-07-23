@@ -136,6 +136,56 @@ export const TABLAS_BASE: Record<string, TablaBase> = {
       { id: 'limite', etiqueta: 'Límite', tipo: 'texto' },
     ],
   },
+  // --- Tablas maestras de los planos nuevos (ARQ/RH/MKT/JUR/INV). Mismo patrón:
+  //     el dato se teclea UNA vez y cada plano lo lee con su vista (columnasContexto). ---
+  ambientes: {
+    ref: 'ambientes', nombre: 'Programa de ambientes', llave: 'ambiente',
+    columnas: [
+      { id: 'ambiente', etiqueta: 'Ambiente / Espacio', tipo: 'texto', requerido: true },
+      { id: 'objetivo', etiqueta: 'Objetivo del espacio', tipo: 'texto' },
+      { id: 'adyacencias', etiqueta: 'Conecta con', tipo: 'texto' },
+    ],
+  },
+  puestos: {
+    ref: 'puestos', nombre: 'Puestos / Descripciones', llave: 'puesto',
+    columnas: [
+      { id: 'puesto', etiqueta: 'Puesto', tipo: 'texto', requerido: true },
+      { id: 'mision', etiqueta: 'Misión del puesto', tipo: 'texto' },
+      { id: 'reportaA', etiqueta: 'Reporta a', tipo: 'texto' },
+    ],
+  },
+  legales: {
+    ref: 'legales', nombre: 'Documentos legales', llave: 'documento',
+    columnas: [
+      { id: 'documento', etiqueta: 'Documento / Acto', tipo: 'texto', requerido: true },
+      { id: 'tipo', etiqueta: 'Tipo', tipo: 'opcion', opciones: ['constitución', 'contrato', 'permiso', 'PI', 'política', 'otro'] },
+      { id: 'responsable', etiqueta: 'Responsable', tipo: 'texto' },
+    ],
+  },
+  investigacion: {
+    ref: 'investigacion', nombre: 'Investigación de mercado', llave: 'hallazgo',
+    columnas: [
+      { id: 'hallazgo', etiqueta: 'Hallazgo', tipo: 'texto', requerido: true },
+      { id: 'categoria', etiqueta: 'Categoría', tipo: 'opcion', opciones: ['costumbre', 'lenguaje', 'aspiración', 'miedo', 'símbolo', 'referencia', 'otro'] },
+      { id: 'fuente', etiqueta: 'Fuente / Evidencia', tipo: 'texto' },
+    ],
+  },
+  experimentos: {
+    ref: 'experimentos', nombre: 'Laboratorio de mercado', llave: 'experimento',
+    columnas: [
+      { id: 'experimento', etiqueta: 'Experimento', tipo: 'texto', requerido: true },
+      { id: 'hipotesis', etiqueta: 'Hipótesis', tipo: 'texto' },
+      { id: 'metrica', etiqueta: 'Métrica de éxito', tipo: 'texto' },
+    ],
+  },
+  rondas: {
+    ref: 'rondas', nombre: 'Rondas y uso del capital', llave: 'ronda',
+    columnas: [
+      { id: 'ronda', etiqueta: 'Ronda / Tramo', tipo: 'texto', requerido: true },
+      { id: 'uso', etiqueta: 'Uso del dinero', tipo: 'texto' },
+      { id: 'hito', etiqueta: 'Hito que desbloquea', tipo: 'texto' },
+    ],
+  },
 };
 
 export function tablaBase(ref: string): TablaBase | undefined {

@@ -361,6 +361,109 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
       ] },
     ],
   },
+
+  MKT: {
+    planoId: 'MKT', nombre: 'Marketing',
+    lenguajeTecnico: 'Marketing ATRAE (Comercial vende, es otro plano). Produce investigación ANTROPOLÓGICA (no demografía), calendario de campañas y laboratorio de mercado (hipótesis→experimento→decisión, antes de gastar). Datos repetitivos por tabla. No inventa hallazgos. No contradice META/EST/COM.',
+    dependencias: ['COM'],
+    contratoEntrega: { tipo: 'documento', descripcion: 'Investigación antropológica + calendario de campañas + laboratorio de mercado.' },
+    bloques: [
+      { id: 'antropologia', titulo: 'Investigación antropológica', capas: 'C5', campos: [
+        { id: 'cultura', pregunta: '¿Costumbres, lenguaje, creencias y símbolos del público (no demografía)?', tipo: 'parrafo', requeridoEn: E },
+        { id: 'aspiraciones', pregunta: '¿Aspiraciones, miedos y estatus que mueven la compra?', tipo: 'parrafo', requeridoEn: E },
+        { id: 'referencias', pregunta: '¿Influencers, música, referencias culturales y estacionalidad?', tipo: 'parrafo', requeridoEn: S },
+      ] },
+      { id: 'hallazgos', titulo: 'Hallazgos de investigación', capas: 'C5',
+        tabla: { tablaRef: 'investigacion', requeridoEn: S, disparadorCSV: 5,
+          columnasContexto: [ { id: 'implicacion', etiqueta: 'Implicación de marketing', tipo: 'texto' } ] } },
+      { id: 'calendario', titulo: 'Campañas y calendario', capas: 'C7',
+        tabla: { tablaRef: 'campanas', etiqueta: 'Calendario de campañas', requeridoEn: S, disparadorCSV: 4,
+          columnasContexto: [ { id: 'canal', etiqueta: 'Canal', tipo: 'texto' }, { id: 'objetivo', etiqueta: 'Objetivo / KPI', tipo: 'texto' }, { id: 'fecha', etiqueta: 'Fecha / Temporada', tipo: 'texto' } ] } },
+      { id: 'laboratorio', titulo: 'Laboratorio de mercado', capas: 'C5·C7',
+        tabla: { tablaRef: 'experimentos', requeridoEn: C, disparadorCSV: 3,
+          columnasContexto: [ { id: 'presupuesto', etiqueta: 'Presupuesto', tipo: 'texto' }, { id: 'resultado', etiqueta: 'Resultado / Decisión', tipo: 'texto' } ] } },
+    ],
+  },
+
+  RH: {
+    planoId: 'RH', nombre: 'Recursos Humanos',
+    lenguajeTecnico: 'Profundiza la GENTE sobre la estructura de ORG (ORG define roles/autoridad; RH define ciclo de vida del empleado). Produce manual del empleado y procesos de contratación→onboarding→evaluación→salida. Puestos repetibles (tabla). No contradice ORG/CUL.',
+    dependencias: ['ORG'],
+    contratoEntrega: { tipo: 'documento', descripcion: 'Manual del empleado + procesos de gente (contratación, onboarding, evaluación, salida).' },
+    bloques: [
+      { id: 'puestos', titulo: 'Descripciones de puesto', capas: 'C11',
+        tabla: { tablaRef: 'puestos', requeridoEn: E, disparadorCSV: 3,
+          columnasContexto: [ { id: 'competencias', etiqueta: 'Competencias clave', tipo: 'texto' }, { id: 'kpis', etiqueta: 'KPIs del puesto', tipo: 'texto' } ] } },
+      { id: 'contratacion', titulo: 'Contratación', capas: 'C11', campos: [
+        { id: 'reclutamiento', pregunta: '¿Cómo se recluta, entrevista y selecciona (pruebas incluidas)?', tipo: 'parrafo', requeridoEn: E },
+        { id: 'onboarding', pregunta: '¿Cómo es el onboarding de los primeros 30 días?', tipo: 'parrafo', requeridoEn: S },
+      ] },
+      { id: 'desarrollo', titulo: 'Evaluación y desarrollo', capas: 'C11', campos: [
+        { id: 'evaluacion', pregunta: '¿Cómo se evalúa el desempeño y se dan bonos/ascensos (plan de carrera)?', tipo: 'parrafo', requeridoEn: S },
+      ] },
+      { id: 'salida', titulo: 'Salida y sucesión', capas: 'C11', campos: [
+        { id: 'offboarding', pregunta: '¿Proceso de salida/despido, traspaso y sucesión de puestos clave?', tipo: 'parrafo', requeridoEn: C },
+      ] },
+    ],
+  },
+
+  ARQ: {
+    planoId: 'ARQ', nombre: 'Arquitectónico',
+    lenguajeTecnico: 'Produce el BRIEF para un arquitecto (casa de muñecas): distribución, relaciones entre áreas y flujo de personas — NO diseño ni renders. "Necesito un edificio con estas cajas." Ambientes repetibles (tabla). Traduce operación (OPE/PRO) a requisitos de espacio. No contradice OPE.',
+    dependencias: ['OPE', 'ORG'],
+    contratoEntrega: { tipo: 'diagrama', descripcion: 'Casa de muñecas: distribución, relaciones entre áreas y flujo de personas (sin diseño/renders).' },
+    bloques: [
+      { id: 'flujo', titulo: 'Flujo y prioridades', capas: 'C9', campos: [
+        { id: 'recorrido', pregunta: '¿Cuál es el recorrido de las personas (secuencia de espacios de entrada a salida)?', tipo: 'parrafo', requeridoEn: E },
+        { id: 'prioridades', pregunta: '¿Qué áreas son críticas y cuáles pueden ser chicas o compartidas?', tipo: 'parrafo', requeridoEn: S },
+      ] },
+      { id: 'ambientes', titulo: 'Programa de ambientes', capas: 'C9',
+        tabla: { tablaRef: 'ambientes', requeridoEn: E, disparadorCSV: 4,
+          columnasContexto: [ { id: 'm2', etiqueta: 'Tamaño aprox (m²)', tipo: 'texto' }, { id: 'requisitos', etiqueta: 'Instalaciones / clima / acabados', tipo: 'texto' } ] } },
+      { id: 'restricciones', titulo: 'Restricciones e instalaciones', capas: 'C9', campos: [
+        { id: 'restricciones', pregunta: '¿Restricciones del inmueble/normativa e instalaciones especiales (agua, gas, extracción, energía)?', tipo: 'parrafo', requeridoEn: S },
+      ] },
+    ],
+  },
+
+  JUR: {
+    planoId: 'JUR', nombre: 'Jurídico',
+    lenguajeTecnico: 'Produce el CHECKLIST y borradores legales (constitución, contratos, PI, permisos, políticas), NO asesoría vinculante. Todo dictamen/riesgo → PENDIENTE_ASESOR_LEGAL. Documentos repetibles (tabla). No contradice META.',
+    dependencias: ['META'],
+    contratoEntrega: { tipo: 'documento', descripcion: 'Checklist legal: constitución, contratos, PI, permisos y políticas (borradores + PENDIENTE asesor).' },
+    bloques: [
+      { id: 'constitucion', titulo: 'Constitución y fiscal', capas: 'C10', campos: [
+        { id: 'figura', pregunta: '¿Figura legal, socios y % de participación?', tipo: 'parrafo', requeridoEn: E },
+        { id: 'obligaciones', pregunta: '¿Obligaciones fiscales y permisos del giro?', tipo: 'parrafo', requeridoEn: E },
+      ] },
+      { id: 'documentos', titulo: 'Documentos y permisos', capas: 'C10',
+        tabla: { tablaRef: 'legales', requeridoEn: E, disparadorCSV: 4,
+          columnasContexto: [ { id: 'estado', etiqueta: 'Estado', tipo: 'opcion', opciones: ['pendiente', 'borrador', 'firmado'] } ] } },
+      { id: 'riesgos', titulo: 'Riesgos legales', capas: 'C10', campos: [
+        { id: 'riesgos', pregunta: '¿Riesgos legales y cómo mitigarlos? (dictamen → PENDIENTE_ASESOR_LEGAL)', tipo: 'parrafo', requeridoEn: S },
+      ] },
+    ],
+  },
+
+  INV: {
+    planoId: 'INV', nombre: 'Inversionista',
+    lenguajeTecnico: 'Produce el documento para un fondo (deck): problema, solución, mercado, uso del dinero, proyección y salida. Es un plano DERIVADO (integra META+COM+FIN); no re-captura lo que ya vive en ellos. Toda cifra/valuación → PENDIENTE. ACL N4.',
+    dependencias: ['META', 'FIN', 'COM'],
+    contratoEntrega: { tipo: 'documento', descripcion: 'Documento de inversión (deck): problema, solución, mercado, uso del dinero, proyección y salida (cifras = PENDIENTE).' },
+    bloques: [
+      { id: 'tesis', titulo: 'Tesis de inversión', capas: 'C15', campos: [
+        { id: 'problema', pregunta: '¿Problema, solución y por qué ahora?', tipo: 'parrafo', requeridoEn: E },
+        { id: 'mercado', pregunta: '¿Tamaño de mercado y ventaja competitiva difícil de replicar?', tipo: 'parrafo', requeridoEn: E },
+      ] },
+      { id: 'rondas', titulo: 'Uso del dinero', capas: 'C15',
+        tabla: { tablaRef: 'rondas', requeridoEn: E, disparadorCSV: 2,
+          columnasContexto: [ { id: 'monto', etiqueta: 'Monto (PENDIENTE)', tipo: 'texto' } ] } },
+      { id: 'retorno', titulo: 'Proyección y salida', capas: 'C15', campos: [
+        { id: 'proyeccion', pregunta: '¿Proyección y camino a rentabilidad? (cifras → PENDIENTE_DATO_REAL)', tipo: 'parrafo', requeridoEn: S },
+        { id: 'salida', pregunta: '¿Estrategia de salida del inversionista, valuación y dilución? (→ PENDIENTE)', tipo: 'parrafo', requeridoEn: C },
+      ] },
+    ],
+  },
 };
 
 export function especialista(planoId: string): EspecialistaConfig | undefined {
