@@ -289,6 +289,30 @@ async function main() {
     console.log('✅ Recursos ricos de ejemplo en "Perforación con aguja estéril".');
   }
 
+  // 7) Catálogo de Recursos & Proveedores (alimenta FIN/TEC/COM)
+  const PROVEEDORES = [
+    { id: 'prv-insumos', nombre: 'Insumos Médicos MX', tipo: 'insumos', contacto: 'ventas', telefono: '', email: 'ventas@insumosmx.com', rfc: '', notas: 'Agujas, gasas, guantes, solución.' },
+    { id: 'prv-titanio', nombre: 'Titanio Body MX', tipo: 'insumos', contacto: '', telefono: '', email: '', rfc: '', notas: 'Joyería de titanio grado implante.' },
+    { id: 'prv-equipmed', nombre: 'EquipMed', tipo: 'equipo', contacto: '', telefono: '', email: '', rfc: '', notas: 'Autoclave y equipo de esterilización.' },
+    { id: 'prv-constructora', nombre: 'Constructora externa', tipo: 'materiales / construcción', contacto: '', telefono: '', email: '', rfc: '', notas: 'Acondicionamiento del local.' },
+    { id: 'prv-diseno', nombre: 'Estudio de interiores', tipo: 'diseño de interiores', contacto: '', telefono: '', email: '', rfc: '', notas: 'Diseño y mobiliario de las cabinas.' },
+    { id: 'prv-girly', nombre: 'Girly Zone', tipo: 'servicios', contacto: '', telefono: '', email: '', rfc: '', notas: 'Contabilidad del grupo (tercerizado hacia arriba).' },
+  ];
+  const RECURSOS = [
+    { id: 'rec-aguja', nombre: 'Aguja estéril 16G', categoria: 'insumo', grupo: 'Cabina de perforación', proveedor: 'Insumos Médicos MX', unidad: 'pza', costo: '8', cantidad: '200', impuesto: '16% IVA', logistica: 'Pedido semanal', notas: 'Un solo uso.' },
+    { id: 'rec-joya', nombre: 'Joyería de titanio', categoria: 'insumo', grupo: 'Joyería', proveedor: 'Titanio Body MX', unidad: 'pza', costo: '120', cantidad: '50', impuesto: '16% IVA', logistica: 'Pedido mensual', notas: 'Varios calibres.' },
+    { id: 'rec-gasas', nombre: 'Gasas estériles', categoria: 'insumo', grupo: 'Cabina de perforación', proveedor: 'Insumos Médicos MX', unidad: 'pza', costo: '2', cantidad: '500', impuesto: '16% IVA', logistica: '', notas: '' },
+    { id: 'rec-guantes', nombre: 'Guantes de nitrilo', categoria: 'insumo', grupo: 'Cabina de perforación', proveedor: 'Insumos Médicos MX', unidad: 'caja', costo: '180', cantidad: '10', impuesto: '16% IVA', logistica: '', notas: '' },
+    { id: 'rec-autoclave', nombre: 'Autoclave', categoria: 'equipo', grupo: 'Esterilización', proveedor: 'EquipMed', unidad: 'pza', costo: '25000', cantidad: '1', impuesto: '16% IVA', logistica: 'Compra única', notas: 'Ciclo 134°C/18min.' },
+    { id: 'rec-lampara', nombre: 'Lámpara de examen', categoria: 'equipo', grupo: 'Cabina de perforación', proveedor: 'EquipMed', unidad: 'pza', costo: '3500', cantidad: '2', impuesto: '16% IVA', logistica: '', notas: '' },
+    { id: 'rec-camilla', nombre: 'Camilla / sillón', categoria: 'mueble', grupo: 'Cabina de perforación', proveedor: 'Estudio de interiores', unidad: 'pza', costo: '8000', cantidad: '2', impuesto: '16% IVA', logistica: '', notas: '' },
+    { id: 'rec-mostrador', nombre: 'Mostrador de recepción', categoria: 'mueble', grupo: 'Recepción', proveedor: 'Estudio de interiores', unidad: 'pza', costo: '6000', cantidad: '1', impuesto: '16% IVA', logistica: '', notas: '' },
+    { id: 'rec-porcelanato', nombre: 'Porcelanato (piso)', categoria: 'material', grupo: 'Obra planta baja', proveedor: 'Constructora externa', unidad: 'm²', costo: '350', cantidad: '32', impuesto: '16% IVA', logistica: 'Obra inicial', notas: 'Lavable, no poroso.' },
+  ];
+  await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: 'proveedores_dir' } }, create: { proyectoId: PID, tablaRef: 'proveedores_dir', filas: J(PROVEEDORES), actualizadoEn: now() }, update: { filas: J(PROVEEDORES), actualizadoEn: now() } });
+  await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: 'recursos' } }, create: { proyectoId: PID, tablaRef: 'recursos', filas: J(RECURSOS), actualizadoEn: now() }, update: { filas: J(RECURSOS), actualizadoEn: now() } });
+  console.log(`✅ Catálogo: ${RECURSOS.length} recursos, ${PROVEEDORES.length} proveedores.`);
+
   console.log('\n🎉 Altercing Studio llenado. Recarga la app.');
 }
 

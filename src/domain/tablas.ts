@@ -186,6 +186,14 @@ export const TABLAS_BASE: Record<string, TablaBase> = {
       { id: 'hito', etiqueta: 'Hito que desbloquea', tipo: 'texto' },
     ],
   },
+  proveedores: {
+    ref: 'proveedores', nombre: 'Proveedores', llave: 'proveedor',
+    columnas: [
+      { id: 'proveedor', etiqueta: 'Proveedor', tipo: 'texto', requerido: true },
+      { id: 'tipo', etiqueta: 'Provee', tipo: 'texto' },
+      { id: 'contacto', etiqueta: 'Contacto', tipo: 'texto' },
+    ],
+  },
 };
 
 export function tablaBase(ref: string): TablaBase | undefined {

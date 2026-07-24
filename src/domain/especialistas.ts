@@ -134,6 +134,9 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
         tabla: { tablaRef: 'canales', requeridoEn: S, disparadorCSV: 3, columnasContexto: [ { id: 'costo', etiqueta: 'Costo', tipo: 'texto' } ] } },
       { id: 'demanda', titulo: 'Demanda / Campañas', capas: 'C7',
         tabla: { tablaRef: 'campanas', requeridoEn: C, disparadorCSV: 5, columnasContexto: [ { id: 'presupuesto', etiqueta: 'Presupuesto', tipo: 'texto' } ] } },
+      { id: 'proveedores', titulo: 'Proveedores / cadena de suministro', capas: 'C6·C7',
+        tabla: { tablaRef: 'proveedores', requeridoEn: C, disparadorCSV: 4,
+          columnasContexto: [ { id: 'condiciones', etiqueta: 'Condiciones / crédito', tipo: 'texto' } ] } },
     ],
   },
 

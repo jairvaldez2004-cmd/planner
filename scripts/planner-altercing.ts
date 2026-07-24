@@ -19,6 +19,9 @@ import type { EspacioSrc, ProcesoSrc } from '@/domain/proyeccion';
 import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
 import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
+import { costosDeRecursos, componentesDeEquipo, proveedoresATabla } from '@/domain/proyeccion';
+import { recursoVacio, proveedorVacio, numero, subtotalRecurso } from '@/domain/recursos';
+import type { Recurso } from '@/domain/recursos';
 
 let ok = 0, fail = 0;
 const fails: string[] = [];
@@ -247,6 +250,22 @@ const procTrig = pr('trig', 'Registrar servicio', ['Administrador'], [{ evento: 
 const inter2 = flujoInterEmpresa([contaFull], [procConta, procTrig]);
 check('El intercambio detecta el disparador de ENTRADA (quién dispara el handoff)', inter2[0]!.entrada.includes('Factura del día'));
 check('flujoDeSubprocesos devuelve los subpasos de un paso', flujoDeSubprocesos('perforacion', conSub, [], (id) => id).length === 3);
+
+// ============================================================
+// 9) RECURSOS & PROVEEDORES — catálogo que alimenta FIN, TEC y COM
+// ============================================================
+h('9) Recursos & Proveedores → Financiero (costos), Tecnológico (equipo), Comercial (proveedores)');
+check('numero parsea "$1,200.50"', numero('$1,200.50') === 1200.5);
+const recAguja: Recurso = { ...recursoVacio('r1'), nombre: 'Aguja estéril 16G', categoria: 'insumo', grupo: 'Cabina', proveedor: 'Insumos Médicos SA', costo: '8', cantidad: '100', unidad: 'pza', impuesto: '16%' };
+const recAuto: Recurso = { ...recursoVacio('r2'), nombre: 'Autoclave', categoria: 'equipo', proveedor: 'EquipMed', costo: '25000', cantidad: '1' };
+check('subtotal = costo × cantidad (8×100=800)', subtotalRecurso(recAguja) === 800);
+const costos = costosDeRecursos([recAguja, recAuto]);
+check('Recursos → filas de costos (FIN)', costos.length === 2 && costos.every((c) => c['tipo'] === 'costo'));
+check('El costo trae el monto calculado ($800.00)', costos.find((c) => c['concepto']?.startsWith('Aguja'))?.['monto'] === '$800.00');
+const comps = componentesDeEquipo([recAguja, recAuto]);
+check('Solo el EQUIPO va a componentes (TEC): 1', comps.length === 1 && comps[0]!['componente'] === 'Autoclave');
+const provs = proveedoresATabla([{ ...proveedorVacio('p1'), nombre: 'Insumos Médicos SA', tipo: 'insumos', contacto: 'ventas@im.mx' }]);
+check('Proveedores → tabla de COM', provs.length === 1 && provs[0]!['proveedor'] === 'Insumos Médicos SA');
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

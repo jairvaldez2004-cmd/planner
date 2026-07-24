@@ -23,10 +23,11 @@ import type { Fila } from '@/app/captura/csv';
 import { modeloActual } from '@/app/actions/config.actions';
 import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { DocumentoPlano } from '@/domain/plano-doc';
-import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados } from '@/domain/proyeccion';
+import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, componentesDeEquipo, proveedoresATabla } from '@/domain/proyeccion';
 import { listarSedes, listarEspacios } from '@/app/actions/espacios.actions';
 import { listarProcesos } from '@/app/actions/mapa.actions';
 import { listarEmpleados } from '@/app/actions/rh.actions';
+import { listarRecursos, listarProveedores } from '@/app/actions/recursos.actions';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nowISO(): string { return new Date().toISOString(); }
@@ -58,10 +59,17 @@ async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<R
   };
   const getProcesos = async () => { if (!procesos) procesos = await listarProcesos(proyectoId); return procesos; };
   const getEmpleados = async () => { if (!empleados) empleados = await listarEmpleados(proyectoId); return empleados; };
+  let recursos: Awaited<ReturnType<typeof listarRecursos>> | null = null;
+  let proveedores: Awaited<ReturnType<typeof listarProveedores>> | null = null;
+  const getRecursos = async () => { if (!recursos) recursos = await listarRecursos(proyectoId); return recursos; };
+  const getProveedores = async () => { if (!proveedores) proveedores = await listarProveedores(proyectoId); return proveedores; };
   if (refs.has('ambientes')) out['ambientes'] = ambientesDeEspacios(await getEspacios());
   if (refs.has('procesos')) out['procesos'] = procesosDeMapa(await getProcesos());
   if (refs.has('puestos')) out['puestos'] = puestosDeEmpleados(await getEmpleados());
   if (refs.has('personas')) out['personas'] = personasDeSuperficies(await getEspacios(), await getProcesos(), await getEmpleados());
+  if (refs.has('costos')) out['costos'] = costosDeRecursos(await getRecursos());
+  if (refs.has('componentes')) out['componentes'] = componentesDeEquipo(await getRecursos());
+  if (refs.has('proveedores')) out['proveedores'] = proveedoresATabla(await getProveedores());
   return out;
 }
 

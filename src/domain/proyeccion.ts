@@ -8,9 +8,11 @@
 
 import type { Fila } from './plano-doc';
 import type { Empleado } from './rh';
+import type { Recurso, Proveedor } from './recursos';
+import { subtotalRecurso, formatoMoneda, categoriaRecurso } from './recursos';
 
 // ---------- Registro declarativo: qué planos enriquece cada superficie (para UI) ----------
-export type Superficie = 'sedes' | 'mapa' | 'uc' | 'personas';
+export type Superficie = 'sedes' | 'mapa' | 'uc' | 'personas' | 'recursos';
 
 export interface Aporte {
   planoId: string;
@@ -44,10 +46,15 @@ export const ENRIQUECE: Record<Superficie, Aporte[]> = {
     { planoId: 'FIN', nota: 'nómina y costo del personal' },
     { planoId: 'JUR', nota: 'datos fiscales (RFC/CURP) y contratos laborales' },
   ],
+  recursos: [
+    { planoId: 'FIN', tablaRef: 'costos', nota: 'costo de insumos, herramientas, equipo y muebles' },
+    { planoId: 'TEC', tablaRef: 'componentes', nota: 'inventario de equipo / tecnología' },
+    { planoId: 'COM', tablaRef: 'proveedores', nota: 'proveedores de todo' },
+  ],
 };
 
 export const LABEL_SUPERFICIE: Record<Superficie, string> = {
-  sedes: 'Sedes & Espacios', mapa: 'Mapa Operativo', uc: 'Unidad Comercial', personas: 'Personas & RH',
+  sedes: 'Sedes & Espacios', mapa: 'Mapa Operativo', uc: 'Unidad Comercial', personas: 'Personas & RH', recursos: 'Recursos & Proveedores',
 };
 
 // Inverso: qué superficies alimentan un plano dado (para la vista del plano).
@@ -144,6 +151,37 @@ export function puestosDeEmpleados(empleados: Empleado[]): Fila[] {
   return Array.from(map.values()).map((r): Fila => ({
     puesto: r.puesto, mision: r.mision, reportaA: r.reportaA,
     competencias: r.competencias, kpis: r.kpis, ocupantes: r.personas.join(', '),
+  }));
+}
+
+// Recursos con costo → filas de `costos` (plano Financiero). Monto = costo × cantidad.
+export function costosDeRecursos(recursos: Recurso[]): Fila[] {
+  return recursos.filter((r) => r.nombre.trim()).map((r): Fila => {
+    const sub = subtotalRecurso(r);
+    const cant = r.cantidad ? ` (${r.cantidad}${r.unidad ? ' ' + r.unidad : ''})` : '';
+    return {
+      concepto: r.nombre + cant,
+      tipo: 'costo',
+      centro: r.grupo || categoriaRecurso(r.categoria).label,
+      monto: sub !== null ? formatoMoneda(sub) : (r.costo || 'PENDIENTE'),
+    };
+  });
+}
+
+// Equipo del catálogo → filas de `componentes` (plano Tecnológico) = inventario de equipo.
+export function componentesDeEquipo(recursos: Recurso[]): Fila[] {
+  return recursos.filter((r) => r.categoria === 'equipo' && r.nombre.trim()).map((r): Fila => ({
+    componente: r.nombre,
+    contrato: r.proveedor,
+    sustitucion: '',
+    entradaSalida: r.grupo || '',
+  }));
+}
+
+// Directorio de proveedores → filas de `proveedores` (plano Comercial).
+export function proveedoresATabla(proveedores: Proveedor[]): Fila[] {
+  return proveedores.filter((p) => p.nombre.trim()).map((p): Fila => ({
+    proveedor: p.nombre, tipo: p.tipo, contacto: p.contacto || p.telefono || p.email,
   }));
 }
 
