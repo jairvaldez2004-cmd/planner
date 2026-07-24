@@ -510,10 +510,19 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, subproceso
 }) {
   const [nuevoRol, setNuevoRol] = useState('');
   const [nuevaHerr, setNuevaHerr] = useState('');
+  const [nuevoEquipo, setNuevoEquipo] = useState('');
+  const [nuevoMueble, setNuevoMueble] = useState('');
   const [nuevoInsumo, setNuevoInsumo] = useState('');
   const [nuevoEspacio, setNuevoEspacio] = useState('');
   const [horarioEspacio, setHorarioEspacio] = useState('');
+  const [manualAbierto, setManualAbierto] = useState<string | null>(null);
   const deptoDe = (id: string) => deptos.find((d) => d.id === id)?.nombre ?? '?';
+
+  function addEquipo() { const v = nuevoEquipo.trim(); if (!v) return; if (!(proc.equipo ?? []).includes(v)) onPatch({ equipo: [...(proc.equipo ?? []), v] }); setNuevoEquipo(''); }
+  function addMueble() { const v = nuevoMueble.trim(); if (!v) return; if (!(proc.muebles ?? []).includes(v)) onPatch({ muebles: [...(proc.muebles ?? []), v] }); setNuevoMueble(''); }
+  function addInsumo() { const v = nuevoInsumo.trim(); if (!v) return; if (!proc.insumos.includes(v)) onPatch({ insumos: [...proc.insumos, v] }); setNuevoInsumo(''); }
+  function setCantidad(item: string, val: string) { onPatch({ cantidades: { ...(proc.cantidades ?? {}), [item]: val } }); }
+  function setManual(item: string, val: string) { onPatch({ manuales: { ...(proc.manuales ?? {}), [item]: val } }); }
 
   async function addRol() {
     const r = nuevoRol.trim(); if (!r) return;
@@ -615,22 +624,65 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, subproceso
         <button style={btnSm} onClick={() => void addRol()} disabled={!nuevoRol.trim()}>＋</button>
       </div>
 
-      {/* HERRAMIENTAS */}
-      <label style={lbl}>🔧 Herramientas / muebles</label>
-      <div>{proc.herramientas.map((h) => <span key={h} style={tag}>{h} <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onPatch({ herramientas: proc.herramientas.filter((x) => x !== h) })}>×</span></span>)}</div>
+      {/* HERRAMIENTAS (con manual anidado) */}
+      <label style={lbl}>🔧 Herramientas <span style={{ color: '#999', fontWeight: 'normal' }}>(se reúsan · 📖 manual)</span></label>
+      {proc.herramientas.map((h) => (
+        <div key={h} style={{ marginTop: 3 }}>
+          <span style={{ ...tag, display: 'flex', justifyContent: 'space-between', width: '100%', boxSizing: 'border-box' }}>{h}
+            <span>
+              <span style={{ cursor: 'pointer', color: proc.manuales?.[h] ? '#2b5a97' : '#aaa' }} title="Manual de la herramienta" onClick={() => setManualAbierto(manualAbierto === `h:${h}` ? null : `h:${h}`)}>📖</span>{'  '}
+              <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onPatch({ herramientas: proc.herramientas.filter((x) => x !== h) })}>×</span>
+            </span>
+          </span>
+          {manualAbierto === `h:${h}` && <textarea style={{ ...inp, resize: 'vertical', marginTop: 2 }} rows={3} defaultValue={proc.manuales?.[h] ?? ''} placeholder={`Manual de ${h}: cómo se usa, se limpia, se guarda…`} onBlur={(e) => setManual(h, e.target.value)} />}
+        </div>
+      ))}
       <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
-        <input style={{ ...inp, flex: 1 }} list={`herr-${proc.id}`} placeholder="herramienta existente o nueva…" value={nuevaHerr} onChange={(e) => setNuevaHerr(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void addHerr(); }} />
+        <input style={{ ...inp, flex: 1 }} list={`herr-${proc.id}`} placeholder="herramienta…" value={nuevaHerr} onChange={(e) => setNuevaHerr(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void addHerr(); }} />
         <datalist id={`herr-${proc.id}`}>{recursos.herramientas.map((h) => <option key={h} value={h} />)}</datalist>
         <button style={btnSm} onClick={() => void addHerr()} disabled={!nuevaHerr.trim()}>＋</button>
       </div>
 
-      {/* INSUMOS (se consumen; distintos de las herramientas, que se reusan) */}
-      <label style={lbl}>🧴 Insumos (se consumen)</label>
-      <div>{proc.insumos.map((x) => <span key={x} style={tag}>{x} <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onPatch({ insumos: proc.insumos.filter((y) => y !== x) })}>×</span></span>)}</div>
+      {/* EQUIPO / MAQUINARIA (con manual anidado) */}
+      <label style={lbl}>🛠️ Equipo / maquinaria <span style={{ color: '#999', fontWeight: 'normal' }}>(📖 manual)</span></label>
+      {(proc.equipo ?? []).map((h) => (
+        <div key={h} style={{ marginTop: 3 }}>
+          <span style={{ ...tag, display: 'flex', justifyContent: 'space-between', width: '100%', boxSizing: 'border-box' }}>{h}
+            <span>
+              <span style={{ cursor: 'pointer', color: proc.manuales?.[h] ? '#2b5a97' : '#aaa' }} title="Manual del equipo" onClick={() => setManualAbierto(manualAbierto === `e:${h}` ? null : `e:${h}`)}>📖</span>{'  '}
+              <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onPatch({ equipo: (proc.equipo ?? []).filter((x) => x !== h) })}>×</span>
+            </span>
+          </span>
+          {manualAbierto === `e:${h}` && <textarea style={{ ...inp, resize: 'vertical', marginTop: 2 }} rows={3} defaultValue={proc.manuales?.[h] ?? ''} placeholder={`Manual de ${h}…`} onBlur={(e) => setManual(h, e.target.value)} />}
+        </div>
+      ))}
       <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
-        <input style={{ ...inp, flex: 1 }} placeholder="gasas, solución salina…" value={nuevoInsumo} onChange={(e) => setNuevoInsumo(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && nuevoInsumo.trim()) { if (!proc.insumos.includes(nuevoInsumo.trim())) onPatch({ insumos: [...proc.insumos, nuevoInsumo.trim()] }); setNuevoInsumo(''); } }} />
-        <button style={btnSm} disabled={!nuevoInsumo.trim()} onClick={() => { const v = nuevoInsumo.trim(); if (v && !proc.insumos.includes(v)) onPatch({ insumos: [...proc.insumos, v] }); setNuevoInsumo(''); }}>＋</button>
+        <input style={{ ...inp, flex: 1 }} list={`eq-${proc.id}`} placeholder="autoclave, esterilizador…" value={nuevoEquipo} onChange={(e) => setNuevoEquipo(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addEquipo(); }} />
+        <datalist id={`eq-${proc.id}`}>{recursos.herramientas.map((h) => <option key={h} value={h} />)}</datalist>
+        <button style={btnSm} onClick={addEquipo} disabled={!nuevoEquipo.trim()}>＋</button>
+      </div>
+
+      {/* MUEBLES */}
+      <label style={lbl}>🪑 Muebles</label>
+      <div>{(proc.muebles ?? []).map((m) => <span key={m} style={tag}>{m} <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onPatch({ muebles: (proc.muebles ?? []).filter((x) => x !== m) })}>×</span></span>)}</div>
+      <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+        <input style={{ ...inp, flex: 1 }} list={`mb-${proc.id}`} placeholder="camilla, mostrador…" value={nuevoMueble} onChange={(e) => setNuevoMueble(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addMueble(); }} />
+        <datalist id={`mb-${proc.id}`}>{recursos.herramientas.map((h) => <option key={h} value={h} />)}</datalist>
+        <button style={btnSm} onClick={addMueble} disabled={!nuevoMueble.trim()}>＋</button>
+      </div>
+
+      {/* INSUMOS (se consumen · con cantidad) */}
+      <label style={lbl}>🧴 Insumos <span style={{ color: '#999', fontWeight: 'normal' }}>(se consumen · con cantidad)</span></label>
+      {proc.insumos.map((x) => (
+        <div key={x} style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
+          <span style={{ ...tag, flex: 1, margin: 0 }}>{x}</span>
+          <input style={{ ...inp, width: 92 }} defaultValue={proc.cantidades?.[x] ?? ''} placeholder="cantidad" onBlur={(e) => setCantidad(x, e.target.value)} />
+          <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onPatch({ insumos: proc.insumos.filter((y) => y !== x) })}>×</span>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+        <input style={{ ...inp, flex: 1 }} placeholder="gasas, solución salina…" value={nuevoInsumo} onChange={(e) => setNuevoInsumo(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addInsumo(); }} />
+        <button style={btnSm} disabled={!nuevoInsumo.trim()} onClick={addInsumo}>＋</button>
       </div>
 
       {/* ESPACIOS */}

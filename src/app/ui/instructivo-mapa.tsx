@@ -102,8 +102,10 @@ export function InstructivoMapa({ procesos, deptos, etapa, nombreProyecto, soloF
                     <tbody>
                       <Fila etiqueta="Quién lo hace" valor={p.roles.join(' · ')} />
                       <Fila etiqueta="Dónde" valor={p.espacios.map((e) => e.nombre + (e.horario ? ` (${e.horario})` : '')).join(' · ')} />
-                      <Fila etiqueta="Con qué" valor={p.herramientas.join(' · ')} />
-                      <Fila etiqueta="Consume" valor={p.insumos.join(' · ')} />
+                      <Fila etiqueta="Herramientas" valor={p.herramientas.join(' · ')} />
+                      <Fila etiqueta="Equipo" valor={(p.equipo ?? []).join(' · ')} />
+                      <Fila etiqueta="Muebles" valor={(p.muebles ?? []).join(' · ')} />
+                      <Fila etiqueta="Consume" valor={p.insumos.map((x) => x + (p.cantidades?.[x] ? ` (${p.cantidades[x]})` : '')).join(' · ')} />
                       <Fila etiqueta="Cuánto tarda" valor={p.tiempoMin ? `${p.tiempoMin} min` : ''} />
                       <Fila etiqueta="Recibe" valor={p.entrada ?? ''} />
                       <Fila etiqueta="Produce" valor={p.salida ?? ''} />
@@ -116,6 +118,15 @@ export function InstructivoMapa({ procesos, deptos, etapa, nombreProyecto, soloF
                       <ol style={{ margin: '0.2rem 0 0', paddingLeft: '1.2rem', fontSize: 12.5 }}>
                         {pasos.map((x, i) => <li key={i} style={{ marginBottom: 2 }}>{x.replace(/^[-·*\d.)\s]+/, '')}</li>)}
                       </ol>
+                    </div>
+                  )}
+
+                  {p.manuales && Object.values(p.manuales).some(Boolean) && (
+                    <div style={{ marginTop: '0.4rem' }}>
+                      <div style={{ fontSize: 11, fontWeight: 'bold', color: '#666', textTransform: 'uppercase', letterSpacing: 0.3 }}>Manuales de herramientas / equipo</div>
+                      {Object.entries(p.manuales).filter(([, v]) => v).map(([k, v]) => (
+                        <div key={k} style={{ fontSize: 12, marginTop: 2 }}><strong>{k}:</strong> {v}</div>
+                      ))}
                     </div>
                   )}
 

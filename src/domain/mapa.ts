@@ -70,9 +70,13 @@ export interface ProcesoNodo {
   posY?: number | undefined;
   descripcion?: string | undefined;
   roles: string[];                     // etiquetas de rol (maestro Personas)
-  herramientas: string[];              // etiquetas de herramienta/mueble (se reusan)
+  herramientas: string[];              // etiquetas de herramienta (se reusan)
   insumos: string[];                   // lo que se CONSUME al ejecutarlo (gasas, solución…)
   espacios: AsignacionRecurso[];       // dónde ocurre (con horario)
+  equipo?: string[] | undefined;       // maquinaria/equipo (autoclave, esterilizador…)
+  muebles?: string[] | undefined;      // mobiliario (camilla, mostrador…)
+  cantidades?: Record<string, string> | undefined; // insumo → cantidad (ej. "2 pzas", "50 ml")
+  manuales?: Record<string, string> | undefined;   // herramienta/equipo → manual anidado (cómo se usa/limpia)
   tiempoMin?: number | undefined;
   tiempoEstimado?: boolean | undefined;  // true = repartido del total del servicio, no declarado
   entrada?: string | undefined;

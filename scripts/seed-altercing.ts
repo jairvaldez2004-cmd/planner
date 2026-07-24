@@ -270,6 +270,25 @@ async function main() {
   });
   console.log(`✅ Roster de RH: ${EMPLEADOS.length} personas dadas de alta.`);
 
+  // 6) Ejemplo de recursos ricos en un proceso: insumos con cantidad, equipo con manual, muebles.
+  const perf = await prisma.proceso.findUnique({ where: { id: 'PROC-mrufyzuh-p0829' } });
+  if (perf) {
+    const d = (perf.data as Record<string, unknown>) ?? {};
+    await prisma.proceso.update({ where: { id: perf.id }, data: { data: J({
+      ...d,
+      herramientas: ['Pinza Pennington', 'Marcador quirúrgico'],
+      insumos: ['Aguja estéril 16G', 'Joyería de titanio', 'Gasas', 'Solución salina'],
+      cantidades: { 'Aguja estéril 16G': '1 pza', 'Joyería de titanio': '1 pza', 'Gasas': '3 pzas', 'Solución salina': '20 ml' },
+      equipo: ['Autoclave'],
+      muebles: ['Camilla', 'Lámpara de examen', 'Carrito de instrumental'],
+      manuales: {
+        'Autoclave': 'Cargar bolsas selladas; ciclo 134 °C / 18 min; registrar el ciclo. Limpieza de cámara semanal.',
+        'Pinza Pennington': 'De un solo uso, o esterilizar en autoclave tras cada uso.',
+      },
+    }) } });
+    console.log('✅ Recursos ricos de ejemplo en "Perforación con aguja estéril".');
+  }
+
   console.log('\n🎉 Altercing Studio llenado. Recarga la app.');
 }
 

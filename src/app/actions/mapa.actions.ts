@@ -21,6 +21,7 @@ function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Pris
 function nid(p: string): string { return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
 function obj(v: unknown): Record<string, unknown> { return (v && typeof v === 'object') ? v as Record<string, unknown> : {}; }
 function str(v: unknown): string { return typeof v === 'string' ? v : ''; }
+function mapStr(v: unknown): Record<string, string> { const o = obj(v); const out: Record<string, string> = {}; for (const k of Object.keys(o)) { const s = str(o[k]); if (s) out[k] = s; } return out; }
 function num(v: unknown): number | undefined { return typeof v === 'number' ? v : undefined; }
 function arr<T>(v: unknown): T[] { return Array.isArray(v) ? v as T[] : []; }
 
@@ -145,6 +146,10 @@ function mapProceso(r: { id: string; departamentoId: string; nombre: string; fas
     ramas: arr<unknown>(d.ramas).map(normRama),
     origen: (str(origen.ofertaId) && str(origen.pasoId)) ? { ofertaId: str(origen.ofertaId), pasoId: str(origen.pasoId) } : undefined,
     padreProcesoId: str(d.padreProcesoId) || undefined,
+    equipo: arr<unknown>(d.equipo).map(str).filter(Boolean),
+    muebles: arr<unknown>(d.muebles).map(str).filter(Boolean),
+    cantidades: mapStr(d.cantidades),
+    manuales: mapStr(d.manuales),
   };
 }
 
@@ -173,6 +178,8 @@ export interface ProcesoPatch {
   posX?: number | undefined; posY?: number | undefined;
   departamentoId?: string | undefined; fase?: FaseMapa | undefined;
   etapaDesde?: EtapaObjetivo | undefined; etapaHasta?: EtapaObjetivo | null | undefined;
+  equipo?: string[] | undefined; muebles?: string[] | undefined;
+  cantidades?: Record<string, string> | undefined; manuales?: Record<string, string> | undefined;
 }
 export async function actualizarProceso(id: string, patch: ProcesoPatch): Promise<void> {
   const r = await prisma.proceso.findUnique({ where: { id } }); if (!r) return;
@@ -184,6 +191,10 @@ export async function actualizarProceso(id: string, patch: ProcesoPatch): Promis
   if (patch.roles !== undefined) data.roles = patch.roles.map((x) => x.trim()).filter(Boolean);
   if (patch.herramientas !== undefined) data.herramientas = patch.herramientas.map((x) => x.trim()).filter(Boolean);
   if (patch.insumos !== undefined) data.insumos = patch.insumos.map((x) => x.trim()).filter(Boolean);
+  if (patch.equipo !== undefined) data.equipo = patch.equipo.map((x) => x.trim()).filter(Boolean);
+  if (patch.muebles !== undefined) data.muebles = patch.muebles.map((x) => x.trim()).filter(Boolean);
+  if (patch.cantidades !== undefined) data.cantidades = mapStr(patch.cantidades);
+  if (patch.manuales !== undefined) data.manuales = mapStr(patch.manuales);
   if (patch.espacios !== undefined) data.espacios = patch.espacios.map(normAsig);
   // Editar el tiempo a mano lo convierte en declarado (deja de ser una estimación).
   if (patch.tiempoMin !== undefined) { data.tiempoMin = patch.tiempoMin; data.tiempoEstimado = false; }
