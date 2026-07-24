@@ -23,7 +23,7 @@ import { listarRecursos } from '@/app/actions/recursos.actions';
 import type { Recurso } from '@/domain/recursos';
 import { formatoMoneda } from '@/domain/recursos';
 import { indiceRecursos, costearProceso } from '@/domain/costeo';
-import type { AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, VistaMapa } from '@/domain/mapa';
+import type { Apoyo, AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, VistaMapa } from '@/domain/mapa';
 import { ETAPAS_OBJETIVO, etapaInfo } from '@/domain/etapas';
 import type { EtapaObjetivo } from '@/domain/etapas';
 import { InstructivoMapa } from './instructivo-mapa';
@@ -524,7 +524,18 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
   const [nuevoEspacio, setNuevoEspacio] = useState('');
   const [horarioEspacio, setHorarioEspacio] = useState('');
   const [manualAbierto, setManualAbierto] = useState<string | null>(null);
+  const [apTitulo, setApTitulo] = useState('');
+  const [apUrl, setApUrl] = useState('');
+  const [apTipo, setApTipo] = useState<'video' | 'documento' | 'enlace'>('video');
   const deptoDe = (id: string) => deptos.find((d) => d.id === id)?.nombre ?? '?';
+
+  function addApoyo() {
+    const t = apTitulo.trim(), u = apUrl.trim();
+    if (!t && !u) return;
+    const nuevo: Apoyo = { id: `APO-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, tipo: apTipo, titulo: t || u, url: u };
+    onPatch({ apoyos: [...(proc.apoyos ?? []), nuevo] });
+    setApTitulo(''); setApUrl('');
+  }
 
   function addEquipo() { const v = nuevoEquipo.trim(); if (!v) return; if (!(proc.equipo ?? []).includes(v)) onPatch({ equipo: [...(proc.equipo ?? []), v] }); setNuevoEquipo(''); }
   function addMueble() { const v = nuevoMueble.trim(); if (!v) return; if (!(proc.muebles ?? []).includes(v)) onPatch({ muebles: [...(proc.muebles ?? []), v] }); setNuevoMueble(''); }
@@ -622,6 +633,27 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
 
       <label style={lbl}>Instructivo (paso a paso)</label>
       <textarea style={{ ...inp, resize: 'vertical' }} rows={3} defaultValue={proc.instructivo ?? ''} onBlur={(e) => onPatch({ instructivo: e.target.value })} />
+
+      {/* APOYOS: videos / documentos que explican cómo se hace (temas complejos) */}
+      <label style={lbl}>🎥 Videos y documentos de apoyo</label>
+      {(proc.apoyos ?? []).map((a) => (
+        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3, fontSize: 12 }}>
+          <span>{a.tipo === 'video' ? '🎥' : a.tipo === 'documento' ? '📄' : '🔗'}</span>
+          <a href={a.url} target="_blank" rel="noreferrer" style={{ flex: 1, color: '#2b5a97', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.titulo || a.url}</a>
+          <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onPatch({ apoyos: (proc.apoyos ?? []).filter((x) => x.id !== a.id) })}>×</span>
+        </div>
+      ))}
+      <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: 4, marginTop: 3 }}>
+        <select style={inp} value={apTipo} onChange={(e) => setApTipo(e.target.value as 'video' | 'documento' | 'enlace')}>
+          <option value="video">🎥</option><option value="documento">📄</option><option value="enlace">🔗</option>
+        </select>
+        <input style={inp} placeholder="Título (ej. Cómo aplicar el acabado)" value={apTitulo} onChange={(e) => setApTitulo(e.target.value)} />
+      </div>
+      <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+        <input style={{ ...inp, flex: 1 }} placeholder="URL (YouTube, Drive, PDF…)" value={apUrl} onChange={(e) => setApUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addApoyo(); }} />
+        <button style={btnSm} onClick={addApoyo} disabled={!apUrl.trim() && !apTitulo.trim()}>＋</button>
+      </div>
+      <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 0' }}>Para temas complejos: el video/documento se muestra en el instructivo (ej. el jefe de obra lo pone en la mañana para enseñar a aplicar).</p>
 
       {/* ROLES */}
       <label style={lbl}>👤 Roles {proc.roles.length > 0 && <span style={{ color: '#999' }}>({proc.roles.length})</span>}</label>

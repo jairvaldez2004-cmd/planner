@@ -6,7 +6,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
-import type { AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, Rama, TipoDepartamento } from '@/domain/mapa';
+import type { Apoyo, AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, Rama, TipoApoyo, TipoDepartamento } from '@/domain/mapa';
 import { ETAPA_BASE } from '@/domain/mapa';
 import type { EtapaObjetivo } from '@/domain/etapas';
 import { ETAPAS_OBJETIVO } from '@/domain/etapas';
@@ -32,6 +32,11 @@ function normAsig(v: unknown): AsignacionRecurso {
 function normRama(v: unknown): Rama {
   const d = obj(v);
   return { id: str(d.id) || nid('RAMA'), evento: str(d.evento), destinoProcesoId: str(d.destinoProcesoId) || undefined };
+}
+function normApoyo(v: unknown): Apoyo {
+  const d = obj(v);
+  const tipo = (['video', 'documento', 'enlace'].includes(str(d.tipo)) ? str(d.tipo) : 'enlace') as TipoApoyo;
+  return { id: str(d.id) || nid('APO'), tipo, titulo: str(d.titulo), url: str(d.url), nota: str(d.nota) || undefined };
 }
 
 // =================== DEPARTAMENTOS ===================
@@ -144,6 +149,7 @@ function mapProceso(r: { id: string; departamentoId: string; nombre: string; fas
     salida: str(d.salida) || undefined,
     instructivo: str(d.instructivo) || undefined,
     ramas: arr<unknown>(d.ramas).map(normRama),
+    apoyos: arr<unknown>(d.apoyos).map(normApoyo),
     origen: (str(origen.ofertaId) && str(origen.pasoId)) ? { ofertaId: str(origen.ofertaId), pasoId: str(origen.pasoId) } : undefined,
     padreProcesoId: str(d.padreProcesoId) || undefined,
     equipo: arr<unknown>(d.equipo).map(str).filter(Boolean),
@@ -174,7 +180,7 @@ export interface ProcesoPatch {
   nombre?: string | undefined; descripcion?: string | undefined; roles?: string[] | undefined;
   herramientas?: string[] | undefined; insumos?: string[] | undefined; espacios?: AsignacionRecurso[] | undefined;
   tiempoMin?: number | undefined; entrada?: string | undefined; salida?: string | undefined;
-  instructivo?: string | undefined; ramas?: Rama[] | undefined;
+  instructivo?: string | undefined; ramas?: Rama[] | undefined; apoyos?: Apoyo[] | undefined;
   posX?: number | undefined; posY?: number | undefined;
   departamentoId?: string | undefined; fase?: FaseMapa | undefined;
   etapaDesde?: EtapaObjetivo | undefined; etapaHasta?: EtapaObjetivo | null | undefined;
@@ -201,6 +207,7 @@ export async function actualizarProceso(id: string, patch: ProcesoPatch): Promis
   if (patch.entrada !== undefined) data.entrada = patch.entrada;
   if (patch.salida !== undefined) data.salida = patch.salida;
   if (patch.instructivo !== undefined) data.instructivo = patch.instructivo;
+  if (patch.apoyos !== undefined) data.apoyos = patch.apoyos.map(normApoyo);
   if (patch.ramas !== undefined) data.ramas = patch.ramas.map(normRama);
   if (patch.etapaDesde !== undefined) data.etapaDesde = etapa(patch.etapaDesde, ETAPA_BASE);
   if (patch.etapaHasta !== undefined) data.etapaHasta = patch.etapaHasta === null ? undefined : etapa(patch.etapaHasta);

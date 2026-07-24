@@ -58,6 +58,17 @@ export interface Rama {
   destinoProcesoId?: string | undefined; // → a qué proceso conecta
 }
 
+// Material de APOYO de un proceso: video / documento / enlace para explicar temas complejos
+// (ej. el jefe de obra muestra un video de cómo aplicar un acabado antes de empezar).
+export type TipoApoyo = 'video' | 'documento' | 'enlace';
+export interface Apoyo {
+  id: string;
+  tipo: TipoApoyo;
+  titulo: string;
+  url: string;
+  nota?: string | undefined;   // cuándo/para qué (ej. "verlo en la mañana antes de aplicar")
+}
+
 export interface ProcesoNodo {
   id: string;
   departamentoId: string;          // ETIQUETA de departamento (no contenedor)
@@ -82,6 +93,7 @@ export interface ProcesoNodo {
   entrada?: string | undefined;
   salida?: string | undefined;
   instructivo?: string | undefined;    // el paso a paso (vista instructivo)
+  apoyos?: Apoyo[] | undefined;        // videos/documentos que explican cómo hacerlo
   ramas: Rama[];                       // salidas por disparador (el flujo)
   origen?: { ofertaId: string; pasoId: string } | undefined; // si vino sembrado del catálogo
   padreProcesoId?: string | undefined; // si es un SUBPROCESO dentro de otro paso (flujo anidado)

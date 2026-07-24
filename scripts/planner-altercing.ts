@@ -79,7 +79,7 @@ const capturaMkt: CapturaPlano = {
 };
 const docMkt = generarDocumentoPlano(ESPECIALISTAS['MKT']!, 'estandar', capturaMkt);
 console.log(`  Pendientes: ${docMkt.pendientes} / requeridos: ${docMkt.totalRequerido}`);
-check('MKT: 2 pendientes al nivel estándar (referencias + campañas)', docMkt.pendientes === 2);
+check('MKT V2: pendientes al nivel estándar (referencias, estacionalidad, segmento, avatar, campañas, plan)', docMkt.pendientes === 6);
 check('MKT: el documento marca ⚠ PENDIENTE', docMkt.markup.includes('⚠ PENDIENTE'));
 check('MKT: el documento incluye el hallazgo capturado (no lo inventa ni lo pierde)', docMkt.markup.includes('El cliente investiga en Instagram'));
 check('MKT: renderiza la tabla de investigación (2 filas)', docMkt.markup.includes('_Hallazgos de investigación'.slice(0, 5)) || docMkt.markup.includes('Hallazgo'));

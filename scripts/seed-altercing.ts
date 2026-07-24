@@ -18,11 +18,25 @@ const CAMPOS: Record<string, Record<string, string>> = {
   MKT: {
     cultura: 'Público de cultura alternativa/urbana (16–35). El body art es identidad y pertenencia a una tribu; lenguaje propio (calibres, titanio ASTM F-136, "downsizing", cicatrización). Instagram y TikTok son el escaparate: el portafolio de trabajos previos manda más que el anuncio.',
     aspiraciones: 'Aspiran a expresarse y verse "auténticos" sin arriesgar la salud. Miedos: dolor, infección, cicatriz o rechazo de la perforación, y que "salga mal" algo permanente. Estatus: mostrar una pieza bien hecha y bien colocada.',
-    referencias: 'Influencers locales de piercing/tattoo, música de la escena, ferias de tatuaje. Estacionalidad: repunte en primavera-verano (ropa que muestra), regreso a clases y diciembre (aguinaldo). Baja en cuaresma/inicio de año.',
+    referencias: 'Influencers locales de piercing/tattoo, música de la escena, ferias de tatuaje. Comida y eventos: convenciones de tatuaje, festivales. Modismos del gremio (calibre, downsizing, healing).',
+    estacionalidad: 'Repunte en primavera-verano (ropa que muestra), regreso a clases (agosto) y diciembre (aguinaldo). Baja en cuaresma e inicio de año.',
+    entorno: 'Clase media/media-baja urbana, alta movilidad, muy digital (IG/TikTok). Consumo por impulso guiado por confianza e higiene; el "boca a boca" y las reseñas pesan mucho.',
+    segmento: 'Mercado: body art urbano. Nicho: primer piercing seguro (16–25). Micronicho: universitarias que quieren lóbulo/hélix con material hipoalergénico y buena cicatrización.',
+    avatar: 'Avatar: "Regina", 20, estudiante, activa en IG, quiere verse auténtica sin arriesgar salud. Sub-avatar: mamá que trae a su hija de 16 y valora la seguridad y el trato.',
+    buyerJourney: 'No te conoce → ve un reel de higiene → revisa portafolio y reseñas → escribe por DM → agenda → asesoría → servicio → cuidados por WhatsApp → recompra (downsizing/joyería) → recomienda.',
+    mapaEmocional: 'Antes: nervios y miedo al dolor/infección. Durante: tensión que baja con el trato profesional. Después: orgullo y ganas de mostrarlo; ansiedad si la cicatrización se complica.',
+    mapaDolores: 'Dolores: miedo a infección/cicatriz, a que "salga chueco", a lugares sucios. Deseos: verse auténtica, pertenecer, una pieza bien colocada. Aspiración: colección de piezas cuidadas.',
+    mapaObjeciones: '"¿Duele mucho?" → se explica y se acompaña. "¿Es seguro?" → aguja sellada a la vista + protocolo. "Está caro" → material de titanio y cicatrización incluida.',
+    mapaLenguaje: 'Habla de: "me quiero perforar", "calibre", "que no se me infecte", "titanio", "que cicatrice bien", "downsizing". Evitar tecnicismos fríos; usar sus palabras.',
+    plan: 'Calendario anual por temporada; objetivo por campaña (citas o recompra), KPI (citas atribuidas, reseñas), presupuesto mayormente orgánico + pauta ligera, canales IG/TikTok/WhatsApp, responsable Flor (redes).',
+    metodo: 'Antes de gastar: hipótesis → reel/encuesta/anuncio de prueba con presupuesto chico → medir DM/citas → conclusión → decisión de escalar o descartar. Nunca lanzar solo por intuición.',
   },
   JUR: {
     figura: 'Persona física con actividad empresarial (o SAS si entran socios). Dueña actual al 100%; contemplar 70/30 si se suma un tatuador socio.',
     obligaciones: 'Aviso de funcionamiento y licencia sanitaria municipal, manejo de RPBI (residuos peligrosos biológico-infecciosos) con empresa autorizada, consentimiento informado firmado por servicio, verificación de mayoría de edad. Régimen fiscal RESICO, facturación CFDI 4.0.',
+    dueno: 'Dueña y directora: Suzet (100% del negocio). El inmueble es RENTADO dentro de Girly Zone (segunda planta).',
+    ubicacion: 'Girly Zone, 2ª planta. Superficie ~32 m² (huella real LiDAR 9.2×3.5 m).',
+    contratos: 'Arrendamiento con Girly Zone (renta mensual — monto PENDIENTE, vigencia PENDIENTE). Servicios (luz/agua/internet) incluidos o a nombre del grupo. Contrato de RPBI con gestor autorizado.',
     riesgos: 'Servicio a menores sin tutor, mala praxis/infección, manejo indebido de RPBI. Mitigación: consentimiento + copia de ID, protocolo de asepsia documentado, contrato con gestor de residuos. (dictamen → PENDIENTE_ASESOR_LEGAL)',
   },
   ARQ: {
@@ -321,9 +335,12 @@ async function main() {
     { id: 'rec-minisplit', nombre: 'Minisplit', categoria: 'equipo', grupo: 'Clima', proveedor: 'ClimaMX', unidad: 'pza', costo: '9000', cantidad: '2', impuesto: '16% IVA', logistica: 'Instalación incluida', notas: '' },
     { id: 'rec-dispensador', nombre: 'Dispensador de agua', categoria: 'mueble', grupo: 'Recepción', proveedor: 'Estudio de interiores', unidad: 'pza', costo: '1200', cantidad: '1', impuesto: '16% IVA', logistica: '', notas: '' },
   ];
+  // Lo que YA se tiene (muebles/equipo instalados) vs lo que hay que adquirir (insumos).
+  const YA_EXISTE = new Set(['rec-autoclave', 'rec-lampara', 'rec-camilla', 'rec-mostrador', 'rec-porcelanato', 'rec-dispensador', 'rec-minisplit', 'rec-maqtat', 'rec-lampuv']);
+  const RECURSOS_EX = RECURSOS.map((r) => ({ ...r, existe: YA_EXISTE.has(r.id) }));
   await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: 'proveedores_dir' } }, create: { proyectoId: PID, tablaRef: 'proveedores_dir', filas: J(PROVEEDORES), actualizadoEn: now() }, update: { filas: J(PROVEEDORES), actualizadoEn: now() } });
-  await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: 'recursos' } }, create: { proyectoId: PID, tablaRef: 'recursos', filas: J(RECURSOS), actualizadoEn: now() }, update: { filas: J(RECURSOS), actualizadoEn: now() } });
-  console.log(`✅ Catálogo: ${RECURSOS.length} recursos, ${PROVEEDORES.length} proveedores.`);
+  await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: 'recursos' } }, create: { proyectoId: PID, tablaRef: 'recursos', filas: J(RECURSOS_EX), actualizadoEn: now() }, update: { filas: J(RECURSOS_EX), actualizadoEn: now() } });
+  console.log(`✅ Catálogo: ${RECURSOS.length} recursos (${YA_EXISTE.size} ya existentes), ${PROVEEDORES.length} proveedores.`);
 
   // 8) Insumos por proceso (con cantidad) enlazados al catálogo → costeo automático.
   const INSUMOS_PROC: Record<string, { insumos: string[]; cantidades: Record<string, string> }> = {
@@ -393,6 +410,23 @@ async function main() {
     recProc++;
   }
   console.log(`✅ Herramientas/equipo/muebles en ${recProc} procesos más.`);
+
+  // 11) Videos/documentos de apoyo en procesos con temas complejos.
+  const APOYOS_PROC: Record<string, { tipo: string; titulo: string; url: string; nota?: string }[]> = {
+    'PROC-mrufyriv-d67we': [{ tipo: 'video', titulo: 'Cómo aplicar acabados de albañilería (impermeabilizante y pintura lavable)', url: 'https://www.youtube.com/results?search_query=acabados+alba%C3%B1iler%C3%ADa', nota: 'El jefe de obra lo muestra en la mañana antes de aplicar.' }], // Acondicionar el local
+    'PROC-mrufyzuh-p0829': [{ tipo: 'video', titulo: 'Técnica de perforación segura y colocación de joyería', url: 'https://www.youtube.com/results?search_query=piercing+technique', nota: 'Repaso de técnica y asepsia.' }], // Perforación
+    'PROC-mrufz1pt-djykd': [{ tipo: 'documento', titulo: 'Protocolo de esterilización (autoclave) y manejo de RPBI', url: 'https://drive.google.com/', nota: 'Documento interno; leer antes del primer ciclo.' }], // Limpieza y esterilización
+  };
+  let conApoyo = 0;
+  for (const [pid, aps] of Object.entries(APOYOS_PROC)) {
+    const pr = await prisma.proceso.findUnique({ where: { id: pid } });
+    if (!pr) continue;
+    const dd = (pr.data as Record<string, unknown>) ?? {};
+    const apoyos = aps.map((a, i) => ({ id: `${pid}-apo-${i + 1}`, ...a }));
+    await prisma.proceso.update({ where: { id: pid }, data: { data: J({ ...dd, apoyos }) } });
+    conApoyo++;
+  }
+  console.log(`✅ Videos/documentos de apoyo en ${conApoyo} procesos.`);
 
   console.log('\n🎉 Altercing Studio llenado. Recarga la app.');
 }

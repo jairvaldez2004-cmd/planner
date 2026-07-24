@@ -100,7 +100,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
                         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.35rem 0.4rem', borderBottom: '1px solid #f0ead9', cursor: 'pointer', background: selR === r.id ? '#fdf6e3' : 'transparent' }}>
                         <span title={c.label}>{c.emoji}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 'bold' }}>{r.nombre || '(sin nombre)'}</div>
+                          <div style={{ fontSize: 13, fontWeight: 'bold' }}>{r.nombre || '(sin nombre)'}{r.existe ? <span style={{ color: '#2e9e63', fontSize: 10, fontWeight: 'normal' }}> ✅ ya</span> : null}</div>
                           <div style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {r.cantidad ? `${r.cantidad} ${r.unidad}` : ''}{r.proveedor ? ` · 🏭 ${r.proveedor}` : ''}{r.impuesto ? ` · ${r.impuesto}` : ''}
                           </div>
@@ -146,6 +146,9 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
                 </div>
                 <label style={lbl}>🚚 Logística (dónde/tiempo de entrega)</label>
                 <input style={inp} defaultValue={rSel.logistica} key={`l-${rSel.id}`} onBlur={(e) => void patchRec({ logistica: e.target.value })} />
+                <label style={{ fontSize: 12, color: '#2e7a4d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.6rem' }}>
+                  <input type="checkbox" checked={rSel.existe} onChange={(e) => void patchRec({ existe: e.target.checked })} /> ✅ Ya lo tenemos (inventario actual)
+                </label>
                 <label style={lbl}>Notas</label>
                 <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={rSel.notas} key={`no-${rSel.id}`} onBlur={(e) => void patchRec({ notas: e.target.value })} />
                 <div style={{ borderTop: '1px solid #e0d3b0', marginTop: '0.6rem', paddingTop: '0.5rem' }}>

@@ -130,6 +130,19 @@ export function InstructivoMapa({ procesos, deptos, etapa, nombreProyecto, soloF
                     </div>
                   )}
 
+                  {p.apoyos && p.apoyos.length > 0 && (
+                    <div style={{ marginTop: '0.4rem' }}>
+                      <div style={{ fontSize: 11, fontWeight: 'bold', color: '#666', textTransform: 'uppercase', letterSpacing: 0.3 }}>🎥 Videos y documentos de apoyo</div>
+                      {p.apoyos.map((a) => (
+                        <div key={a.id} style={{ fontSize: 12.5, marginTop: 2 }}>
+                          {a.tipo === 'video' ? '🎥' : a.tipo === 'documento' ? '📄' : '🔗'}{' '}
+                          <a href={a.url} target="_blank" rel="noreferrer" style={{ color: '#2b5a97' }}>{a.titulo || a.url}</a>
+                          {a.nota ? <span style={{ color: '#888' }}> — {a.nota}</span> : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Qué sigue: el disparador es la instrucción operativa clave. */}
                   <div style={{ marginTop: '0.45rem', borderTop: '1px dashed #dfe3ea', paddingTop: '0.35rem' }}>
                     <div style={{ fontSize: 11, fontWeight: 'bold', color: '#666', textTransform: 'uppercase', letterSpacing: 0.3 }}>Qué sigue</div>

@@ -372,19 +372,38 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
     contratoEntrega: { tipo: 'documento', descripcion: 'Investigación antropológica + calendario de campañas + laboratorio de mercado.' },
     bloques: [
       { id: 'antropologia', titulo: 'Investigación antropológica', capas: 'C5', campos: [
-        { id: 'cultura', pregunta: '¿Costumbres, lenguaje, creencias y símbolos del público (no demografía)?', tipo: 'parrafo', requeridoEn: E },
+        { id: 'cultura', pregunta: '¿Costumbres, lenguaje, creencias y símbolos del público (antropología, no demografía)?', tipo: 'parrafo', requeridoEn: E },
         { id: 'aspiraciones', pregunta: '¿Aspiraciones, miedos y estatus que mueven la compra?', tipo: 'parrafo', requeridoEn: E },
-        { id: 'referencias', pregunta: '¿Influencers, música, referencias culturales y estacionalidad?', tipo: 'parrafo', requeridoEn: S },
+        { id: 'referencias', pregunta: '¿Influencers, música, comida, referencias culturales y modismos?', tipo: 'parrafo', requeridoEn: S },
+        { id: 'estacionalidad', pregunta: '¿Temporalidad y estacionalidad de la demanda?', tipo: 'parrafo', requeridoEn: S },
+        { id: 'entorno', pregunta: '¿Religión, arquitectura, eventos, clase social, movilidad, tecnología y hábitos de consumo?', tipo: 'parrafo', requeridoEn: C },
       ] },
       { id: 'hallazgos', titulo: 'Hallazgos de investigación', capas: 'C5',
         tabla: { tablaRef: 'investigacion', requeridoEn: S, disparadorCSV: 5,
           columnasContexto: [ { id: 'implicacion', etiqueta: 'Implicación de marketing', tipo: 'texto' } ] } },
+      { id: 'segmentacion', titulo: 'Segmentación y avatar', capas: 'C5', campos: [
+        { id: 'segmento', pregunta: '¿Mercado → nicho → micronicho? (embudo de segmentación)', tipo: 'parrafo', requeridoEn: S },
+        { id: 'avatar', pregunta: '¿Avatar y sub-avatar (a quién exactamente le hablamos)?', tipo: 'parrafo', requeridoEn: S },
+        { id: 'buyerJourney', pregunta: '¿Buyer journey (de que no te conoce a cliente que recompra)?', tipo: 'parrafo', requeridoEn: C },
+      ] },
+      { id: 'mapas', titulo: 'Mapas del cliente', capas: 'C5', campos: [
+        { id: 'mapaEmocional', pregunta: '¿Mapa emocional y psicológico (qué siente/piensa en cada etapa)?', tipo: 'parrafo', requeridoEn: C },
+        { id: 'mapaDolores', pregunta: '¿Mapa de dolores, deseos y aspiraciones?', tipo: 'parrafo', requeridoEn: C },
+        { id: 'mapaObjeciones', pregunta: '¿Mapa de objeciones y cómo rebatirlas?', tipo: 'parrafo', requeridoEn: C },
+        { id: 'mapaLenguaje', pregunta: '¿Mapa de lenguaje (las palabras exactas que usa el cliente)?', tipo: 'parrafo', requeridoEn: C },
+      ] },
       { id: 'calendario', titulo: 'Campañas y calendario', capas: 'C7',
         tabla: { tablaRef: 'campanas', etiqueta: 'Calendario de campañas', requeridoEn: S, disparadorCSV: 4,
-          columnasContexto: [ { id: 'canal', etiqueta: 'Canal', tipo: 'texto' }, { id: 'objetivo', etiqueta: 'Objetivo / KPI', tipo: 'texto' }, { id: 'fecha', etiqueta: 'Fecha / Temporada', tipo: 'texto' } ] } },
+          columnasContexto: [ { id: 'canal', etiqueta: 'Canal', tipo: 'texto' }, { id: 'objetivo', etiqueta: 'Objetivo / KPI', tipo: 'texto' }, { id: 'fecha', etiqueta: 'Fecha / Temporada', tipo: 'texto' }, { id: 'presupuesto', etiqueta: 'Presupuesto', tipo: 'texto' }, { id: 'responsable', etiqueta: 'Responsable', tipo: 'texto' } ] } },
+      { id: 'plan', titulo: 'Plan de campañas', capas: 'C7', campos: [
+        { id: 'plan', pregunta: '¿Objetivos, KPIs, presupuesto, canales, formatos y responsables del calendario anual?', tipo: 'parrafo', requeridoEn: S },
+      ] },
       { id: 'laboratorio', titulo: 'Laboratorio de mercado', capas: 'C5·C7',
         tabla: { tablaRef: 'experimentos', requeridoEn: C, disparadorCSV: 3,
           columnasContexto: [ { id: 'presupuesto', etiqueta: 'Presupuesto', tipo: 'texto' }, { id: 'resultado', etiqueta: 'Resultado / Decisión', tipo: 'texto' } ] } },
+      { id: 'labmetodo', titulo: 'Método del laboratorio', capas: 'C5', campos: [
+        { id: 'metodo', pregunta: '¿Cómo se valida ANTES de gastar? (hipótesis → landing/encuesta/entrevistas/anuncios → métricas → conclusión → decisión)', tipo: 'parrafo', requeridoEn: C },
+      ] },
     ],
   },
 
@@ -449,6 +468,11 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
       { id: 'constitucion', titulo: 'Constitución y fiscal', capas: 'C10', campos: [
         { id: 'figura', pregunta: '¿Figura legal, socios y % de participación?', tipo: 'parrafo', requeridoEn: E },
         { id: 'obligaciones', pregunta: '¿Obligaciones fiscales y permisos del giro?', tipo: 'parrafo', requeridoEn: E },
+      ] },
+      { id: 'inmueble', titulo: 'Inmueble / sede', capas: 'C9·C10', campos: [
+        { id: 'dueno', pregunta: '¿Quién es el dueño del negocio y del inmueble (propio o rentado)?', tipo: 'parrafo', requeridoEn: E },
+        { id: 'ubicacion', pregunta: '¿Ubicación exacta y superficie (m²) de la sede?', tipo: 'texto', requeridoEn: S },
+        { id: 'contratos', pregunta: '¿Contrato de arrendamiento y de servicios (vigencia, renta, responsable)?', tipo: 'parrafo', requeridoEn: S },
       ] },
       { id: 'documentos', titulo: 'Documentos y permisos', capas: 'C10',
         tabla: { tablaRef: 'legales', requeridoEn: E, disparadorCSV: 4,

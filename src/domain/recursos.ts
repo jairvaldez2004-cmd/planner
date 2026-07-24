@@ -32,6 +32,7 @@ export interface Recurso {
   cantidad: string;     // cantidad requerida / en stock
   impuesto: string;     // ej. "16% IVA"
   logistica: string;    // dónde se consigue / tiempo de entrega
+  existe: boolean;      // true = YA lo tenemos (inventario actual); false = por adquirir
   notas: string;
 }
 
@@ -47,7 +48,7 @@ export interface Proveedor {
 }
 
 export function recursoVacio(id: string): Recurso {
-  return { id, nombre: '', categoria: 'insumo', grupo: '', proveedor: '', unidad: '', costo: '', cantidad: '', impuesto: '', logistica: '', notas: '' };
+  return { id, nombre: '', categoria: 'insumo', grupo: '', proveedor: '', unidad: '', costo: '', cantidad: '', impuesto: '', logistica: '', existe: false, notas: '' };
 }
 export function proveedorVacio(id: string): Proveedor {
   return { id, nombre: '', tipo: 'insumos', contacto: '', telefono: '', email: '', rfc: '', notas: '' };
@@ -61,7 +62,7 @@ export function normalizarRecurso(v: unknown): Recurso {
   return {
     id: s(d.id) || `REC-${s(d.nombre).slice(0, 6)}`, nombre: s(d.nombre), categoria: cat,
     grupo: s(d.grupo), proveedor: s(d.proveedor), unidad: s(d.unidad), costo: s(d.costo),
-    cantidad: s(d.cantidad), impuesto: s(d.impuesto), logistica: s(d.logistica), notas: s(d.notas),
+    cantidad: s(d.cantidad), impuesto: s(d.impuesto), logistica: s(d.logistica), existe: d.existe === true, notas: s(d.notas),
   };
 }
 export function normalizarProveedor(v: unknown): Proveedor {
