@@ -297,6 +297,9 @@ async function main() {
     { id: 'prv-constructora', nombre: 'Constructora externa', tipo: 'materiales / construcción', contacto: '', telefono: '', email: '', rfc: '', notas: 'Acondicionamiento del local.' },
     { id: 'prv-diseno', nombre: 'Estudio de interiores', tipo: 'diseño de interiores', contacto: '', telefono: '', email: '', rfc: '', notas: 'Diseño y mobiliario de las cabinas.' },
     { id: 'prv-girly', nombre: 'Girly Zone', tipo: 'servicios', contacto: '', telefono: '', email: '', rfc: '', notas: 'Contabilidad del grupo (tercerizado hacia arriba).' },
+    { id: 'prv-tattoo', nombre: 'Tattoo Supply MX', tipo: 'insumos', contacto: '', telefono: '', email: '', rfc: '', notas: 'Tintas, agujas y máquinas de tatuaje.' },
+    { id: 'prv-nails', nombre: 'Beauty Nails MX', tipo: 'insumos', contacto: '', telefono: '', email: '', rfc: '', notas: 'Geles, limas y lámparas UV.' },
+    { id: 'prv-clima', nombre: 'ClimaMX', tipo: 'equipo', contacto: '', telefono: '', email: '', rfc: '', notas: 'Minisplits y mantenimiento.' },
   ];
   const RECURSOS = [
     { id: 'rec-aguja', nombre: 'Aguja estéril 16G', categoria: 'insumo', grupo: 'Cabina de perforación', proveedor: 'Insumos Médicos MX', unidad: 'pza', costo: '8', cantidad: '200', impuesto: '16% IVA', logistica: 'Pedido semanal', notas: 'Un solo uso.' },
@@ -308,6 +311,15 @@ async function main() {
     { id: 'rec-camilla', nombre: 'Camilla / sillón', categoria: 'mueble', grupo: 'Cabina de perforación', proveedor: 'Estudio de interiores', unidad: 'pza', costo: '8000', cantidad: '2', impuesto: '16% IVA', logistica: '', notas: '' },
     { id: 'rec-mostrador', nombre: 'Mostrador de recepción', categoria: 'mueble', grupo: 'Recepción', proveedor: 'Estudio de interiores', unidad: 'pza', costo: '6000', cantidad: '1', impuesto: '16% IVA', logistica: '', notas: '' },
     { id: 'rec-porcelanato', nombre: 'Porcelanato (piso)', categoria: 'material', grupo: 'Obra planta baja', proveedor: 'Constructora externa', unidad: 'm²', costo: '350', cantidad: '32', impuesto: '16% IVA', logistica: 'Obra inicial', notas: 'Lavable, no poroso.' },
+    { id: 'rec-tinta', nombre: 'Tinta de tatuaje', categoria: 'insumo', grupo: 'Tatuajes', proveedor: 'Tattoo Supply MX', unidad: 'bote', costo: '250', cantidad: '20', impuesto: '16% IVA', logistica: 'Pedido mensual', notas: '' },
+    { id: 'rec-agtatuaje', nombre: 'Agujas de tatuaje', categoria: 'insumo', grupo: 'Tatuajes', proveedor: 'Tattoo Supply MX', unidad: 'pza', costo: '15', cantidad: '50', impuesto: '16% IVA', logistica: '', notas: 'Un solo uso.' },
+    { id: 'rec-film', nombre: 'Film protector', categoria: 'insumo', grupo: 'Tatuajes', proveedor: 'Tattoo Supply MX', unidad: 'rollo', costo: '40', cantidad: '5', impuesto: '16% IVA', logistica: '', notas: '' },
+    { id: 'rec-maqtat', nombre: 'Máquina de tatuaje', categoria: 'equipo', grupo: 'Tatuajes', proveedor: 'Tattoo Supply MX', unidad: 'pza', costo: '4500', cantidad: '2', impuesto: '16% IVA', logistica: '', notas: '' },
+    { id: 'rec-gel', nombre: 'Gel para uñas', categoria: 'insumo', grupo: 'Uñas', proveedor: 'Beauty Nails MX', unidad: 'pza', costo: '90', cantidad: '15', impuesto: '16% IVA', logistica: '', notas: '' },
+    { id: 'rec-lampuv', nombre: 'Lámpara UV de uñas', categoria: 'equipo', grupo: 'Uñas', proveedor: 'Beauty Nails MX', unidad: 'pza', costo: '800', cantidad: '2', impuesto: '16% IVA', logistica: '', notas: '' },
+    { id: 'rec-limas', nombre: 'Limas y pulidores', categoria: 'herramienta', grupo: 'Uñas', proveedor: 'Beauty Nails MX', unidad: 'set', costo: '25', cantidad: '30', impuesto: '16% IVA', logistica: '', notas: '' },
+    { id: 'rec-minisplit', nombre: 'Minisplit', categoria: 'equipo', grupo: 'Clima', proveedor: 'ClimaMX', unidad: 'pza', costo: '9000', cantidad: '2', impuesto: '16% IVA', logistica: 'Instalación incluida', notas: '' },
+    { id: 'rec-dispensador', nombre: 'Dispensador de agua', categoria: 'mueble', grupo: 'Recepción', proveedor: 'Estudio de interiores', unidad: 'pza', costo: '1200', cantidad: '1', impuesto: '16% IVA', logistica: '', notas: '' },
   ];
   await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: 'proveedores_dir' } }, create: { proyectoId: PID, tablaRef: 'proveedores_dir', filas: J(PROVEEDORES), actualizadoEn: now() }, update: { filas: J(PROVEEDORES), actualizadoEn: now() } });
   await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: 'recursos' } }, create: { proyectoId: PID, tablaRef: 'recursos', filas: J(RECURSOS), actualizadoEn: now() }, update: { filas: J(RECURSOS), actualizadoEn: now() } });
@@ -331,6 +343,56 @@ async function main() {
     costeados++;
   }
   console.log(`✅ Insumos con cantidad enlazados al catálogo en ${costeados} procesos (costeo automático).`);
+
+  // 9) Datos de lente en los ESPACIOS (uso, roles, mantenimiento) → enriquecen ARQ/ORG/OPE/FIN.
+  const ESPACIO_DATA: Record<string, Record<string, string>> = {
+    'Recepción y espera': { uso: 'Recibir, registrar y cobrar al cliente', proc_rol: 'Recepcionista', org_acceso: 'Recepcionista', ope_ejecutor: 'humano' },
+    'Cabina de perforación': { uso: 'Perforación en condiciones estériles', proc_proceso: 'Perforación con aguja estéril', proc_rol: 'Perforador', org_acceso: 'Perforador', fin_mantenimiento: 'Desinfección entre clientes' },
+    'Cabina 2': { uso: 'Cabina secundaria / tatuaje', proc_rol: 'Perforador', org_acceso: 'Perforador' },
+    'Esterilización': { uso: 'Esterilizar y empacar instrumental', proc_rol: 'Asistente', org_acceso: 'Asistente', tec_herramienta: 'Autoclave', fin_mantenimiento: 'Limpieza semanal de la cámara' },
+    'Sanitario': { uso: 'Sanitario de clientes y asepsia de manos' },
+    'Entrada': { uso: 'Acceso y espera breve' },
+    'Sala Principal': { uso: 'Asesoría y sala de espera', proc_rol: 'Perforador' },
+    'Zona Pizarrón': { uso: 'Explicar cuidados y diseños', proc_rol: 'Perforador' },
+    'Rincón Servicios': { uso: 'Apoyo: carrito, insumos y RPBI' },
+    'Baño': { uso: 'Baño de clientes' },
+  };
+  const esps = await prisma.espacio.findMany({ where: { proyectoId: PID } });
+  let espActualizados = 0;
+  for (const e of esps) {
+    const d = ESPACIO_DATA[e.nombre]; if (!d) continue;
+    const cur = (e.data as Record<string, unknown>) ?? {};
+    await prisma.espacio.update({ where: { id: e.id }, data: { data: J({ ...cur, ...d }) } });
+    espActualizados++;
+  }
+  console.log(`✅ Datos de lente en ${espActualizados} espacios.`);
+
+  // 10) Más recursos por proceso (herramientas, equipo, muebles, manuales) en el mapa.
+  const AUTOCLAVE_MANUAL = 'Cargar bolsas selladas; ciclo 134 °C / 18 min; registrar. Limpieza de cámara semanal.';
+  const RECURSOS_PROC: Record<string, { herramientas?: string[]; equipo?: string[]; muebles?: string[]; manuales?: Record<string, string> }> = {
+    'PROC-mrufyz9n-0qn42': { herramientas: ['Marcador quirúrgico'], muebles: ['Camilla / sillón', 'Lámpara de examen'] }, // Asepsia
+    'PROC-mrufyvjy-8wry6': { equipo: ['Autoclave'], muebles: ['Camilla / sillón', 'Carrito de instrumental'], manuales: { 'Autoclave': AUTOCLAVE_MANUAL } }, // Preparar cabina
+    'PROC-mrufyuri-cygax': { equipo: ['Autoclave'], manuales: { 'Autoclave': AUTOCLAVE_MANUAL } }, // Encender y verificar esterilización
+    'PROC-mrufz1pt-djykd': { equipo: ['Autoclave'], herramientas: ['Pinza Pennington'], manuales: { 'Autoclave': AUTOCLAVE_MANUAL } }, // Limpieza y esterilización
+    'PROC-mrufyw6p-r47xh': { herramientas: ['Terminal POS'], muebles: ['Mostrador de recepción', 'Dispensador de agua'] }, // Recibir al cliente
+    'PROC-mrufyy13-xh3ks': { herramientas: ['Terminal de pago'], muebles: ['Mostrador de recepción'] }, // Cobrar el servicio
+    'PROC-mrufywtg-la51y': { muebles: ['Sillas', 'Vitrina de joyería', 'Espejo'] }, // Asesoría
+    'PROC-mrufyymw-asgfq': { herramientas: ['Marcador quirúrgico'], muebles: ['Espejo'] }, // Marcaje anatómico
+  };
+  let recProc = 0;
+  for (const [pid, v] of Object.entries(RECURSOS_PROC)) {
+    const pr = await prisma.proceso.findUnique({ where: { id: pid } });
+    if (!pr) continue;
+    const dd = (pr.data as Record<string, unknown>) ?? {};
+    const merged: Record<string, unknown> = { ...dd };
+    if (v.herramientas) merged.herramientas = v.herramientas;
+    if (v.equipo) merged.equipo = v.equipo;
+    if (v.muebles) merged.muebles = v.muebles;
+    if (v.manuales) merged.manuales = { ...(dd.manuales as Record<string, string> ?? {}), ...v.manuales };
+    await prisma.proceso.update({ where: { id: pid }, data: { data: J(merged) } });
+    recProc++;
+  }
+  console.log(`✅ Herramientas/equipo/muebles en ${recProc} procesos más.`);
 
   console.log('\n🎉 Altercing Studio llenado. Recarga la app.');
 }
