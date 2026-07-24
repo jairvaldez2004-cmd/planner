@@ -35,19 +35,15 @@ export interface PasoFlujoPersona {
   entregaA: EnlaceDisparador[];  // lo que dispara al TERMINAR (y hacia quién)
 }
 
-// Flujo completo de una persona (solo procesos de nivel raíz). `nombreDepto` resuelve
-// el id de departamento a su etiqueta.
-export function flujoDePersona(
-  emp: Empleado,
-  procesos: ProcesoNodo[],
-  empleados: Empleado[],
-  nombreDepto: (id: string) => string,
-): PasoFlujoPersona[] {
-  const top = procesos.filter((p) => !p.padreProcesoId);
-  const byId = new Map(top.map((p) => [p.id, p]));
-  const suyos = top.filter((p) => personaHaceProceso(emp, p))
-    .sort((a, b) => ordenFaseMapa(a.fase) - ordenFaseMapa(b.fase) || a.orden - b.orden);
+// ¿Este ROL ejecuta el proceso?
+export function rolHaceProceso(rol: string, proc: ProcesoNodo): boolean {
+  return proc.roles.some((r) => r.toLowerCase() === rol.toLowerCase());
+}
 
+// Núcleo: dado un conjunto de procesos "propios", arma el flujo (entrantes/salientes).
+function construirFlujo(propios: ProcesoNodo[], top: ProcesoNodo[], empleados: Empleado[], nombreDepto: (id: string) => string): PasoFlujoPersona[] {
+  const byId = new Map(top.map((p) => [p.id, p]));
+  const suyos = [...propios].sort((a, b) => ordenFaseMapa(a.fase) - ordenFaseMapa(b.fase) || a.orden - b.orden);
   return suyos.map((P): PasoFlujoPersona => {
     const recibeDe: EnlaceDisparador[] = [];
     for (const U of top) {
@@ -66,4 +62,36 @@ export function flujoDePersona(
       });
     return { id: P.id, nombre: P.nombre, fase: P.fase, departamento: nombreDepto(P.departamentoId), roles: P.roles, recibeDe, entregaA };
   });
+}
+
+// Flujo completo de una PERSONA (solo procesos de nivel raíz).
+export function flujoDePersona(emp: Empleado, procesos: ProcesoNodo[], empleados: Empleado[], nombreDepto: (id: string) => string): PasoFlujoPersona[] {
+  const top = procesos.filter((p) => !p.padreProcesoId);
+  return construirFlujo(top.filter((p) => personaHaceProceso(emp, p)), top, empleados, nombreDepto);
+}
+
+// Flujo de un ROL (solo lo que involucra ese rol).
+export function flujoDeRol(rol: string, procesos: ProcesoNodo[], empleados: Empleado[], nombreDepto: (id: string) => string): PasoFlujoPersona[] {
+  const top = procesos.filter((p) => !p.padreProcesoId);
+  return construirFlujo(top.filter((p) => rolHaceProceso(rol, p)), top, empleados, nombreDepto);
+}
+
+// Índice de roles: todos los roles conocidos (de los procesos del Mapa + del roster), con
+// cuántos procesos y cuántas personas los tienen. Para la vista de Roles y el buscador.
+export interface RolResumen { rol: string; procesos: number; personas: number }
+export function indiceRoles(procesos: ProcesoNodo[], empleados: Empleado[]): RolResumen[] {
+  const top = procesos.filter((p) => !p.padreProcesoId);
+  const map = new Map<string, { rol: string; procesos: Set<string>; personas: Set<string> }>();
+  const key = (r: string) => r.trim().toLowerCase();
+  const ver = (r: string) => { const k = key(r); if (r.trim() && !map.has(k)) map.set(k, { rol: r.trim(), procesos: new Set(), personas: new Set() }); return map.get(k); };
+  for (const p of top) for (const r of p.roles) ver(r)?.procesos.add(p.id);
+  for (const e of empleados) for (const r of e.roles) ver(r)?.personas.add(e.id);
+  return Array.from(map.values())
+    .map((v) => ({ rol: v.rol, procesos: v.procesos.size, personas: v.personas.size }))
+    .sort((a, b) => a.rol.localeCompare(b.rol));
+}
+
+// Nombres de rol para el autocompletado (del Mapa + del roster).
+export function rolesConocidos(procesos: ProcesoNodo[], empleados: Empleado[]): string[] {
+  return indiceRoles(procesos, empleados).map((r) => r.rol);
 }

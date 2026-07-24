@@ -41,6 +41,8 @@ export const ENRIQUECE: Record<Superficie, Aporte[]> = {
     { planoId: 'RH', tablaRef: 'puestos', nota: 'cada persona → puesto, competencias, KPIs, nómina' },
     { planoId: 'ORG', tablaRef: 'personas', nota: 'roles y jerarquía por persona' },
     { planoId: 'OPE', nota: 'ejecutores por proceso' },
+    { planoId: 'FIN', nota: 'nómina y costo del personal' },
+    { planoId: 'JUR', nota: 'datos fiscales (RFC/CURP) y contratos laborales' },
   ],
 };
 

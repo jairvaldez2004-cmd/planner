@@ -18,7 +18,7 @@ import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, superficies
 import type { EspacioSrc, ProcesoSrc } from '@/domain/proyeccion';
 import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
-import { personaHaceProceso, flujoDePersona } from '@/domain/flujo-persona';
+import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles } from '@/domain/flujo-persona';
 
 let ok = 0, fail = 0;
 const fails: string[] = [];
@@ -224,6 +224,13 @@ check('Su disparador de entrada es "Consentimiento firmado"', rec?.evento === 'C
 check('Y se lo entrega Flor (quién entrega el disparador)', (rec?.quien ?? []).includes('Flor'));
 const flujoFlor = flujoDePersona(flor, procsFlujo, equipo, depN);
 check('Flor entrega a Suzet: su salida va a "Perforación"', flujoFlor[0]!.entregaA[0]?.quien.includes('Suzet') === true);
+
+// Vista por ROL: solo lo que involucra ese rol.
+const flujoRolPerf = flujoDeRol('Perforador', procsFlujo, equipo, depN);
+check('flujoDeRol("Perforador") = 1 proceso (Perforación)', flujoRolPerf.length === 1 && flujoRolPerf[0]!.nombre.includes('Perforación'));
+const idx = indiceRoles(procsFlujo, equipo);
+check('indiceRoles lista Recepcionista y Perforador', idx.some((r) => r.rol === 'Recepcionista') && idx.some((r) => r.rol === 'Perforador'));
+check('indiceRoles cuenta procesos y personas por rol', (idx.find((r) => r.rol === 'Perforador')?.procesos ?? 0) === 1 && (idx.find((r) => r.rol === 'Recepcionista')?.personas ?? 0) === 1);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

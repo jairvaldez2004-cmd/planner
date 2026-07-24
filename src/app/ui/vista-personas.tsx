@@ -11,7 +11,8 @@ import { listarEmpleados, guardarEmpleado, eliminarEmpleado } from '@/app/action
 import { listarDepartamentos, listarProcesos } from '@/app/actions/mapa.actions';
 import { ESTADOS_EMPLEADO, estadoEmpleado, empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
-import { flujoDePersona } from '@/domain/flujo-persona';
+import { flujoDePersona, flujoDeRol, indiceRoles, rolesConocidos } from '@/domain/flujo-persona';
+import type { PasoFlujoPersona } from '@/domain/flujo-persona';
 import { FASES_MAPA } from '@/domain/mapa';
 import type { ProcesoNodo } from '@/domain/mapa';
 import { useEsMovil } from './use-movil';
@@ -30,6 +31,9 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
   const [deptoNombreMap, setDeptoNombreMap] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<string | null>(null);
   const [verFlujo, setVerFlujo] = useState(false);
+  const [vista, setVista] = useState<'personas' | 'roles'>('personas');
+  const [rolSel, setRolSel] = useState<string | null>(null);
+  const [buscarRol, setBuscarRol] = useState('');
   const [loading, setLoading] = useState(true);
   const movil = useEsMovil();
 
@@ -47,10 +51,16 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
 
   const se = emps.find((e) => e.id === sel) ?? null;
   const nombreDepto = (id: string) => deptoNombreMap[id] ?? id;
+  const rolesIdx = indiceRoles(procesosFull, emps);
+  const rolesNombres = rolesConocidos(procesosFull, emps);
 
   // Vista de FLUJO de una persona (su n8n: procesos + disparadores + quién los entrega).
   if (se && verFlujo) {
     return <FlujoPersona emp={se} procesos={procesosFull} empleados={emps} nombreDepto={nombreDepto} onVolver={() => setVerFlujo(false)} />;
+  }
+  // Vista de FLUJO de un rol (solo lo que involucra ese rol).
+  if (vista === 'roles' && rolSel) {
+    return <FlujoRol rol={rolSel} procesos={procesosFull} empleados={emps} nombreDepto={nombreDepto} onVolver={() => setRolSel(null)} />;
   }
 
   async function agregar() {
@@ -75,13 +85,26 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h2 style={{ margin: 0 }}>👥 Personas & RH <span style={{ fontSize: 13, color: '#888' }}>· plantilla del negocio</span></h2>
-        <button style={btn} onClick={() => void agregar()}>＋ Dar de alta persona</button>
+        {vista === 'personas' && <button style={btn} onClick={() => void agregar()}>＋ Dar de alta persona</button>}
       </div>
-      <p style={{ fontSize: 12, color: '#777', margin: '0.3rem 0 0.6rem' }}>
-        {emps.length} personas ({activos} activas). Cada alta alimenta el plano <strong>RH</strong> (puestos, competencias, KPIs, nómina) y los planos <strong>Organizacional</strong> y <strong>Operativo</strong> (roles por proceso).
-      </p>
+
+      {/* Tabs: Personas | Roles */}
+      <div style={{ display: 'flex', gap: '0.4rem', margin: '0.5rem 0 0.4rem' }}>
+        {([['personas', '👥 Personas'], ['roles', '🏷️ Roles']] as const).map(([id, label]) => (
+          <button key={id} onClick={() => { setVista(id); setRolSel(null); }}
+            style={{ ...btn, background: vista === id ? '#8a4fbf' : '#fff', color: vista === id ? '#fff' : '#4a3a63', borderColor: vista === id ? '#8a4fbf' : '#d5cde2', fontWeight: 'bold' }}>{label}</button>
+        ))}
+      </div>
 
       {loading && <p style={{ color: '#666' }}>Cargando…</p>}
+
+      {vista === 'roles' && <RolesLista roles={rolesIdx} buscar={buscarRol} onBuscar={setBuscarRol} onAbrir={setRolSel} />}
+
+      {vista === 'personas' && (
+       <>
+      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.6rem' }}>
+        {emps.length} personas ({activos} activas). Cada alta alimenta <strong>RH</strong>, <strong>Organizacional</strong>, <strong>Operativo</strong> y (con datos fiscales) <strong>Jurídico</strong> / <strong>Financiero</strong>.
+      </p>
       {!loading && emps.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay nadie. Pulsa <strong>＋ Dar de alta persona</strong> para empezar.</p>}
 
       <div style={{ display: 'grid', gridTemplateColumns: movil || !se ? '1fr' : 'minmax(0, 1fr) 360px', gap: '0.75rem', alignItems: 'start' }}>
@@ -137,7 +160,7 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
             </select>
             <p style={{ fontSize: 10, color: '#999', margin: '2px 0 0' }}>Los departamentos vienen del Mapa Operativo.</p>
 
-            <TagField label="👤 Roles que desempeña" valores={se.roles} onChange={(v) => void patch({ roles: v })} placeholder="rol…" />
+            <TagField label="👤 Roles que desempeña" valores={se.roles} onChange={(v) => void patch({ roles: v })} placeholder="busca o crea un rol…" opciones={rolesNombres} />
             <TagField label="🛠️ Procesos que ejecuta" valores={se.procesos} onChange={(v) => void patch({ procesos: v })} placeholder="proceso del mapa…" opciones={procs} />
             <TagField label="⭐ Competencias" valores={se.competencias} onChange={(v) => void patch({ competencias: v })} placeholder="competencia…" />
 
@@ -158,27 +181,78 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
             <label style={lbl}>Notas (entrevistas, pruebas, evaluación, carrera…)</label>
             <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={se.notas} key={`no-${se.id}`} onBlur={(ev) => void patch({ notas: ev.target.value })} />
 
+            {/* Datos personales y fiscales (alimentan Jurídico / Financiero) */}
+            <details style={{ marginTop: '0.6rem', borderTop: '1px solid #e6ddf2', paddingTop: '0.4rem' }}>
+              <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 'bold', color: '#7a4fbf' }}>📇 Datos personales y fiscales (Jurídico / Financiero)</summary>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                <div><label style={lbl}>Correo</label><input style={inp} type="email" defaultValue={se.email} key={`em-${se.id}`} placeholder="correo@…" onBlur={(ev) => void patch({ email: ev.target.value })} /></div>
+                <div><label style={lbl}>Teléfono</label><input style={inp} defaultValue={se.telefono} key={`tel-${se.id}`} placeholder="+52…" onBlur={(ev) => void patch({ telefono: ev.target.value })} /></div>
+                <div><label style={lbl}>RFC</label><input style={inp} defaultValue={se.rfc} key={`rfc-${se.id}`} onBlur={(ev) => void patch({ rfc: ev.target.value })} /></div>
+                <div><label style={lbl}>CURP</label><input style={inp} defaultValue={se.curp} key={`cu-${se.id}`} onBlur={(ev) => void patch({ curp: ev.target.value })} /></div>
+                <div><label style={lbl}>NSS</label><input style={inp} defaultValue={se.nss} key={`ns-${se.id}`} onBlur={(ev) => void patch({ nss: ev.target.value })} /></div>
+                <div><label style={lbl}>Nacimiento</label><input style={inp} type="date" defaultValue={se.nacimiento} key={`na-${se.id}`} onBlur={(ev) => void patch({ nacimiento: ev.target.value })} /></div>
+              </div>
+              <label style={lbl}>Dirección</label>
+              <input style={inp} defaultValue={se.direccion} key={`dir-${se.id}`} onBlur={(ev) => void patch({ direccion: ev.target.value })} />
+              <label style={lbl}>Contacto de emergencia</label>
+              <input style={inp} defaultValue={se.emergencia} key={`eme-${se.id}`} onBlur={(ev) => void patch({ emergencia: ev.target.value })} />
+              <p style={{ fontSize: 10, color: '#999', margin: '3px 0 0' }}>Datos sensibles (PII). Se usan para contratos (Jurídico) y nómina (Financiero).</p>
+            </details>
+
             <div style={{ borderTop: '1px solid #e6ddf2', marginTop: '0.7rem', paddingTop: '0.5rem' }}>
               <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => void borrar()}>🗑 Eliminar persona</button>
             </div>
           </div>
         )}
       </div>
+       </>
+      )}
     </section>
   );
 }
 
-// ===== FLUJO DE TRABAJO DE UNA PERSONA (su n8n: disparadores + quién los entrega) =====
+// ===== Lista de pasos del flujo (compartida por persona y por rol) =====
+function FlujoLista({ pasos, yo }: { pasos: PasoFlujoPersona[]; yo?: string }) {
+  const faseLabel = (f: string) => (FASES_MAPA.find((x) => x.id === f)?.label ?? f).split(' · ')[0];
+  const quienTxt = (quien: string[], depto: string) =>
+    quien.length ? quien.map((n) => (yo && n === yo) ? `${n} (tú)` : n).join(', ') : `sin responsable · ${depto}`;
+  const linea: CSSProperties = { fontSize: 12, padding: '0.15rem 0.5rem', borderRadius: 6, margin: '2px 0' };
+  return (
+    <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+      {pasos.map((p, i) => (
+        <li key={p.id} style={{ border: '1px solid #e2ddea', borderRadius: 10, padding: '0.5rem 0.7rem', background: '#fff' }}>
+          {p.recibeDe.length === 0
+            ? <div style={{ ...linea, color: '#2e9e63', background: '#eefaf2' }}>▶ Inicia el flujo (nadie se lo dispara)</div>
+            : p.recibeDe.map((d, j) => (
+              <div key={j} style={{ ...linea, color: '#2b5a97', background: '#eef4ff' }}>
+                ⤶ cuando <strong>«{d.evento || 'continúa'}»</strong> — lo entrega <strong>{quienTxt(d.quien, d.departamento)}</strong> <span style={{ color: '#888' }}>(«{d.proceso}»)</span>
+              </div>
+            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.35rem 0' }}>
+            <span style={{ background: '#8a4fbf', color: '#fff', borderRadius: 9, fontSize: 11, fontWeight: 'bold', padding: '1px 7px', flexShrink: 0 }}>{i + 1}</span>
+            <div>
+              <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{p.nombre}</div>
+              <div style={{ fontSize: 11, color: '#888' }}>{faseLabel(p.fase)} · {p.departamento} · roles: {p.roles.join(', ') || '—'}</div>
+            </div>
+          </div>
+          {p.entregaA.length === 0
+            ? <div style={{ ...linea, color: '#888', background: '#f5f5f7' }}>⏹ Cierra aquí (no dispara nada más)</div>
+            : p.entregaA.map((d, j) => (
+              <div key={j} style={{ ...linea, color: '#7a4fbf', background: '#f6f2fb' }}>
+                ⤷ al terminar dispara <strong>«{d.evento || 'continúa'}»</strong> → <strong>«{d.proceso}»</strong> <span style={{ color: '#888' }}>(lo hace {quienTxt(d.quien, d.departamento)})</span>
+              </div>
+            ))}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// ===== FLUJO DE UNA PERSONA =====
 function FlujoPersona({ emp, procesos, empleados, nombreDepto, onVolver }: {
   emp: Empleado; procesos: ProcesoNodo[]; empleados: Empleado[]; nombreDepto: (id: string) => string; onVolver: () => void;
 }) {
   const pasos = flujoDePersona(emp, procesos, empleados, nombreDepto);
-  const faseLabel = (f: string) => (FASES_MAPA.find((x) => x.id === f)?.label ?? f).split(' · ')[0];
-  const quienTxt = (quien: string[], depto: string) =>
-    quien.length ? quien.map((n) => n === emp.nombre ? `${n} (tú)` : n).join(', ') : `sin responsable · ${depto}`;
-
-  const linea: CSSProperties = { fontSize: 12, padding: '0.15rem 0.5rem', borderRadius: 6, margin: '2px 0' };
-
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -190,44 +264,56 @@ function FlujoPersona({ emp, procesos, empleados, nombreDepto, onVolver }: {
         {emp.roles.length ? emp.roles.map((r) => <span key={r} style={tag}>{r}</span>) : <span style={{ fontSize: 12, color: '#a60' }}>sin roles — asígnalos en su ficha</span>}
         <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>{pasos.length} procesos a su cargo</span>
       </div>
-
-      {pasos.length === 0 && (
-        <p style={{ color: '#999', fontSize: 13 }}>No tiene procesos asignados. Dale <strong>roles</strong> que coincidan con los del Mapa (Perforador, Recepcionista, Director…) o asígnale procesos por nombre en su ficha.</p>
-      )}
-
-      <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
-        {pasos.map((p, i) => (
-          <li key={p.id} style={{ border: '1px solid #e2ddea', borderRadius: 10, padding: '0.5rem 0.7rem', background: '#fff' }}>
-            {/* de quién le llega el disparador */}
-            {p.recibeDe.length === 0
-              ? <div style={{ ...linea, color: '#2e9e63', background: '#eefaf2' }}>▶ Inicia el flujo (nadie se lo dispara)</div>
-              : p.recibeDe.map((d, j) => (
-                <div key={j} style={{ ...linea, color: '#2b5a97', background: '#eef4ff' }}>
-                  ⤶ cuando <strong>«{d.evento || 'continúa'}»</strong> — te lo entrega <strong>{quienTxt(d.quien, d.departamento)}</strong> <span style={{ color: '#888' }}>(«{d.proceso}»)</span>
-                </div>
-              ))}
-
-            {/* el proceso (nodo) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.35rem 0' }}>
-              <span style={{ background: '#8a4fbf', color: '#fff', borderRadius: 9, fontSize: 11, fontWeight: 'bold', padding: '1px 7px', flexShrink: 0 }}>{i + 1}</span>
-              <div>
-                <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{p.nombre}</div>
-                <div style={{ fontSize: 11, color: '#888' }}>{faseLabel(p.fase)} · {p.departamento} · roles: {p.roles.join(', ') || '—'}</div>
-              </div>
-            </div>
-
-            {/* qué dispara al terminar y hacia quién */}
-            {p.entregaA.length === 0
-              ? <div style={{ ...linea, color: '#888', background: '#f5f5f7' }}>⏹ Cierra aquí (no dispara nada más)</div>
-              : p.entregaA.map((d, j) => (
-                <div key={j} style={{ ...linea, color: '#7a4fbf', background: '#f6f2fb' }}>
-                  ⤷ al terminar disparas <strong>«{d.evento || 'continúa'}»</strong> → <strong>«{d.proceso}»</strong> <span style={{ color: '#888' }}>(lo hace {quienTxt(d.quien, d.departamento)})</span>
-                </div>
-              ))}
-          </li>
-        ))}
-      </ol>
+      {pasos.length === 0
+        ? <p style={{ color: '#999', fontSize: 13 }}>No tiene procesos asignados. Dale <strong>roles</strong> que coincidan con los del Mapa o asígnale procesos por nombre.</p>
+        : <FlujoLista pasos={pasos} yo={emp.nombre} />}
     </section>
+  );
+}
+
+// ===== FLUJO DE UN ROL (solo lo que involucra ese rol) =====
+function FlujoRol({ rol, procesos, empleados, nombreDepto, onVolver }: {
+  rol: string; procesos: ProcesoNodo[]; empleados: Empleado[]; nombreDepto: (id: string) => string; onVolver: () => void;
+}) {
+  const pasos = flujoDeRol(rol, procesos, empleados, nombreDepto);
+  const quienes = empleados.filter((e) => e.roles.some((r) => r.toLowerCase() === rol.toLowerCase())).map((e) => e.nombre).filter(Boolean);
+  return (
+    <section>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <h2 style={{ margin: 0 }}>🏷️ Flujo del rol «{rol}»</h2>
+        <button style={btn} onClick={onVolver}>← Roles</button>
+      </div>
+      <div style={{ fontSize: 12, color: '#666', margin: '0.4rem 0 0.7rem' }}>
+        {pasos.length} procesos · lo desempeñan: {quienes.length ? <strong>{quienes.join(', ')}</strong> : <span style={{ color: '#a60' }}>nadie aún (rol vacante)</span>}
+      </div>
+      {pasos.length === 0
+        ? <p style={{ color: '#999', fontSize: 13 }}>Ningún proceso del Mapa usa este rol todavía.</p>
+        : <FlujoLista pasos={pasos} />}
+    </section>
+  );
+}
+
+// ===== LISTA DE ROLES (con buscador) =====
+function RolesLista({ roles, buscar, onBuscar, onAbrir }: {
+  roles: { rol: string; procesos: number; personas: number }[]; buscar: string; onBuscar: (v: string) => void; onAbrir: (r: string) => void;
+}) {
+  const filtro = buscar.trim().toLowerCase();
+  const vis = filtro ? roles.filter((r) => r.rol.toLowerCase().includes(filtro)) : roles;
+  return (
+    <div>
+      <input style={{ ...inp, maxWidth: 340, marginBottom: '0.5rem' }} placeholder="🔎 Buscar rol…" value={buscar} onChange={(e) => onBuscar(e.target.value)} />
+      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.5rem' }}>{roles.length} roles (del Mapa Operativo y del roster). Clic en un rol para ver su flujo n8n.</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem' }}>
+        {vis.map((r) => (
+          <div key={r.rol} onClick={() => onAbrir(r.rol)}
+            style={{ border: '1px solid #e0dae8', borderLeft: '4px solid #8a4fbf', borderRadius: 9, padding: '0.5rem 0.6rem', background: '#fff', cursor: 'pointer' }}>
+            <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{r.rol}</div>
+            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{r.procesos} proceso{r.procesos !== 1 ? 's' : ''} · {r.personas} persona{r.personas !== 1 ? 's' : ''}</div>
+          </div>
+        ))}
+        {vis.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Sin roles que coincidan con «{buscar}».</p>}
+      </div>
+    </div>
   );
 }
 

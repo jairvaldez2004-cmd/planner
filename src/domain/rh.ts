@@ -32,11 +32,20 @@ export interface Empleado {
   nomina: string;            // sueldo / esquema (texto; cifra puede ser PENDIENTE)
   kpis: string;              // cómo se mide su desempeño
   notas: string;             // contratación, entrevistas, pruebas, evaluación, carrera…
+  // Datos personales / fiscales (alimentan planos Jurídico y Financiero; son PII: opcionales).
+  email: string;
+  telefono: string;
+  rfc: string;               // RFC (fiscal MX)
+  curp: string;              // CURP (identidad MX)
+  nss: string;               // Núm. de Seguridad Social
+  direccion: string;
+  nacimiento: string;        // fecha de nacimiento
+  emergencia: string;        // contacto de emergencia
 }
 
 // Empleado vacío para el formulario de alta.
 export function empleadoVacio(id: string): Empleado {
-  return { id, nombre: '', puesto: '', departamento: '', estado: 'candidato', roles: [], procesos: [], responsabilidades: '', competencias: [], nomina: '', kpis: '', notas: '' };
+  return { id, nombre: '', puesto: '', departamento: '', estado: 'candidato', roles: [], procesos: [], responsabilidades: '', competencias: [], nomina: '', kpis: '', notas: '', email: '', telefono: '', rfc: '', curp: '', nss: '', direccion: '', nacimiento: '', emergencia: '' };
 }
 
 // Normaliza una fila JSON cualquiera a un Empleado (retrocompatible/defensivo).
@@ -50,5 +59,7 @@ export function normalizarEmpleado(v: unknown): Empleado {
     nombre: s(d.nombre), puesto: s(d.puesto), departamento: s(d.departamento), estado,
     roles: a(d.roles), procesos: a(d.procesos), responsabilidades: s(d.responsabilidades),
     competencias: a(d.competencias), nomina: s(d.nomina), kpis: s(d.kpis), notas: s(d.notas),
+    email: s(d.email), telefono: s(d.telefono), rfc: s(d.rfc), curp: s(d.curp), nss: s(d.nss),
+    direccion: s(d.direccion), nacimiento: s(d.nacimiento), emergencia: s(d.emergencia),
   };
 }
