@@ -19,6 +19,10 @@ import {
 import type { RecursosProyecto } from '@/app/actions/mapa.actions';
 import { obtenerProyectoBase } from '@/app/actions/workspace.actions';
 import { FASES_MAPA, VISTAS_MAPA, ETAPA_BASE, colorDepto, ordenCronologico, recursosCompartidos, vigenteEn, naceEn, seRetiraEn, procesosDeEtapa, nEtapa, procesosDeNivel, contarSubprocesos } from '@/domain/mapa';
+import { listarRecursos } from '@/app/actions/recursos.actions';
+import type { Recurso } from '@/domain/recursos';
+import { formatoMoneda } from '@/domain/recursos';
+import { indiceRecursos, costearProceso } from '@/domain/costeo';
 import type { AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, VistaMapa } from '@/domain/mapa';
 import { ETAPAS_OBJETIVO, etapaInfo } from '@/domain/etapas';
 import type { EtapaObjetivo } from '@/domain/etapas';
@@ -45,6 +49,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const [deptos, setDeptos] = useState<Departamento[]>([]);
   const [procesos, setProcesos] = useState<ProcesoNodo[]>([]);
   const [recursos, setRecursos] = useState<RecursosProyecto>({ espacios: [], roles: [], herramientas: [] });
+  const [catalogo, setCatalogo] = useState<Recurso[]>([]);
   const [loading, setLoading] = useState(true);
   const [fase, setFase] = useState<FaseMapa>('antes');
   const [etapa, setEtapa] = useState<EtapaObjetivo>(ETAPA_BASE);   // etapa que se está viendo
@@ -71,8 +76,8 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
 
   const cargar = () => {
     setLoading(true);
-    Promise.all([listarDepartamentos(proyectoId), listarProcesos(proyectoId), listarRecursosProyecto(proyectoId), obtenerProyectoBase(proyectoId)])
-      .then(([d, p, r, base]) => { setDeptos(d); setProcesos(p); setRecursos(r); setEtapaMeta(base?.etapaObjetivo ?? null); })
+    Promise.all([listarDepartamentos(proyectoId), listarProcesos(proyectoId), listarRecursosProyecto(proyectoId), obtenerProyectoBase(proyectoId), listarRecursos(proyectoId)])
+      .then(([d, p, r, base, cat]) => { setDeptos(d); setProcesos(p); setRecursos(r); setEtapaMeta(base?.etapaObjetivo ?? null); setCatalogo(cat); })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
@@ -98,6 +103,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const proc = procesos.find((p) => p.id === selProc) ?? null;
   const depto = deptos.find((d) => d.id === selDepto) ?? null;
   const compartidos = recursosCompartidos(deptos);
+  const idxRec = indiceRecursos(catalogo);
   // NIVEL actual: solo los procesos hijos del paso en el que estamos (null = raíz).
   const procesosNivel = procesosDeNivel(procesos, nivel);
   const subCount = contarSubprocesos(procesos);   // nº de subprocesos por paso (badge ⤵)
@@ -226,6 +232,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
     if (vista === 'espacios') return p.espacios.length ? p.espacios.map((e) => e.nombre + (e.horario ? ` (${e.horario})` : '')).join(' · ') : 'sin espacio';
     if (vista === 'herramientas') return p.herramientas.length ? p.herramientas.join(' · ') : 'sin herramientas';
     if (vista === 'tiempos') return p.tiempoMin ? `${p.tiempoEstimado ? '~' : ''}${p.tiempoMin} min` : 'sin tiempo';
+    if (vista === 'costos') { const c = costearProceso(p.insumos, p.cantidades, idxRec); return p.insumos.length ? (c.total ? formatoMoneda(c.total) + (c.sinCosto.length ? ' +?' : '') : 'sin costo') : ''; }
     return p.descripcion ? p.descripcion.slice(0, 50) : '';
   }
 
@@ -342,6 +349,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
       </div>
 
       {msg && <p style={{ fontSize: 12, color: '#2b5a97', margin: '0 0 0.4rem' }}>{msg}</p>}
+      {catalogo.length > 0 && (() => { const t = vigentes.reduce((s, p) => s + costearProceso(p.insumos, p.cantidades, idxRec).total, 0); return t > 0 ? <p style={{ fontSize: 12, color: '#6b5320', margin: '0 0 0.4rem', background: '#fdf6e3', border: '1px solid #e0d3b0', borderRadius: 7, padding: '0.3rem 0.55rem' }}>💵 Costo de insumos de esta etapa: <strong>{formatoMoneda(t)}</strong> <span style={{ color: '#999' }}>— enlazado al catálogo 📦 Recursos</span></p> : null; })()}
       {loading && <p style={{ color: '#666' }}>Cargando…</p>}
 
       <div style={{ display: 'grid', gridTemplateColumns: movil || !(proc || depto) ? '1fr' : 'minmax(0, 1fr) 330px', gap: '0.75rem', alignItems: 'start' }}>
@@ -476,7 +484,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
 
         {/* ==== PANEL PROCESO ==== */}
         {proc && (
-          <PanelProceso key={proc.id} proyectoId={proyectoId} proc={proc} procesos={procesosNivel} deptos={deptos} recursos={recursos}
+          <PanelProceso key={proc.id} proyectoId={proyectoId} proc={proc} procesos={procesosNivel} deptos={deptos} recursos={recursos} catalogo={catalogo}
             subprocesos={subCount.get(proc.id) ?? 0}
             onEntrarSubflujo={() => entrarSubflujo(proc)}
             onPatch={(patch) => guardar(proc.id, patch)}
@@ -502,8 +510,8 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
 
 // =================== PANEL: PROCESO ===================
 
-function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, subprocesos, onEntrarSubflujo, onPatch, onRecargarRecursos, onEliminar, onCerrar, onIrSedes }: {
-  proyectoId: string; proc: ProcesoNodo; procesos: ProcesoNodo[]; deptos: Departamento[]; recursos: RecursosProyecto;
+function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, subprocesos, onEntrarSubflujo, onPatch, onRecargarRecursos, onEliminar, onCerrar, onIrSedes }: {
+  proyectoId: string; proc: ProcesoNodo; procesos: ProcesoNodo[]; deptos: Departamento[]; recursos: RecursosProyecto; catalogo: Recurso[];
   subprocesos: number; onEntrarSubflujo: () => void;
   onPatch: (p: PatchProceso) => void; onRecargarRecursos: () => void;
   onEliminar: () => Promise<void>; onCerrar: () => void; onIrSedes: () => void;
@@ -681,9 +689,29 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, subproceso
         </div>
       ))}
       <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
-        <input style={{ ...inp, flex: 1 }} placeholder="gasas, solución salina…" value={nuevoInsumo} onChange={(e) => setNuevoInsumo(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addInsumo(); }} />
+        <input style={{ ...inp, flex: 1 }} list={`ins-${proc.id}`} placeholder="gasas, guantes… (del catálogo)" value={nuevoInsumo} onChange={(e) => setNuevoInsumo(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addInsumo(); }} />
+        <datalist id={`ins-${proc.id}`}>{catalogo.filter((r) => r.categoria === 'insumo' || r.categoria === 'material').map((r) => <option key={r.id} value={r.nombre} />)}</datalist>
         <button style={btnSm} disabled={!nuevoInsumo.trim()} onClick={addInsumo}>＋</button>
       </div>
+
+      {/* COSTEO: enlaza los insumos con el catálogo 📦 Recursos y suma el costo del proceso */}
+      {proc.insumos.length > 0 && (() => {
+        const c = costearProceso(proc.insumos, proc.cantidades, indiceRecursos(catalogo));
+        return (
+          <div style={{ marginTop: 6, background: '#fdf6e3', border: '1px solid #e0d3b0', borderRadius: 8, padding: '0.4rem 0.55rem', fontSize: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#6b5320' }}>
+              <span>💵 Costo de insumos</span><span>{formatoMoneda(c.total)}</span>
+            </div>
+            {c.lineas.map((l) => (
+              <div key={l.insumo} style={{ display: 'flex', justifyContent: 'space-between', color: l.subtotal !== null ? '#555' : '#c60' }}>
+                <span>{l.insumo} <span style={{ color: '#999' }}>×{l.cantidad ?? 1}</span></span>
+                <span>{l.subtotal !== null ? formatoMoneda(l.subtotal) : (l.enCatalogo ? 'sin costo' : 'no está en catálogo')}</span>
+              </div>
+            ))}
+            {c.sinCosto.length > 0 && <p style={{ margin: '3px 0 0', color: '#a5813f', fontSize: 11 }}>Da de alta en 📦 Recursos (mismo nombre para que enlace): {c.sinCosto.join(', ')}.</p>}
+          </div>
+        );
+      })()}
 
       {/* ESPACIOS */}
       <label style={lbl}>📐 Espacios (del plano/render) — compartibles por horario</label>

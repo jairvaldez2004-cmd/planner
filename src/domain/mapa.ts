@@ -134,7 +134,7 @@ export function procesosDeEtapa(procesos: ProcesoNodo[], etapa: EtapaObjetivo): 
 }
 
 // LENTES del mapa: misma data, distinta vista (patrón de las 6 lentes de Espacios).
-export type VistaMapa = 'general' | 'instructivo' | 'roles' | 'espacios' | 'herramientas' | 'tiempos';
+export type VistaMapa = 'general' | 'instructivo' | 'roles' | 'espacios' | 'herramientas' | 'tiempos' | 'costos';
 
 export const VISTAS_MAPA: { id: VistaMapa; label: string }[] = [
   { id: 'general', label: '🗺️ General' },
@@ -143,6 +143,7 @@ export const VISTAS_MAPA: { id: VistaMapa; label: string }[] = [
   { id: 'espacios', label: '📐 Espacios' },
   { id: 'herramientas', label: '🔧 Herramientas' },
   { id: 'tiempos', label: '⏱️ Tiempos' },
+  { id: 'costos', label: '💵 Costos' },
 ];
 
 // Paleta de carriles (se asigna cíclicamente al crear departamentos).

@@ -313,6 +313,25 @@ async function main() {
   await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: 'recursos' } }, create: { proyectoId: PID, tablaRef: 'recursos', filas: J(RECURSOS), actualizadoEn: now() }, update: { filas: J(RECURSOS), actualizadoEn: now() } });
   console.log(`✅ Catálogo: ${RECURSOS.length} recursos, ${PROVEEDORES.length} proveedores.`);
 
+  // 8) Insumos por proceso (con cantidad) enlazados al catálogo → costeo automático.
+  const INSUMOS_PROC: Record<string, { insumos: string[]; cantidades: Record<string, string> }> = {
+    'PROC-mrufyzuh-p0829': { insumos: ['Aguja estéril 16G', 'Joyería de titanio', 'Gasas estériles'], cantidades: { 'Aguja estéril 16G': '1 pza', 'Joyería de titanio': '1 pza', 'Gasas estériles': '2 pzas' } }, // Perforación
+    'PROC-mrufyz9n-0qn42': { insumos: ['Gasas estériles'], cantidades: { 'Gasas estériles': '2 pzas' } }, // Asepsia
+    'PROC-mrufz0gb-4ppz7': { insumos: ['Joyería de titanio'], cantidades: { 'Joyería de titanio': '1 pza' } }, // Colocar joyería inicial
+    'PROC-mrufyvjy-8wry6': { insumos: ['Guantes de nitrilo', 'Gasas estériles'], cantidades: { 'Guantes de nitrilo': '1 caja', 'Gasas estériles': '3 pzas' } }, // Preparar cabina
+    'PROC-mrufz1pt-djykd': { insumos: ['Gasas estériles'], cantidades: { 'Gasas estériles': '2 pzas' } }, // Limpieza y esterilización
+    'PROC-mrufz134-u4ckv': { insumos: ['Gasas estériles'], cantidades: { 'Gasas estériles': '1 pza' } }, // Indicaciones de cuidado
+  };
+  let costeados = 0;
+  for (const [pid, v] of Object.entries(INSUMOS_PROC)) {
+    const pr = await prisma.proceso.findUnique({ where: { id: pid } });
+    if (!pr) continue;
+    const dd = (pr.data as Record<string, unknown>) ?? {};
+    await prisma.proceso.update({ where: { id: pid }, data: { data: J({ ...dd, insumos: v.insumos, cantidades: v.cantidades }) } });
+    costeados++;
+  }
+  console.log(`✅ Insumos con cantidad enlazados al catálogo en ${costeados} procesos (costeo automático).`);
+
   console.log('\n🎉 Altercing Studio llenado. Recarga la app.');
 }
 

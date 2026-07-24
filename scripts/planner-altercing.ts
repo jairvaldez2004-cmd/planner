@@ -22,6 +22,7 @@ import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInter
 import { costosDeRecursos, componentesDeEquipo, proveedoresATabla } from '@/domain/proyeccion';
 import { recursoVacio, proveedorVacio, numero, subtotalRecurso } from '@/domain/recursos';
 import type { Recurso } from '@/domain/recursos';
+import { indiceRecursos, costearProceso } from '@/domain/costeo';
 
 let ok = 0, fail = 0;
 const fails: string[] = [];
@@ -266,6 +267,12 @@ const comps = componentesDeEquipo([recAguja, recAuto]);
 check('Solo el EQUIPO va a componentes (TEC): 1', comps.length === 1 && comps[0]!['componente'] === 'Autoclave');
 const provs = proveedoresATabla([{ ...proveedorVacio('p1'), nombre: 'Insumos Médicos SA', tipo: 'insumos', contacto: 'ventas@im.mx' }]);
 check('Proveedores → tabla de COM', provs.length === 1 && provs[0]!['proveedor'] === 'Insumos Médicos SA');
+
+// Costeo de proceso: enlaza insumos del mapa con el catálogo por nombre.
+const idxCost = indiceRecursos([recAguja]); // Aguja estéril 16G · $8
+const cp = costearProceso(['Aguja estéril 16G', 'Marcador quirúrgico'], { 'Aguja estéril 16G': '3 pzas' }, idxCost);
+check('Costea el proceso: 3 × $8 = $24', cp.total === 24);
+check('Marca los insumos sin costo en catálogo', cp.sinCosto.includes('Marcador quirúrgico'));
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado
