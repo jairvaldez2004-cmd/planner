@@ -11,9 +11,9 @@ import { listarEmpleados, guardarEmpleado, eliminarEmpleado } from '@/app/action
 import { listarDepartamentos, listarProcesos } from '@/app/actions/mapa.actions';
 import { ESTADOS_EMPLEADO, estadoEmpleado, empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
-import { flujoDePersona, flujoDeRol, indiceRoles, rolesConocidos } from '@/domain/flujo-persona';
+import { flujoDePersona, flujoDeRol, indiceRoles, rolesConocidos, quienesHacen } from '@/domain/flujo-persona';
 import type { PasoFlujoPersona } from '@/domain/flujo-persona';
-import { FASES_MAPA } from '@/domain/mapa';
+import { FASES_MAPA, ordenFaseMapa } from '@/domain/mapa';
 import type { ProcesoNodo } from '@/domain/mapa';
 import { useEsMovil } from './use-movil';
 
@@ -118,7 +118,7 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
                 <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{e.nombre || '(sin nombre)'}</div>
                 <div style={{ fontSize: 12, color: '#555' }}>{e.puesto || '— sin puesto —'}</div>
                 <div style={{ fontSize: 11, color: '#888', marginTop: 2, display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {e.departamento && <span style={{ color: '#8a4fbf' }}>{e.departamento}</span>}
+                  {e.externo ? <span style={{ color: '#b5651d' }}>🏢 {e.proveedor || 'externo'}</span> : (e.departamento && <span style={{ color: '#8a4fbf' }}>{e.departamento}</span>)}
                   <span style={{ background: est.color, color: '#fff', borderRadius: 8, padding: '0 6px', fontSize: 10 }}>{est.label}</span>
                 </div>
               </div>
@@ -159,6 +159,22 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
               {se.departamento && !depts.includes(se.departamento) && <option value={se.departamento}>{se.departamento}</option>}
             </select>
             <p style={{ fontSize: 10, color: '#999', margin: '2px 0 0' }}>Los departamentos vienen del Mapa Operativo.</p>
+
+            {/* TERCERIZACIÓN: el rol lo ejecuta un tercero (Girly Zone hacia arriba u otra empresa) */}
+            <label style={{ fontSize: 12, color: '#8a5a1f', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.6rem' }}>
+              <input type="checkbox" checked={se.externo} onChange={(ev) => void patch({ externo: ev.target.checked })} /> 🏢 Tercerizado (lo hace Girly Zone u otra empresa)
+            </label>
+            {se.externo && (
+              <div style={{ background: '#fff7ee', border: '1px solid #ecd9a0', borderRadius: 8, padding: '0.4rem 0.55rem', marginTop: 4 }}>
+                <label style={lbl}>Proveedor (quién lo ejecuta)</label>
+                <input style={inp} defaultValue={se.proveedor} key={`prov-${se.id}`} placeholder="ej. Girly Zone · Despacho contable X" onBlur={(ev) => void patch({ proveedor: ev.target.value })} />
+                <label style={lbl}>➡️ Qué le entregamos (datos de salida)</label>
+                <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={se.entregamos} key={`ent-${se.id}`} placeholder="facturas del mes, accesos, información…" onBlur={(ev) => void patch({ entregamos: ev.target.value })} />
+                <label style={lbl}>⬅️ Qué recibimos a cambio</label>
+                <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={se.recibimos} key={`rec-${se.id}`} placeholder="declaración, reporte, servicio terminado…" onBlur={(ev) => void patch({ recibimos: ev.target.value })} />
+                <p style={{ fontSize: 10, color: '#a5813f', margin: '3px 0 0' }}>Define el flujo con el tercero: lo que sale de nosotros ↔ lo que recibimos.</p>
+              </div>
+            )}
 
             <TagField label="👤 Roles que desempeña" valores={se.roles} onChange={(v) => void patch({ roles: v })} placeholder="busca o crea un rol…" opciones={rolesNombres} />
             <TagField label="🛠️ Procesos que ejecuta" valores={se.procesos} onChange={(v) => void patch({ procesos: v })} placeholder="proceso del mapa…" opciones={procs} />
@@ -212,10 +228,10 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
 }
 
 // ===== Lista de pasos del flujo (compartida por persona y por rol) =====
-function FlujoLista({ pasos, yo }: { pasos: PasoFlujoPersona[]; yo?: string }) {
+function FlujoLista({ pasos, yo, externos }: { pasos: PasoFlujoPersona[]; yo?: string | undefined; externos?: Set<string> }) {
   const faseLabel = (f: string) => (FASES_MAPA.find((x) => x.id === f)?.label ?? f).split(' · ')[0];
   const quienTxt = (quien: string[], depto: string) =>
-    quien.length ? quien.map((n) => (yo && n === yo) ? `${n} (tú)` : n).join(', ') : `sin responsable · ${depto}`;
+    quien.length ? quien.map((n) => externos?.has(n) ? `🏢 ${n} (externo)` : ((yo && n === yo) ? `${n} (tú)` : n)).join(', ') : `sin responsable · ${depto}`;
   const linea: CSSProperties = { fontSize: 12, padding: '0.15rem 0.5rem', borderRadius: 6, margin: '2px 0' };
   return (
     <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
@@ -248,6 +264,96 @@ function FlujoLista({ pasos, yo }: { pasos: PasoFlujoPersona[]; yo?: string }) {
   );
 }
 
+// ===== LIENZO n8n del flujo (nodos + flechas con disparadores) =====
+function FlujoCanvas({ pasos, procesos, empleados, nombreDepto, yo }: {
+  pasos: PasoFlujoPersona[]; procesos: ProcesoNodo[]; empleados: Empleado[]; nombreDepto: (id: string) => string; yo?: string | undefined;
+}) {
+  const top = procesos.filter((p) => !p.padreProcesoId);
+  const byId = new Map(top.map((p) => [p.id, p]));
+  const own = new Set(pasos.map((p) => p.id));
+  const externos = new Set(empleados.filter((e) => e.externo).map((e) => e.nombre));
+
+  const ids = new Set<string>(pasos.map((p) => p.id));
+  for (const p of pasos) { p.recibeDe.forEach((d) => ids.add(d.procesoId)); p.entregaA.forEach((d) => ids.add(d.procesoId)); }
+  const nodos = Array.from(ids).map((id) => {
+    const pr = byId.get(id);
+    return { id, nombre: pr?.nombre ?? id, fase: pr?.fase ?? 'durante', orden: pr?.orden ?? 0, depto: pr ? nombreDepto(pr.departamentoId) : '', quien: pr ? quienesHacen(pr, empleados) : [], propio: own.has(id) };
+  }).sort((a, b) => ordenFaseMapa(a.fase) - ordenFaseMapa(b.fase) || a.orden - b.orden);
+
+  const W = 190, H = 78, GAPX = 66, X0 = 16, LANEY = 160;
+  const pos = new Map<string, { x: number; y: number; col: number }>();
+  nodos.forEach((n, i) => pos.set(n.id, { x: X0 + i * (W + GAPX), y: LANEY, col: i }));
+
+  const edges: { from: string; to: string; label: string }[] = [];
+  const seen = new Set<string>();
+  const push = (from: string, to: string, label: string) => { const k = `${from}|${to}|${label}`; if (!seen.has(k) && pos.has(from) && pos.has(to)) { seen.add(k); edges.push({ from, to, label }); } };
+  for (const p of pasos) { p.recibeDe.forEach((d) => push(d.procesoId, p.id, d.evento)); p.entregaA.forEach((d) => push(p.id, d.procesoId, d.evento)); }
+
+  const width = Math.max(600, X0 * 2 + nodos.length * (W + GAPX));
+  const height = 300;
+  const quienStr = (quien: string[]) => quien.length ? quien.map((n) => externos.has(n) ? `${n} (ext)` : (yo && n === yo ? `${n} (tú)` : n)).join(', ') : '—';
+
+  return (
+    <div style={{ overflowX: 'auto', border: '1px solid #e2ddea', borderRadius: 10, background: '#fcfcfd', backgroundImage: 'radial-gradient(#e6e8ee 1px, transparent 1px)', backgroundSize: '22px 22px' }}>
+      <div style={{ position: 'relative', width, height }}>
+        <svg width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+          <defs><marker id="fa-p" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a8" /></marker></defs>
+          {edges.map((e, idx) => {
+            const a = pos.get(e.from)!, b = pos.get(e.to)!;
+            const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x, y2 = b.y + H / 2;
+            const dist = Math.abs(b.col - a.col);
+            const cy = LANEY - Math.min(130, 26 + dist * 20);
+            const path = `M ${x1} ${y1} C ${x1 + 40} ${cy}, ${x2 - 40} ${cy}, ${x2} ${y2}`;
+            const mx = (x1 + x2) / 2, my = cy + 6;
+            return (
+              <g key={idx}>
+                <path d={path} fill="none" stroke="#8a93a8" strokeWidth={1.5} markerEnd="url(#fa-p)" />
+                {e.label && <>
+                  <rect x={mx - (e.label.length * 3.1 + 6)} y={my - 9} width={e.label.length * 6.2 + 12} height={16} rx={8} fill="#fff" stroke="#d5d9e2" />
+                  <text x={mx} y={my + 3} textAnchor="middle" fontSize={10} fill="#7a4fbf">{e.label}</text>
+                </>}
+              </g>
+            );
+          })}
+        </svg>
+        {nodos.map((n) => {
+          const p = pos.get(n.id)!;
+          const ext = n.quien.some((q) => externos.has(q));
+          const bc = n.propio ? '#8a4fbf' : (ext ? '#c97a3b' : '#c9cfdd');
+          return (
+            <div key={n.id} title={`${n.nombre}\n${n.depto}\n${n.propio ? 'suyo' : 'de otro'}: ${quienStr(n.quien)}`}
+              style={{ position: 'absolute', left: p.x, top: p.y, width: W, height: H, border: `2px solid ${bc}`, borderRadius: 10, background: n.propio ? '#faf7ff' : '#fff', padding: '0.35rem 0.5rem', boxSizing: 'border-box', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+              <div style={{ fontWeight: 'bold', fontSize: 12, lineHeight: 1.15, maxHeight: 28, overflow: 'hidden' }}>{n.nombre}</div>
+              <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{n.depto}</div>
+              <div style={{ fontSize: 10, color: ext ? '#b5651d' : '#555', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ext ? '🏢 ' : '👤 '}{quienStr(n.quien)}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Vista de flujo con toggle Grafo/Lista (compartida por persona y rol).
+function FlujoVista({ pasos, procesos, empleados, nombreDepto, yo }: {
+  pasos: PasoFlujoPersona[]; procesos: ProcesoNodo[]; empleados: Empleado[]; nombreDepto: (id: string) => string; yo?: string | undefined;
+}) {
+  const [modo, setModo] = useState<'grafo' | 'lista'>('grafo');
+  const externos = new Set(empleados.filter((e) => e.externo).map((e) => e.nombre));
+  return (
+    <>
+      <div style={{ display: 'flex', gap: '0.4rem', margin: '0 0 0.6rem' }}>
+        {([['grafo', '🕸 Grafo'], ['lista', '☰ Lista']] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setModo(id)} style={{ ...btnSm, background: modo === id ? '#5b6b8c' : '#fff', color: modo === id ? '#fff' : '#333', borderColor: modo === id ? '#5b6b8c' : '#bbb' }}>{label}</button>
+        ))}
+      </div>
+      {modo === 'grafo'
+        ? <FlujoCanvas pasos={pasos} procesos={procesos} empleados={empleados} nombreDepto={nombreDepto} yo={yo} />
+        : <FlujoLista pasos={pasos} yo={yo} externos={externos} />}
+    </>
+  );
+}
+
 // ===== FLUJO DE UNA PERSONA =====
 function FlujoPersona({ emp, procesos, empleados, nombreDepto, onVolver }: {
   emp: Empleado; procesos: ProcesoNodo[]; empleados: Empleado[]; nombreDepto: (id: string) => string; onVolver: () => void;
@@ -266,7 +372,7 @@ function FlujoPersona({ emp, procesos, empleados, nombreDepto, onVolver }: {
       </div>
       {pasos.length === 0
         ? <p style={{ color: '#999', fontSize: 13 }}>No tiene procesos asignados. Dale <strong>roles</strong> que coincidan con los del Mapa o asígnale procesos por nombre.</p>
-        : <FlujoLista pasos={pasos} yo={emp.nombre} />}
+        : <FlujoVista pasos={pasos} procesos={procesos} empleados={empleados} nombreDepto={nombreDepto} yo={emp.nombre} />}
     </section>
   );
 }
@@ -276,7 +382,7 @@ function FlujoRol({ rol, procesos, empleados, nombreDepto, onVolver }: {
   rol: string; procesos: ProcesoNodo[]; empleados: Empleado[]; nombreDepto: (id: string) => string; onVolver: () => void;
 }) {
   const pasos = flujoDeRol(rol, procesos, empleados, nombreDepto);
-  const quienes = empleados.filter((e) => e.roles.some((r) => r.toLowerCase() === rol.toLowerCase())).map((e) => e.nombre).filter(Boolean);
+  const quienes = empleados.filter((e) => e.roles.some((r) => r.toLowerCase() === rol.toLowerCase()));
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -284,11 +390,11 @@ function FlujoRol({ rol, procesos, empleados, nombreDepto, onVolver }: {
         <button style={btn} onClick={onVolver}>← Roles</button>
       </div>
       <div style={{ fontSize: 12, color: '#666', margin: '0.4rem 0 0.7rem' }}>
-        {pasos.length} procesos · lo desempeñan: {quienes.length ? <strong>{quienes.join(', ')}</strong> : <span style={{ color: '#a60' }}>nadie aún (rol vacante)</span>}
+        {pasos.length} procesos · lo desempeñan: {quienes.length ? <strong>{quienes.map((q) => q.externo ? `🏢 ${q.nombre} (externo)` : q.nombre).join(', ')}</strong> : <span style={{ color: '#a60' }}>nadie aún (rol vacante — tercerízalo o asígnalo)</span>}
       </div>
       {pasos.length === 0
         ? <p style={{ color: '#999', fontSize: 13 }}>Ningún proceso del Mapa usa este rol todavía.</p>
-        : <FlujoLista pasos={pasos} />}
+        : <FlujoVista pasos={pasos} procesos={procesos} empleados={empleados} nombreDepto={nombreDepto} />}
     </section>
   );
 }

@@ -232,6 +232,12 @@ const idx = indiceRoles(procsFlujo, equipo);
 check('indiceRoles lista Recepcionista y Perforador', idx.some((r) => r.rol === 'Recepcionista') && idx.some((r) => r.rol === 'Perforador'));
 check('indiceRoles cuenta procesos y personas por rol', (idx.find((r) => r.rol === 'Perforador')?.procesos ?? 0) === 1 && (idx.find((r) => r.rol === 'Recepcionista')?.personas ?? 0) === 1);
 
+// Tercerización: un externo (Girly Zone) con el rol cuenta como quien lo ejecuta.
+const contadorExt = { ...empleadoVacio('c'), nombre: 'Girly Zone', roles: ['Contador'], externo: true, proveedor: 'Girly Zone' };
+const procConta = pr('conta', 'Contabilizar ingresos', ['Contador'], []);
+check('Un rol tercerizado (externo) cuenta como quien lo hace', personaHaceProceso(contadorExt, procConta));
+check('El externo trae su proveedor', contadorExt.externo && contadorExt.proveedor === 'Girly Zone');
+
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado
 // ============================================================

@@ -41,11 +41,18 @@ export interface Empleado {
   direccion: string;
   nacimiento: string;        // fecha de nacimiento
   emergencia: string;        // contacto de emergencia
+  // TERCERIZACIÓN: si este "quién" no es interno sino un tercero (Girly Zone hacia arriba,
+  // o una empresa externa) que ejecuta el rol. El flujo se define por lo que entregamos y
+  // lo que recibimos a cambio.
+  externo: boolean;
+  proveedor: string;         // quién lo ejecuta (ej. "Girly Zone", "Despacho contable X")
+  entregamos: string;        // datos/insumos de SALIDA que le damos
+  recibimos: string;         // lo que recibimos a cambio
 }
 
 // Empleado vacío para el formulario de alta.
 export function empleadoVacio(id: string): Empleado {
-  return { id, nombre: '', puesto: '', departamento: '', estado: 'candidato', roles: [], procesos: [], responsabilidades: '', competencias: [], nomina: '', kpis: '', notas: '', email: '', telefono: '', rfc: '', curp: '', nss: '', direccion: '', nacimiento: '', emergencia: '' };
+  return { id, nombre: '', puesto: '', departamento: '', estado: 'candidato', roles: [], procesos: [], responsabilidades: '', competencias: [], nomina: '', kpis: '', notas: '', email: '', telefono: '', rfc: '', curp: '', nss: '', direccion: '', nacimiento: '', emergencia: '', externo: false, proveedor: '', entregamos: '', recibimos: '' };
 }
 
 // Normaliza una fila JSON cualquiera a un Empleado (retrocompatible/defensivo).
@@ -61,5 +68,6 @@ export function normalizarEmpleado(v: unknown): Empleado {
     competencias: a(d.competencias), nomina: s(d.nomina), kpis: s(d.kpis), notas: s(d.notas),
     email: s(d.email), telefono: s(d.telefono), rfc: s(d.rfc), curp: s(d.curp), nss: s(d.nss),
     direccion: s(d.direccion), nacimiento: s(d.nacimiento), emergencia: s(d.emergencia),
+    externo: d.externo === true, proveedor: s(d.proveedor), entregamos: s(d.entregamos), recibimos: s(d.recibimos),
   };
 }
