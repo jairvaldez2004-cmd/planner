@@ -5,13 +5,13 @@
 // competencias; desde aquí alimenta el plano RH (puestos) y ORG/OPE (roles). Los
 // departamentos y procesos vienen del Mapa Operativo (no se re-teclean).
 
-import { useEffect, useState } from 'react';
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties, PointerEvent as RPointerEvent } from 'react';
 import { listarEmpleados, guardarEmpleado, eliminarEmpleado } from '@/app/actions/rh.actions';
 import { listarDepartamentos, listarProcesos } from '@/app/actions/mapa.actions';
 import { ESTADOS_EMPLEADO, estadoEmpleado, empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
-import { flujoDePersona, flujoDeRol, indiceRoles, rolesConocidos, quienesHacen, flujoInterEmpresa } from '@/domain/flujo-persona';
+import { flujoDePersona, flujoDeRol, indiceRoles, rolesConocidos, quienesHacen, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
 import type { PasoFlujoPersona, ProveedorFlujo } from '@/domain/flujo-persona';
 import { FASES_MAPA, ordenFaseMapa } from '@/domain/mapa';
 import type { ProcesoNodo } from '@/domain/mapa';
@@ -267,72 +267,130 @@ function FlujoLista({ pasos, yo, externos }: { pasos: PasoFlujoPersona[]; yo?: s
   );
 }
 
-// ===== LIENZO n8n del flujo (nodos + flechas con disparadores) =====
+// ===== LIENZO n8n INTERACTIVO (arrastrar · clic para detalle · entrar al subflujo) =====
 function FlujoCanvas({ pasos, procesos, empleados, nombreDepto, yo }: {
   pasos: PasoFlujoPersona[]; procesos: ProcesoNodo[]; empleados: Empleado[]; nombreDepto: (id: string) => string; yo?: string | undefined;
 }) {
-  const top = procesos.filter((p) => !p.padreProcesoId);
-  const byId = new Map(top.map((p) => [p.id, p]));
-  const own = new Set(pasos.map((p) => p.id));
-  const externos = new Set(empleados.filter((e) => e.externo).map((e) => e.nombre));
+  const [sel, setSel] = useState<string | null>(null);
+  const [sub, setSub] = useState<{ id: string; nombre: string }[]>([]);
+  const [dragPos, setDragPos] = useState<Record<string, { x: number; y: number }>>({});
+  const dragRef = useRef<{ id: string; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null);
 
-  const ids = new Set<string>(pasos.map((p) => p.id));
-  for (const p of pasos) { p.recibeDe.forEach((d) => ids.add(d.procesoId)); p.entregaA.forEach((d) => ids.add(d.procesoId)); }
+  const byId = new Map(procesos.map((p) => [p.id, p]));
+  const externos = new Set(empleados.filter((e) => e.externo).map((e) => e.nombre));
+  const childCount = (id: string) => procesos.filter((p) => p.padreProcesoId === id).length;
+
+  const nivel = sub[sub.length - 1];
+  const pasosActual = nivel ? flujoDeSubprocesos(nivel.id, procesos, empleados, nombreDepto) : pasos;
+  const own = new Set(pasosActual.map((p) => p.id));
+
+  const ids = new Set<string>(pasosActual.map((p) => p.id));
+  for (const p of pasosActual) { p.recibeDe.forEach((d) => ids.add(d.procesoId)); p.entregaA.forEach((d) => ids.add(d.procesoId)); }
   const nodos = Array.from(ids).map((id) => {
     const pr = byId.get(id);
-    return { id, nombre: pr?.nombre ?? id, fase: pr?.fase ?? 'durante', orden: pr?.orden ?? 0, depto: pr ? nombreDepto(pr.departamentoId) : '', quien: pr ? quienesHacen(pr, empleados) : [], propio: own.has(id) };
+    return { id, nombre: pr?.nombre ?? id, fase: pr?.fase ?? 'durante', orden: pr?.orden ?? 0, depto: pr ? nombreDepto(pr.departamentoId) : '', quien: pr ? quienesHacen(pr, empleados) : [], propio: own.has(id), hijos: childCount(id) };
   }).sort((a, b) => ordenFaseMapa(a.fase) - ordenFaseMapa(b.fase) || a.orden - b.orden);
 
-  const W = 190, H = 78, GAPX = 66, X0 = 16, LANEY = 160;
-  const pos = new Map<string, { x: number; y: number; col: number }>();
-  nodos.forEach((n, i) => pos.set(n.id, { x: X0 + i * (W + GAPX), y: LANEY, col: i }));
+  const W = 190, H = 82, GAPX = 66, X0 = 16, LANEY = 170;
+  const base = new Map<string, { x: number; y: number; col: number }>();
+  nodos.forEach((n, i) => base.set(n.id, { x: X0 + i * (W + GAPX), y: LANEY, col: i }));
+  const pos = (id: string) => { const b = base.get(id)!; const d = dragPos[id]; return { x: d ? d.x : b.x, y: d ? d.y : b.y, col: b.col }; };
 
   const edges: { from: string; to: string; label: string }[] = [];
   const seen = new Set<string>();
-  const push = (from: string, to: string, label: string) => { const k = `${from}|${to}|${label}`; if (!seen.has(k) && pos.has(from) && pos.has(to)) { seen.add(k); edges.push({ from, to, label }); } };
-  for (const p of pasos) { p.recibeDe.forEach((d) => push(d.procesoId, p.id, d.evento)); p.entregaA.forEach((d) => push(p.id, d.procesoId, d.evento)); }
+  const push = (from: string, to: string, label: string) => { const k = `${from}|${to}|${label}`; if (!seen.has(k) && base.has(from) && base.has(to)) { seen.add(k); edges.push({ from, to, label }); } };
+  for (const p of pasosActual) { p.recibeDe.forEach((d) => push(d.procesoId, p.id, d.evento)); p.entregaA.forEach((d) => push(p.id, d.procesoId, d.evento)); }
 
   const width = Math.max(600, X0 * 2 + nodos.length * (W + GAPX));
-  const height = 300;
+  const height = 360;
   const quienStr = (quien: string[]) => quien.length ? quien.map((n) => externos.has(n) ? `${n} (ext)` : (yo && n === yo ? `${n} (tú)` : n)).join(', ') : '—';
 
+  function onDown(e: RPointerEvent<HTMLDivElement>, id: string) {
+    const t = e.target as HTMLElement; if (t.closest('button')) return;
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    const p = pos(id);
+    dragRef.current = { id, sx: e.clientX, sy: e.clientY, ox: p.x, oy: p.y, moved: false };
+  }
+  function onMove(e: RPointerEvent<HTMLDivElement>) {
+    const d = dragRef.current; if (!d) return;
+    const dx = e.clientX - d.sx, dy = e.clientY - d.sy;
+    if (!d.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+    d.moved = true;
+    setDragPos((m) => ({ ...m, [d.id]: { x: Math.max(0, d.ox + dx), y: Math.max(0, d.oy + dy) } }));
+  }
+  function onUp(id: string) { const d = dragRef.current; dragRef.current = null; if (d && !d.moved) setSel((s) => s === id ? null : id); }
+  function entrar(id: string, nombre: string) { setSub([...sub, { id, nombre }]); setSel(null); setDragPos({}); }
+
+  const selProc = sel ? byId.get(sel) : undefined;
+  const selNode = nodos.find((n) => n.id === sel);
+
   return (
-    <div style={{ overflowX: 'auto', border: '1px solid #e2ddea', borderRadius: 10, background: '#fcfcfd', backgroundImage: 'radial-gradient(#e6e8ee 1px, transparent 1px)', backgroundSize: '22px 22px' }}>
-      <div style={{ position: 'relative', width, height }}>
-        <svg width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <defs><marker id="fa-p" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a8" /></marker></defs>
-          {edges.map((e, idx) => {
-            const a = pos.get(e.from)!, b = pos.get(e.to)!;
-            const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x, y2 = b.y + H / 2;
-            const dist = Math.abs(b.col - a.col);
-            const cy = LANEY - Math.min(130, 26 + dist * 20);
-            const path = `M ${x1} ${y1} C ${x1 + 40} ${cy}, ${x2 - 40} ${cy}, ${x2} ${y2}`;
-            const mx = (x1 + x2) / 2, my = cy + 6;
+    <div>
+      {sub.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', margin: '0 0 0.5rem', fontSize: 12, background: '#eef4ff', border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.35rem 0.6rem' }}>
+          <span style={{ cursor: 'pointer', color: '#2b5a97' }} onClick={() => { setSub([]); setSel(null); setDragPos({}); }}>🔀 Flujo</span>
+          {sub.map((s, i) => <span key={s.id}><span style={{ color: '#8a93a8' }}> ▸ </span><span style={{ cursor: i < sub.length - 1 ? 'pointer' : 'default', color: i < sub.length - 1 ? '#2b5a97' : '#333', fontWeight: i === sub.length - 1 ? 'bold' : 'normal' }} onClick={() => { if (i < sub.length - 1) { setSub(sub.slice(0, i + 1)); setSel(null); setDragPos({}); } }}>{s.nombre}</span></span>)}
+          <button style={{ ...btnSm, marginLeft: 'auto' }} onClick={() => { setSub(sub.slice(0, -1)); setSel(null); setDragPos({}); }}>← Subir</button>
+        </div>
+      )}
+
+      <div style={{ overflow: 'auto', maxHeight: '62vh', border: '1px solid #e2ddea', borderRadius: 10, background: '#fcfcfd', backgroundImage: 'radial-gradient(#e6e8ee 1px, transparent 1px)', backgroundSize: '22px 22px' }}>
+        <div style={{ position: 'relative', width, height, touchAction: 'none' }}>
+          <svg width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            <defs><marker id="fa-p" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a8" /></marker></defs>
+            {edges.map((e, idx) => {
+              const a = pos(e.from), b = pos(e.to);
+              const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x, y2 = b.y + H / 2;
+              const cy = Math.min(a.y, b.y) - Math.min(120, 26 + Math.abs(b.col - a.col) * 18);
+              const path = `M ${x1} ${y1} C ${x1 + 40} ${cy}, ${x2 - 40} ${cy}, ${x2} ${y2}`;
+              const mx = (x1 + x2) / 2, my = cy + 6;
+              return (
+                <g key={idx}>
+                  <path d={path} fill="none" stroke="#8a93a8" strokeWidth={1.5} markerEnd="url(#fa-p)" />
+                  {e.label && <>
+                    <rect x={mx - (e.label.length * 3.1 + 6)} y={my - 9} width={e.label.length * 6.2 + 12} height={16} rx={8} fill="#fff" stroke="#d5d9e2" />
+                    <text x={mx} y={my + 3} textAnchor="middle" fontSize={10} fill="#7a4fbf">{e.label}</text>
+                  </>}
+                </g>
+              );
+            })}
+          </svg>
+          {nodos.map((n) => {
+            const p = pos(n.id);
+            const ext = n.quien.some((q) => externos.has(q));
+            const bc = sel === n.id ? '#5b6b8c' : (n.propio ? '#8a4fbf' : (ext ? '#c97a3b' : '#c9cfdd'));
             return (
-              <g key={idx}>
-                <path d={path} fill="none" stroke="#8a93a8" strokeWidth={1.5} markerEnd="url(#fa-p)" />
-                {e.label && <>
-                  <rect x={mx - (e.label.length * 3.1 + 6)} y={my - 9} width={e.label.length * 6.2 + 12} height={16} rx={8} fill="#fff" stroke="#d5d9e2" />
-                  <text x={mx} y={my + 3} textAnchor="middle" fontSize={10} fill="#7a4fbf">{e.label}</text>
-                </>}
-              </g>
+              <div key={n.id} onPointerDown={(e) => onDown(e, n.id)} onPointerMove={onMove} onPointerUp={() => onUp(n.id)}
+                style={{ position: 'absolute', left: p.x, top: p.y, width: W, minHeight: H, border: `2px solid ${bc}`, borderRadius: 10, background: n.propio ? '#faf7ff' : '#fff', padding: '0.35rem 0.5rem', boxSizing: 'border-box', boxShadow: sel === n.id ? '0 0 0 2px #5b6b8c33' : '0 1px 3px rgba(0,0,0,0.08)', cursor: 'grab', touchAction: 'none' }}>
+                <div style={{ fontWeight: 'bold', fontSize: 12, lineHeight: 1.15 }}>{n.nombre}</div>
+                <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{n.depto}</div>
+                <div style={{ fontSize: 10, color: ext ? '#b5651d' : '#555', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ext ? '🏢 ' : '👤 '}{quienStr(n.quien)}</div>
+                {n.hijos > 0 && <button style={{ ...btnSm, marginTop: 4, fontSize: 10, padding: '1px 6px', background: '#eef4ff', borderColor: '#cdd8ef', color: '#2b5a97' }} onClick={() => entrar(n.id, n.nombre)}>⤵ subflujo ({n.hijos})</button>}
+              </div>
             );
           })}
-        </svg>
-        {nodos.map((n) => {
-          const p = pos.get(n.id)!;
-          const ext = n.quien.some((q) => externos.has(q));
-          const bc = n.propio ? '#8a4fbf' : (ext ? '#c97a3b' : '#c9cfdd');
-          return (
-            <div key={n.id} title={`${n.nombre}\n${n.depto}\n${n.propio ? 'suyo' : 'de otro'}: ${quienStr(n.quien)}`}
-              style={{ position: 'absolute', left: p.x, top: p.y, width: W, height: H, border: `2px solid ${bc}`, borderRadius: 10, background: n.propio ? '#faf7ff' : '#fff', padding: '0.35rem 0.5rem', boxSizing: 'border-box', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-              <div style={{ fontWeight: 'bold', fontSize: 12, lineHeight: 1.15, maxHeight: 28, overflow: 'hidden' }}>{n.nombre}</div>
-              <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{n.depto}</div>
-              <div style={{ fontSize: 10, color: ext ? '#b5651d' : '#555', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ext ? '🏢 ' : '👤 '}{quienStr(n.quien)}</div>
-            </div>
-          );
-        })}
+        </div>
       </div>
+      <p style={{ fontSize: 11, color: '#999', margin: '0.3rem 0 0' }}>Arrastra los nodos · clic = detalle · <span style={{ color: '#2b5a97' }}>⤵ subflujo</span> entra al flujo interno del paso.</p>
+
+      {selProc && selNode && (
+        <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, background: '#f7f9ff', padding: '0.7rem', marginTop: '0.6rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <strong style={{ fontSize: 14 }}>⚙️ {selProc.nombre}</strong>
+            <button style={btnSm} onClick={() => setSel(null)}>✕</button>
+          </div>
+          <div style={{ fontSize: 12, color: '#555', marginTop: 4, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.2rem 1rem' }}>
+            <div><b>Quién:</b> {quienStr(selNode.quien)}</div>
+            <div><b>Departamento:</b> {selNode.depto}</div>
+            <div><b>Roles:</b> {selProc.roles.join(', ') || '—'}</div>
+            <div><b>Tiempo:</b> {selProc.tiempoMin ? `${selProc.tiempoEstimado ? '~' : ''}${selProc.tiempoMin} min` : '—'}</div>
+            {selProc.entrada ? <div><b>Recibe:</b> {selProc.entrada}</div> : null}
+            {selProc.salida ? <div><b>Produce:</b> {selProc.salida}</div> : null}
+          </div>
+          {selProc.instructivo ? <div style={{ fontSize: 12, color: '#444', marginTop: 5, whiteSpace: 'pre-wrap' }}><b>Instructivo:</b> {selProc.instructivo}</div> : null}
+          {selNode.hijos > 0 && <button style={{ ...btnSm, marginTop: 6, background: '#eef4ff', borderColor: '#cdd8ef', color: '#2b5a97', fontWeight: 'bold' }} onClick={() => entrar(selProc.id, selProc.nombre)}>⤵ Ver subflujo ({selNode.hijos} pasos)</button>}
+        </div>
+      )}
     </div>
   );
 }
@@ -422,10 +480,21 @@ function FlujoInterEmpresa({ negocio, proveedores }: { negocio: string; proveedo
             const q = pos(i, proveedores.length);
             const dx = q.x - cx, dy = q.y - cy, len = Math.hypot(dx, dy) || 1, ox = -dy / len * 9, oy = dx / len * 9;
             const ux = dx / len, uy = dy / len;
+            const evOut = p.entrada[0], evIn = p.salida[0];
+            const outMid = { x: (cx + q.x) / 2 + ox, y: (cy + q.y) / 2 + oy };
+            const inMid = { x: (cx + q.x) / 2 - ox, y: (cy + q.y) / 2 - oy };
+            const etq = (t: string, x: number, y: number, color: string) => (
+              <>
+                <rect x={x - (t.length * 2.9 + 5)} y={y - 8} width={t.length * 5.8 + 10} height={15} rx={7} fill="#fff" stroke={color} />
+                <text x={x} y={y + 3} textAnchor="middle" fontSize={9} fill={color}>{t}</text>
+              </>
+            );
             return (
               <g key={i}>
                 <path d={`M ${cx + ox + ux * 46} ${cy + oy + uy * 46} L ${q.x + ox - ux * 36} ${q.y + oy - uy * 36}`} stroke="#c97a3b" strokeWidth={1.6} fill="none" markerEnd="url(#ie-out)" />
                 <path d={`M ${q.x - ox - ux * 36} ${q.y - oy - uy * 36} L ${cx - ox + ux * 46} ${cy - oy + uy * 46}`} stroke="#2e9e63" strokeWidth={1.6} fill="none" markerEnd="url(#ie-in)" />
+                {evOut && etq(evOut, outMid.x, outMid.y, '#c97a3b')}
+                {evIn && etq(evIn, inMid.x, inMid.y, '#2e9e63')}
               </g>
             );
           })}
@@ -453,6 +522,12 @@ function FlujoInterEmpresa({ negocio, proveedores }: { negocio: string; proveedo
                 <div style={{ fontSize: 12, fontWeight: 'bold', color: '#7a4fbf' }}>{x.rol}</div>
                 <div style={{ fontSize: 12, color: '#b5651d' }}>➡️ Entregamos: <span style={{ color: '#555' }}>{x.entregamos || '—'}</span></div>
                 <div style={{ fontSize: 12, color: '#2e9e63' }}>⬅️ Recibimos: <span style={{ color: '#555' }}>{x.recibimos || '—'}</span></div>
+                {(x.disparaEntrada.length > 0 || x.disparaSalida.length > 0) && (
+                  <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
+                    {x.disparaEntrada.length > 0 && <div>⚡ Se dispara con: «{x.disparaEntrada.join('» · «')}»</div>}
+                    {x.disparaSalida.length > 0 && <div>↳ Al devolver dispara: «{x.disparaSalida.join('» · «')}»</div>}
+                  </div>
+                )}
               </div>
             ))}
           </div>

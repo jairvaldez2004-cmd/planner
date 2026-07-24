@@ -76,6 +76,12 @@ export function flujoDeRol(rol: string, procesos: ProcesoNodo[], empleados: Empl
   return construirFlujo(top.filter((p) => rolHaceProceso(rol, p)), top, empleados, nombreDepto);
 }
 
+// Flujo DENTRO de un paso: sus subprocesos como su propio flujo (para el drill-down).
+export function flujoDeSubprocesos(padreId: string, procesos: ProcesoNodo[], empleados: Empleado[], nombreDepto: (id: string) => string): PasoFlujoPersona[] {
+  const hijos = procesos.filter((p) => p.padreProcesoId === padreId);
+  return construirFlujo(hijos, hijos, empleados, nombreDepto);
+}
+
 // Índice de roles: todos los roles conocidos (de los procesos del Mapa + del roster), con
 // cuántos procesos y cuántas personas los tienen. Para la vista de Roles y el buscador.
 export interface RolResumen { rol: string; procesos: number; personas: number }
@@ -100,8 +106,12 @@ export function rolesConocidos(procesos: ProcesoNodo[], empleados: Empleado[]): 
 // Cada rol marcado como externo define un intercambio con un tercero (Girly Zone hacia
 // arriba u otra empresa): lo que ENTREGAMOS (datos de salida) ↔ lo que RECIBIMOS a cambio.
 // Se agrupan por proveedor para dibujar el grafo empresa ↔ terceros.
-export interface Intercambio { rol: string; procesos: string[]; entregamos: string; recibimos: string }
-export interface ProveedorFlujo { proveedor: string; roles: string[]; procesos: string[]; intercambios: Intercambio[] }
+export interface Intercambio { rol: string; procesos: string[]; entregamos: string; recibimos: string; disparaEntrada: string[]; disparaSalida: string[] }
+// disparaEntrada = eventos que INICIAN el trabajo del tercero (lo que dispara que le entreguemos)
+// disparaSalida  = eventos que produce al DEVOLVER (lo que su resultado dispara en nosotros)
+export interface ProveedorFlujo { proveedor: string; roles: string[]; procesos: string[]; entrada: string[]; salida: string[]; intercambios: Intercambio[] }
+
+function addUniq(arr: string[], v: string) { if (v && !arr.includes(v)) arr.push(v); }
 
 export function flujoInterEmpresa(empleados: Empleado[], procesos: ProcesoNodo[]): ProveedorFlujo[] {
   const top = procesos.filter((p) => !p.padreProcesoId);
@@ -111,12 +121,21 @@ export function flujoInterEmpresa(empleados: Empleado[], procesos: ProcesoNodo[]
     const prov = (e.proveedor || 'Externo').trim();
     const key = prov.toLowerCase();
     let g = map.get(key);
-    if (!g) { g = { proveedor: prov, roles: [], procesos: [], intercambios: [] }; map.set(key, g); }
+    if (!g) { g = { proveedor: prov, roles: [], procesos: [], entrada: [], salida: [], intercambios: [] }; map.set(key, g); }
     const rolesE = e.roles.length ? e.roles : (e.puesto ? [e.puesto] : []);
-    const procs = top.filter((p) => p.roles.some((r) => rolesE.some((re) => re.toLowerCase() === r.toLowerCase()))).map((p) => p.nombre);
+    const procObjs = top.filter((p) => p.roles.some((r) => rolesE.some((re) => re.toLowerCase() === r.toLowerCase())));
+    const idset = new Set(procObjs.map((p) => p.id));
+    const entrada: string[] = [], salida: string[] = [];
+    for (const p of procObjs) {
+      for (const U of top) if (!idset.has(U.id)) for (const r of U.ramas) if (r.destinoProcesoId === p.id) addUniq(entrada, r.evento);
+      for (const r of p.ramas) addUniq(salida, r.evento);
+    }
+    const procs = procObjs.map((p) => p.nombre);
     for (const r of rolesE) if (!g.roles.some((x) => x.toLowerCase() === r.toLowerCase())) g.roles.push(r);
     for (const pn of procs) if (!g.procesos.includes(pn)) g.procesos.push(pn);
-    g.intercambios.push({ rol: e.puesto || rolesE.join(', '), procesos: procs, entregamos: e.entregamos, recibimos: e.recibimos });
+    for (const ev of entrada) addUniq(g.entrada, ev);
+    for (const ev of salida) addUniq(g.salida, ev);
+    g.intercambios.push({ rol: e.puesto || rolesE.join(', '), procesos: procs, entregamos: e.entregamos, recibimos: e.recibimos, disparaEntrada: entrada, disparaSalida: salida });
   }
   return Array.from(map.values());
 }

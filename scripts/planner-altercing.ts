@@ -18,7 +18,7 @@ import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, superficies
 import type { EspacioSrc, ProcesoSrc } from '@/domain/proyeccion';
 import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
-import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa } from '@/domain/flujo-persona';
+import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
 
 let ok = 0, fail = 0;
 const fails: string[] = [];
@@ -243,6 +243,10 @@ const contaFull = { ...contadorExt, entregamos: 'facturas del mes', recibimos: '
 const inter = flujoInterEmpresa([contaFull], [procConta]);
 check('flujoInterEmpresa agrupa 1 proveedor (Girly Zone)', inter.length === 1 && inter[0]!.proveedor === 'Girly Zone');
 check('El intercambio trae entregamos/recibimos y el proceso que hace', inter[0]!.intercambios[0]?.entregamos === 'facturas del mes' && inter[0]!.procesos.includes('Contabilizar ingresos'));
+const procTrig = pr('trig', 'Registrar servicio', ['Administrador'], [{ evento: 'Factura del día', destino: 'conta' }]);
+const inter2 = flujoInterEmpresa([contaFull], [procConta, procTrig]);
+check('El intercambio detecta el disparador de ENTRADA (quién dispara el handoff)', inter2[0]!.entrada.includes('Factura del día'));
+check('flujoDeSubprocesos devuelve los subpasos de un paso', flujoDeSubprocesos('perforacion', conSub, [], (id) => id).length === 3);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado
