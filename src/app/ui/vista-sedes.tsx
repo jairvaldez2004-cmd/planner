@@ -145,6 +145,17 @@ export function VistaSedes({ proyectoId }: { proyectoId: string }) {
               <label>Huella ancho (m)<input style={{ ...inp, width: 80, marginLeft: 4, fontSize: 13 }} type="number" defaultValue={s.footAncho ?? 20} onBlur={(e) => void setFoot(s.id, { footAncho: Number(e.target.value) || 20 })} /></label>
               <label>alto (m)<input style={{ ...inp, width: 80, marginLeft: 4, fontSize: 13 }} type="number" defaultValue={s.footAlto ?? 15} onBlur={(e) => void setFoot(s.id, { footAlto: Number(e.target.value) || 15 })} /></label>
             </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.4rem', fontSize: 12, color: '#666', alignItems: 'center' }}>
+              <label>🏗️ ¿Ya hay instalaciones?
+                <select style={{ ...inp, width: 'auto', marginLeft: 4, fontSize: 13 }} value={s.existe === true ? 'si' : s.existe === false ? 'no' : ''} onChange={(e) => void setFoot(s.id, { existe: e.target.value === 'si' ? true : false })}>
+                  <option value="">— definir —</option>
+                  <option value="si">Sí, ya existe</option>
+                  <option value="no">No, por construir</option>
+                </select>
+              </label>
+              {s.existe === true && <span style={{ color: '#2e7a4d' }}>→ escanéala con LiDAR en <strong>Editor 2D → 🧊 Ver 3D → 🏠 Subir escaneo</strong>; revisa <strong>📐 Reporte</strong>. Alimenta el plano Jurídico.</span>}
+              {s.existe === false && <span style={{ color: '#a67c00' }}>→ diséñala en el Editor 2D o con el Diseñador 3D antes de construir.</span>}
+            </div>
           </div>
         );
       })}

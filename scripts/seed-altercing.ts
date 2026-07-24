@@ -383,6 +383,10 @@ async function main() {
     espActualizados++;
   }
   console.log(`✅ Datos de lente en ${espActualizados} espacios.`);
+  // La sede de Altercing YA existe (opera hoy) → alimenta el flujo de "¿ya hay instalaciones?".
+  const sedes = await prisma.sede.findMany({ where: { proyectoId: PID } });
+  for (const s of sedes) { const sd = (s.data as Record<string, unknown>) ?? {}; await prisma.sede.update({ where: { id: s.id }, data: { data: J({ ...sd, existe: true }) } }); }
+  console.log(`✅ ${sedes.length} sede(s) marcadas como existentes (LiDAR + Jurídico).`);
 
   // 10) Más recursos por proceso (herramientas, equipo, muebles, manuales) en el mapa.
   const AUTOCLAVE_MANUAL = 'Cargar bolsas selladas; ciclo 134 °C / 18 min; registrar. Limpieza de cámara semanal.';

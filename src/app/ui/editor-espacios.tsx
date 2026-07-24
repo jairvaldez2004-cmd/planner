@@ -22,6 +22,7 @@ import type {
 } from '@/domain/espacios';
 import { Vista3D } from './vista-3d';
 import { VistaRenders } from './vista-renders';
+import { VistaReporteMedidas } from './vista-reporte-medidas';
 import { esRectanguloLL } from './huella-geo';
 import type { LL } from './huella-geo';
 import { registrarDeshacer, BotonDeshacer } from './deshacer';
@@ -68,7 +69,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
   const [dragEl, setDragEl] = useState<DragEl>(null);
   const [giro, setGiro] = useState<Giro>(null);
   const [modo, setModo] = useState<Modo>('sel');
-  const [panel, setPanel] = useState<'2d' | '3d' | 'renders'>('2d');
+  const [panel, setPanel] = useState<'2d' | '3d' | 'renders' | 'reporte'>('2d');
   const primeraCarga = useRef(true);
   const [pend, setPend] = useState<Pt | null>(null);
   const [roomPts, setRoomPts] = useState<Pt[]>([]);
@@ -267,6 +268,8 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
             onClick={() => setPanel(panel === '3d' ? '2d' : '3d')} title="Escena 3D con luces y materiales">🧊 {panel === '3d' ? 'Ver 2D' : 'Ver 3D'}</button>
           <button style={{ ...btn, background: panel === 'renders' ? '#33415c' : '#fff', color: panel === 'renders' ? '#fff' : '#333', borderColor: panel === 'renders' ? '#33415c' : '#999', fontWeight: 'bold' }}
             onClick={() => setPanel(panel === 'renders' ? '2d' : 'renders')} title="Sube tu render/plano/foto y únelo al modelo">🖼 Renders</button>
+          <button style={{ ...btn, background: panel === 'reporte' ? '#33415c' : '#fff', color: panel === 'reporte' ? '#fff' : '#333', borderColor: panel === 'reporte' ? '#33415c' : '#999', fontWeight: 'bold' }}
+            onClick={() => setPanel(panel === 'reporte' ? '2d' : 'reporte')} title="Reporte de medidas estilo MAKE.PLAN (áreas, m², muros)">📐 Reporte</button>
           <button style={btn} onClick={onVolver}>← Sedes</button>
         </div>
       </div>
@@ -277,6 +280,9 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
       )}
       {panel === 'renders' && (
         <VistaRenders proyectoId={proyectoId} sedeId={sedeId} espacios={espacios} objetos={objetos} onCerrar={() => setPanel('2d')} />
+      )}
+      {panel === 'reporte' && sede && (
+        <VistaReporteMedidas sedeNombre={sede.nombre} espacios={espacios} objetos={objetos} elementos={elementos} onCerrar={() => setPanel('2d')} />
       )}
       {panel === '2d' && (<>
 

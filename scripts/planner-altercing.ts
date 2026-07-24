@@ -23,6 +23,7 @@ import { costosDeRecursos, componentesDeEquipo, proveedoresATabla } from '@/doma
 import { recursoVacio, proveedorVacio, numero, subtotalRecurso } from '@/domain/recursos';
 import type { Recurso } from '@/domain/recursos';
 import { indiceRecursos, costearProceso } from '@/domain/costeo';
+import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 
 let ok = 0, fail = 0;
 const fails: string[] = [];
@@ -273,6 +274,23 @@ const idxCost = indiceRecursos([recAguja]); // Aguja estéril 16G · $8
 const cp = costearProceso(['Aguja estéril 16G', 'Marcador quirúrgico'], { 'Aguja estéril 16G': '3 pzas' }, idxCost);
 check('Costea el proceso: 3 × $8 = $24', cp.total === 24);
 check('Marca los insumos sin costo en catálogo', cp.sinCosto.includes('Marcador quirúrgico'));
+
+// ============================================================
+// 10) REPORTE DE MEDIDAS estilo MAKE.PLAN (áreas, m², muros)
+// ============================================================
+h('10) Reporte de medidas (áreas por cuarto, m² totales, muros) desde la geometría');
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const esp = (nombre: string, tipo: string, ancho: number, alto: number, capa = 0): any => ({ id: 'e-' + nombre, sedeId: 's', tipo, nombre, capa, x: 0, y: 0, ancho, alto, rot: 0, ucIds: [], data: {} });
+check('Área de un rectángulo (3×4 = 12 m²)', areaEspacio({ ancho: 3, alto: 4 }) === 12);
+check('Área de un polígono (triángulo base 4 alt 3 = 6 m²)', areaEspacio({ ancho: 0, alto: 0, poligono: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 0, y: 3 }] }) === 6);
+const rep = reporteEscaneo(
+  [esp('Cabina', 'area', 3, 4), esp('Baño', 'habitacion', 1.5, 2), esp('Piso', 'capa', 9, 4)],
+  [{ espacioId: 'e-Cabina' } as never],
+  [{ tipo: 'muro', x1: 0, y1: 0, x2: 5, y2: 0 } as never, { tipo: 'puerta', x1: 0, y1: 0, x2: 0.9, y2: 0 } as never],
+);
+check('Reporte: solo áreas/cuartos (2, la "capa" no cuenta)', rep.nCuartos === 2);
+check('Reporte: total = 12 + 3 = 15 m²', rep.totalM2 === 15);
+check('Reporte: muros 5 m de longitud y 1 puerta', rep.muros.longitudTotal === 5 && rep.muros.nPuertas === 1);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado
