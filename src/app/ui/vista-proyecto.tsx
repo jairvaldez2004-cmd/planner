@@ -97,7 +97,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
     <section>
       <button style={btn} onClick={() => { setNodo(null); cargar(); }}>← {nombre || 'Proyecto'}</button>
       <BannerEnriquece superficie="personas" />
-      <div style={{ marginTop: '0.25rem' }}><VistaPersonas proyectoId={proyectoId} /></div>
+      <div style={{ marginTop: '0.25rem' }}><VistaPersonas proyectoId={proyectoId} nombreProyecto={nombre} /></div>
     </section>
   );
   if (nodo?.tipo === 'uc') {

@@ -18,7 +18,7 @@ import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, superficies
 import type { EspacioSrc, ProcesoSrc } from '@/domain/proyeccion';
 import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
-import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles } from '@/domain/flujo-persona';
+import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa } from '@/domain/flujo-persona';
 
 let ok = 0, fail = 0;
 const fails: string[] = [];
@@ -237,6 +237,12 @@ const contadorExt = { ...empleadoVacio('c'), nombre: 'Girly Zone', roles: ['Cont
 const procConta = pr('conta', 'Contabilizar ingresos', ['Contador'], []);
 check('Un rol tercerizado (externo) cuenta como quien lo hace', personaHaceProceso(contadorExt, procConta));
 check('El externo trae su proveedor', contadorExt.externo && contadorExt.proveedor === 'Girly Zone');
+
+// Flujo inter-empresa: agrupa por proveedor con lo que entregamos/recibimos.
+const contaFull = { ...contadorExt, entregamos: 'facturas del mes', recibimos: 'declaración de impuestos' };
+const inter = flujoInterEmpresa([contaFull], [procConta]);
+check('flujoInterEmpresa agrupa 1 proveedor (Girly Zone)', inter.length === 1 && inter[0]!.proveedor === 'Girly Zone');
+check('El intercambio trae entregamos/recibimos y el proceso que hace', inter[0]!.intercambios[0]?.entregamos === 'facturas del mes' && inter[0]!.procesos.includes('Contabilizar ingresos'));
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

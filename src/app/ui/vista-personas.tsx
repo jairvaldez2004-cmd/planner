@@ -11,8 +11,8 @@ import { listarEmpleados, guardarEmpleado, eliminarEmpleado } from '@/app/action
 import { listarDepartamentos, listarProcesos } from '@/app/actions/mapa.actions';
 import { ESTADOS_EMPLEADO, estadoEmpleado, empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
-import { flujoDePersona, flujoDeRol, indiceRoles, rolesConocidos, quienesHacen } from '@/domain/flujo-persona';
-import type { PasoFlujoPersona } from '@/domain/flujo-persona';
+import { flujoDePersona, flujoDeRol, indiceRoles, rolesConocidos, quienesHacen, flujoInterEmpresa } from '@/domain/flujo-persona';
+import type { PasoFlujoPersona, ProveedorFlujo } from '@/domain/flujo-persona';
 import { FASES_MAPA, ordenFaseMapa } from '@/domain/mapa';
 import type { ProcesoNodo } from '@/domain/mapa';
 import { useEsMovil } from './use-movil';
@@ -23,7 +23,7 @@ const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border
 const lbl: CSSProperties = { display: 'block', fontSize: 11, color: '#666', marginTop: '0.5rem', fontWeight: 'bold' };
 const tag: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f2ecfb', border: '1px solid #ddcdef', borderRadius: 12, padding: '0.1rem 0.5rem', fontSize: 12, margin: '2px 3px 0 0' };
 
-export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
+export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: string; nombreProyecto?: string }) {
   const [emps, setEmps] = useState<Empleado[]>([]);
   const [depts, setDepts] = useState<string[]>([]);
   const [procs, setProcs] = useState<string[]>([]);
@@ -31,7 +31,7 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
   const [deptoNombreMap, setDeptoNombreMap] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<string | null>(null);
   const [verFlujo, setVerFlujo] = useState(false);
-  const [vista, setVista] = useState<'personas' | 'roles'>('personas');
+  const [vista, setVista] = useState<'personas' | 'roles' | 'terceros'>('personas');
   const [rolSel, setRolSel] = useState<string | null>(null);
   const [buscarRol, setBuscarRol] = useState('');
   const [loading, setLoading] = useState(true);
@@ -53,6 +53,7 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
   const nombreDepto = (id: string) => deptoNombreMap[id] ?? id;
   const rolesIdx = indiceRoles(procesosFull, emps);
   const rolesNombres = rolesConocidos(procesosFull, emps);
+  const terceros = flujoInterEmpresa(emps, procesosFull);
 
   // Vista de FLUJO de una persona (su n8n: procesos + disparadores + quién los entrega).
   if (se && verFlujo) {
@@ -90,7 +91,7 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
 
       {/* Tabs: Personas | Roles */}
       <div style={{ display: 'flex', gap: '0.4rem', margin: '0.5rem 0 0.4rem' }}>
-        {([['personas', '👥 Personas'], ['roles', '🏷️ Roles']] as const).map(([id, label]) => (
+        {([['personas', '👥 Personas'], ['roles', '🏷️ Roles'], ['terceros', '🏢 Terceros']] as const).map(([id, label]) => (
           <button key={id} onClick={() => { setVista(id); setRolSel(null); }}
             style={{ ...btn, background: vista === id ? '#8a4fbf' : '#fff', color: vista === id ? '#fff' : '#4a3a63', borderColor: vista === id ? '#8a4fbf' : '#d5cde2', fontWeight: 'bold' }}>{label}</button>
         ))}
@@ -99,6 +100,8 @@ export function VistaPersonas({ proyectoId }: { proyectoId: string }) {
       {loading && <p style={{ color: '#666' }}>Cargando…</p>}
 
       {vista === 'roles' && <RolesLista roles={rolesIdx} buscar={buscarRol} onBuscar={setBuscarRol} onAbrir={setRolSel} />}
+
+      {vista === 'terceros' && <FlujoInterEmpresa negocio={nombreProyecto || 'Este negocio'} proveedores={terceros} />}
 
       {vista === 'personas' && (
        <>
@@ -396,6 +399,66 @@ function FlujoRol({ rol, procesos, empleados, nombreDepto, onVolver }: {
         ? <p style={{ color: '#999', fontSize: 13 }}>Ningún proceso del Mapa usa este rol todavía.</p>
         : <FlujoVista pasos={pasos} procesos={procesos} empleados={empleados} nombreDepto={nombreDepto} />}
     </section>
+  );
+}
+
+// ===== FLUJO INTER-EMPRESA (tercerización: este negocio ↔ terceros) =====
+function FlujoInterEmpresa({ negocio, proveedores }: { negocio: string; proveedores: ProveedorFlujo[] }) {
+  if (proveedores.length === 0) {
+    return <p style={{ color: '#999', fontSize: 13 }}>No hay roles tercerizados todavía. En la ficha de una persona marca <strong>“🏢 Tercerizado”</strong> (Girly Zone u otra empresa) y define qué entregamos y qué recibimos a cambio.</p>;
+  }
+  const W = 680, H = Math.max(360, 220 + proveedores.length * 24), cx = W / 2, cy = H / 2, R = Math.min(210, 120 + proveedores.length * 22);
+  const pos = (i: number, n: number) => { const a = (i / Math.max(1, n)) * Math.PI * 2 - Math.PI / 2; return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) }; };
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.5rem' }}>{proveedores.length} tercero(s). <strong>{negocio}</strong> les <span style={{ color: '#c97a3b' }}>entrega datos ➡️</span> y <span style={{ color: '#2e9e63' }}>recibe algo a cambio ⬅️</span>.</p>
+      <div style={{ overflowX: 'auto', border: '1px solid #e2ddea', borderRadius: 10, background: '#fcfcfd', backgroundImage: 'radial-gradient(#e6e8ee 1px, transparent 1px)', backgroundSize: '22px 22px' }}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: 'auto', display: 'block', margin: '0 auto' }}>
+          <defs>
+            <marker id="ie-out" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#c97a3b" /></marker>
+            <marker id="ie-in" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2e9e63" /></marker>
+          </defs>
+          {proveedores.map((p, i) => {
+            const q = pos(i, proveedores.length);
+            const dx = q.x - cx, dy = q.y - cy, len = Math.hypot(dx, dy) || 1, ox = -dy / len * 9, oy = dx / len * 9;
+            const ux = dx / len, uy = dy / len;
+            return (
+              <g key={i}>
+                <path d={`M ${cx + ox + ux * 46} ${cy + oy + uy * 46} L ${q.x + ox - ux * 36} ${q.y + oy - uy * 36}`} stroke="#c97a3b" strokeWidth={1.6} fill="none" markerEnd="url(#ie-out)" />
+                <path d={`M ${q.x - ox - ux * 36} ${q.y - oy - uy * 36} L ${cx - ox + ux * 46} ${cy - oy + uy * 46}`} stroke="#2e9e63" strokeWidth={1.6} fill="none" markerEnd="url(#ie-in)" />
+              </g>
+            );
+          })}
+          <circle cx={cx} cy={cy} r={44} fill="#8a4fbf" />
+          <text x={cx} y={cy + 4} textAnchor="middle" fill="#fff" fontSize={12} fontWeight="bold">{negocio.slice(0, 16)}</text>
+          {proveedores.map((p, i) => {
+            const q = pos(i, proveedores.length);
+            return (
+              <g key={`n${i}`}>
+                <circle cx={q.x} cy={q.y} r={32} fill="#fff" stroke="#c97a3b" strokeWidth={2} />
+                <text x={q.x} y={q.y + 5} textAnchor="middle" fontSize={16}>🏢</text>
+                <text x={q.x} y={q.y + 48} textAnchor="middle" fill="#333" fontSize={11}>{p.proveedor.slice(0, 18)}</text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.6rem', marginTop: '0.7rem' }}>
+        {proveedores.map((p, i) => (
+          <div key={i} style={{ border: '1px solid #ecd9a0', borderLeft: '4px solid #c97a3b', borderRadius: 9, padding: '0.6rem 0.7rem', background: '#fffdf8' }}>
+            <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>🏢 {p.proveedor}</div>
+            <div style={{ fontSize: 11, color: '#888', margin: '2px 0 4px' }}>Roles: {p.roles.join(', ')}{p.procesos.length ? ` · Hace: ${p.procesos.join(', ')}` : ''}</div>
+            {p.intercambios.map((x, j) => (
+              <div key={j} style={{ borderTop: '1px solid #f0e6cf', paddingTop: 4, marginTop: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 'bold', color: '#7a4fbf' }}>{x.rol}</div>
+                <div style={{ fontSize: 12, color: '#b5651d' }}>➡️ Entregamos: <span style={{ color: '#555' }}>{x.entregamos || '—'}</span></div>
+                <div style={{ fontSize: 12, color: '#2e9e63' }}>⬅️ Recibimos: <span style={{ color: '#555' }}>{x.recibimos || '—'}</span></div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

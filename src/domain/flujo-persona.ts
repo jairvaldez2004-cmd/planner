@@ -95,3 +95,28 @@ export function indiceRoles(procesos: ProcesoNodo[], empleados: Empleado[]): Rol
 export function rolesConocidos(procesos: ProcesoNodo[], empleados: Empleado[]): string[] {
   return indiceRoles(procesos, empleados).map((r) => r.rol);
 }
+
+// ===== FLUJO INTER-EMPRESA (tercerización) =====
+// Cada rol marcado como externo define un intercambio con un tercero (Girly Zone hacia
+// arriba u otra empresa): lo que ENTREGAMOS (datos de salida) ↔ lo que RECIBIMOS a cambio.
+// Se agrupan por proveedor para dibujar el grafo empresa ↔ terceros.
+export interface Intercambio { rol: string; procesos: string[]; entregamos: string; recibimos: string }
+export interface ProveedorFlujo { proveedor: string; roles: string[]; procesos: string[]; intercambios: Intercambio[] }
+
+export function flujoInterEmpresa(empleados: Empleado[], procesos: ProcesoNodo[]): ProveedorFlujo[] {
+  const top = procesos.filter((p) => !p.padreProcesoId);
+  const map = new Map<string, ProveedorFlujo>();
+  for (const e of empleados) {
+    if (!e.externo) continue;
+    const prov = (e.proveedor || 'Externo').trim();
+    const key = prov.toLowerCase();
+    let g = map.get(key);
+    if (!g) { g = { proveedor: prov, roles: [], procesos: [], intercambios: [] }; map.set(key, g); }
+    const rolesE = e.roles.length ? e.roles : (e.puesto ? [e.puesto] : []);
+    const procs = top.filter((p) => p.roles.some((r) => rolesE.some((re) => re.toLowerCase() === r.toLowerCase()))).map((p) => p.nombre);
+    for (const r of rolesE) if (!g.roles.some((x) => x.toLowerCase() === r.toLowerCase())) g.roles.push(r);
+    for (const pn of procs) if (!g.procesos.includes(pn)) g.procesos.push(pn);
+    g.intercambios.push({ rol: e.puesto || rolesE.join(', '), procesos: procs, entregamos: e.entregamos, recibimos: e.recibimos });
+  }
+  return Array.from(map.values());
+}
