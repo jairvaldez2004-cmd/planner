@@ -274,3 +274,45 @@ export function modeloGenerico(nombre: string, ancho: number, fondo: number): TH
   g.traverse((n) => { n.castShadow = true; n.receiveShadow = true; });
   return g;
 }
+
+// ---------- MODELO PARAMÉTRICO (lo que arma el chat desde primitivas) ----------
+
+import type { Primitiva } from '@/domain/modelo-parametrico';
+
+const MAT_PRIM: Record<string, () => THREE.Material> = {
+  madera: () => M.madera(), maderaOscura: () => M.maderaOscura(), metal: () => M.metal(), metalOscuro: () => M.metalOscuro(),
+  tela: () => M.tela(), blanco: () => M.blanco(), cristal: () => M.cristal(), vidrio: () => M.cristal(), emisivo: () => M.emisivo(),
+  negro: () => new THREE.MeshStandardMaterial({ color: 0x1c2126, roughness: 0.4, metalness: 0.3 }),
+  plastico: () => new THREE.MeshStandardMaterial({ color: 0xdfe4e8, roughness: 0.5, metalness: 0.05 }),
+};
+
+function materialDePrim(p: Primitiva): THREE.Material {
+  if (p.color) {
+    const col = new THREE.Color(p.color);
+    if (p.material === 'emisivo') return new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.2, roughness: 0.4 });
+    if (p.material === 'cristal' || p.material === 'vidrio') return new THREE.MeshPhysicalMaterial({ color: col, roughness: 0.06, metalness: 0, transparent: true, opacity: 0.32 });
+    const esMetal = p.material === 'metal' || p.material === 'metalOscuro';
+    return new THREE.MeshStandardMaterial({ color: col, roughness: esMetal ? 0.32 : 0.6, metalness: esMetal ? 0.65 : 0.05 });
+  }
+  const f = p.material ? MAT_PRIM[p.material] : undefined;
+  return f ? f() : M.blanco();
+}
+
+// Arma el objeto desde su lista de primitivas (cajas/cilindros/esferas/conos).
+export function modeloParametrico(prims: Primitiva[]): THREE.Group | null {
+  if (!prims.length) return null;
+  const g = new THREE.Group();
+  for (const p of prims) {
+    const mat = materialDePrim(p);
+    let mesh: THREE.Mesh;
+    if (p.forma === 'cilindro') mesh = new THREE.Mesh(new THREE.CylinderGeometry(p.r, p.r, p.h, 20), mat);
+    else if (p.forma === 'esfera') mesh = new THREE.Mesh(new THREE.SphereGeometry(p.r, 18, 14), mat);
+    else if (p.forma === 'cono') mesh = new THREE.Mesh(new THREE.ConeGeometry(p.r, p.h, 20), mat);
+    else mesh = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), mat);
+    mesh.position.set(p.x, p.y, p.z);
+    mesh.rotation.set(p.rotX, p.rotY, p.rotZ);
+    g.add(mesh);
+  }
+  g.traverse((n) => { n.castShadow = true; n.receiveShadow = true; });
+  return g;
+}

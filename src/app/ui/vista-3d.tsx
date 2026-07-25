@@ -20,7 +20,8 @@ import { actualizarObjeto, eliminarObjeto, crearObjeto } from '@/app/actions/esp
 import { registrarDeshacer, BotonDeshacer } from './deshacer';
 import { conversarDisenador3D, cargarChatDisenador, aplicarInversaDisenador } from '@/app/actions/disenador.actions';
 import type { InversaDisenador } from '@/app/actions/disenador.actions';
-import { modeloGenerico } from './modelos-genericos';
+import { modeloGenerico, modeloParametrico } from './modelos-genericos';
+import { leerModelo3D } from '@/domain/modelo-parametrico';
 import { materialAcabado } from './texturas';
 import { ChatArquitecto } from './chat-arquitecto';
 import { useEsMovil } from './use-movil';
@@ -376,7 +377,10 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
     // Objeto que aún no existe físicamente (nada que escanear): forma paramétrica
     // reconocible según su nombre (camilla, silla, mostrador…); si no hay, caja.
     function formaGenerica(o: ObjetoFisico): THREE.Object3D {
-      return modeloGenerico(o.nombre, o.ancho, o.alto) ?? cajaGenerica(o);
+      // Prioridad: modelo PARAMÉTRICO que armó el chat (data.modelo3d) > forma reconocible > caja.
+      const prims = leerModelo3D(o.data);
+      const param = prims.length ? modeloParametrico(prims) : null;
+      return param ?? modeloGenerico(o.nombre, o.ancho, o.alto) ?? cajaGenerica(o);
     }
 
     function cajaGenerica(o: ObjetoFisico): THREE.Mesh {

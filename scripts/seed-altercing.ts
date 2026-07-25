@@ -455,6 +455,23 @@ async function main() {
   }
   console.log(`✅ Tiempos y espacio en ${simSeed} procesos (simulación).`);
 
+  // 13) Objeto DEMO modelado paramétricamente (como lo haría el chat) para ver el render real.
+  const cabina = esps.find((e) => e.nombre === 'Cabina de perforación');
+  if (cabina) {
+    const prims = [
+      { forma: 'caja', w: 0.9, h: 0.3, d: 0.22, x: 0, y: 2.05, z: 0, color: '#f2f2ee', material: 'blanco' },
+      { forma: 'caja', w: 0.82, h: 0.04, d: 0.01, x: 0, y: 1.94, z: 0.11, color: '#c9ced3', material: 'metal' },
+      { forma: 'caja', w: 0.18, h: 0.05, d: 0.02, x: 0.28, y: 2.2, z: 0.11, color: '#2b6cb0', material: 'plastico' },
+    ];
+    const ficha = { Marca: 'Mirage', Modelo: 'X3', Tipo: 'Minisplit inverter', Capacidad: '12,000 BTU', Voltaje: '127 V', Dimensiones: '90×30×22 cm' };
+    await prisma.objetoFisico.upsert({
+      where: { id: 'OBJ-ac-mirage-demo' },
+      create: { id: 'OBJ-ac-mirage-demo', proyectoId: PID, sedeId: cabina.sedeId, espacioId: cabina.id, nombre: 'Aire acondicionado Mirage X3', categoria: 'equipo', capa: cabina.capa, x: cabina.x + 0.6, y: cabina.y + 0.2, ancho: 0.9, alto: 0.25, data: J({ modelo3d: JSON.stringify(prims), fichaTecnica: JSON.stringify(ficha) }) },
+      update: { data: J({ modelo3d: JSON.stringify(prims), fichaTecnica: JSON.stringify(ficha) }) },
+    });
+    console.log('✅ Objeto demo paramétrico: "Aire acondicionado Mirage X3" en la Cabina.');
+  }
+
   console.log('\n🎉 Altercing Studio llenado. Recarga la app.');
 }
 

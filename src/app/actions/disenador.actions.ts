@@ -15,6 +15,7 @@ import type { LL } from '@/app/ui/huella-geo';
 import type { CategoriaObjeto } from '@/domain/espacios';
 import { buscarHueco, normalizarGrados, claveForma3D } from '@/domain/espacios';
 import { codificarAcabado, describeAcabado } from '@/domain/acabados';
+import { normalizarPrimitivas } from '@/domain/modelo-parametrico';
 const tieneModeloGenerico = (n: string) => claveForma3D(n) !== null;
 import { cargarConversacion, guardarConversacion } from '@/app/actions/contexto.actions';
 import { modeloActual } from '@/app/actions/config.actions';
@@ -120,6 +121,32 @@ export async function conversarDisenador3D(
         inversas.push({ descripcion: `crear "${nom}"`, op: { tipo: 'eliminar_objeto', id: o.id } });
         const forma = tieneModeloGenerico(nom) ? 'con forma 3D reconocible' : 'se verá como caja (nombre sin palabra clave; puede subirle un .glb)';
         return `Creado "${nom}" (${ancho}×${fondo} m) en "${area.nombre}" en (${redondo(x)}, ${redondo(y)})${giro ? ` girado ${giro}°` : ''} — ${forma}.${aviso}`;
+      }
+
+      if (nombre === 'disenar_objeto') {
+        const nom = String(input.nombre ?? '').trim();
+        if (!nom) return 'Falta el nombre del objeto.';
+        const area = porNombre(espacios, String(input.area ?? ''));
+        if (!area) return `No encontré el área "${String(input.area ?? '')}". Áreas: ${espacios.map((e) => e.nombre).join(', ') || 'ninguna'}.`;
+        const prims = normalizarPrimitivas(input.primitivas);
+        if (!prims.length) return 'Faltan las primitivas del modelo (lista de cajas/cilindros/esferas/conos).';
+        const ancho = num(input.ancho) ?? 0.5, fondo = num(input.fondo) ?? 0.5;
+        let x = num(input.x), y = num(input.y);
+        let aviso = '';
+        if (x === undefined || y === undefined) {
+          const hueco = buscarHueco(area, objetos, ancho, fondo);
+          if (hueco) { x = hueco.x; y = hueco.y; }
+          else { x = redondo(area.x + Math.max(0, (area.ancho - ancho) / 2)); y = redondo(area.y + Math.max(0, (area.alto - fondo) / 2)); aviso = ` ⚠ sin hueco libre en "${area.nombre}" — quedó al centro (posible encimado).`; }
+        }
+        const cat = (['mueble', 'herramienta', 'insumo', 'equipo'].includes(String(input.categoria)) ? String(input.categoria) : 'equipo') as CategoriaObjeto;
+        const ficha: Record<string, string> = {};
+        if (Array.isArray(input.ficha)) for (const f of input.ficha as Record<string, unknown>[]) { const k = String(f?.campo ?? '').trim(); if (k) ficha[k] = String(f?.valor ?? '').trim(); }
+        const o = await crearObjeto(proyectoId, sedeId, { espacioId: area.id, nombre: nom, categoria: cat, capa, x: redondo(x), y: redondo(y) });
+        const giro = num(input.giro);
+        await actualizarObjeto(o.id, { ancho: redondo(ancho), alto: redondo(fondo), ...(giro !== undefined ? { rot: normalizarGrados(Math.round(giro)) } : {}), campos: { modelo3d: JSON.stringify(prims), fichaTecnica: JSON.stringify(ficha) } });
+        inversas.push({ descripcion: `diseñar "${nom}"`, op: { tipo: 'eliminar_objeto', id: o.id } });
+        const fichaTxt = Object.keys(ficha).length ? ` Ficha: ${Object.entries(ficha).map(([k, v]) => `${k}: ${v}`).slice(0, 4).join(' · ')}.` : '';
+        return `Diseñado "${nom}" (${ancho}×${fondo} m, ${prims.length} piezas) en "${area.nombre}" en (${redondo(x)}, ${redondo(y)})${giro ? ` girado ${giro}°` : ''} — modelado a la medida.${fichaTxt}${aviso}`;
       }
 
       if (nombre === 'mover_objeto') {

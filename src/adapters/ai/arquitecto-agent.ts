@@ -481,6 +481,7 @@ REGLAS:
 1) Ve el estado del plano abajo (huella, áreas y objetos con posiciones). Coloca cada objeto DENTRO del área que corresponda y SIN encimarlo con lo que ya hay. Si el usuario no da posición, OMITE x/y: el sistema busca hueco libre solo.
 2) NOMBRES = FORMA 3D: la vista dibuja una forma reconocible si el nombre contiene una de estas palabras: camilla/sillón de tatuaje · sofá/sillón · silla(s) · banco/taburete · escritorio en L · mostrador/barra/recepción · vitrina · mesa/escritorio · lámpara · autoclave · tarja/lavabo · WC/inodoro · carro/carrito · estante/anaquel/rack · TV/pantalla/monitor · pizarrón · refrigerador/frigobar · dispensador de agua · impresora · espejo · computadora/laptop · planta/maceta · cortina/divisor · archivero · bote de basura · minisplit/aire acondicionado · microondas. Úsalas SIEMPRE que apliquen ("TV de sala", "Pizarrón blanco", "Sofá gris"). Solo si de verdad no matchea ninguna se verá como caja: dilo y sugiere subir un .glb (escaneado, de poly.pizza, o generado en meshy.ai).
 3) Si el usuario no da medidas, usa medidas REALES sensatas (camilla 1.9×0.7 · silla 0.45×0.45 · mostrador 1.5×0.6 · vitrina 1.2×0.4 · banco 0.4×0.4 · carrito 0.5×0.4 · estante 0.9×0.35 · lámpara 0.4×0.4) y dilas en tu respuesta.
+3b) PRODUCTOS CONCRETOS / OBJETOS SIN FORMA: si piden un producto específico (ej. "aire acondicionado Mirage X3", "silla Eames", "cafetera X") o algo que la regla 2 NO cubre, usa "disenar_objeto": infiere de tu conocimiento sus medidas y materiales REALES, arma el modelo con POCAS primitivas bien proporcionadas (cajas/cilindros/esferas/conos, centradas en el origen, y=altura desde el piso, el objeto reposa en y=0) y LLENA su ficha técnica (marca, modelo, dimensiones, consumo/BTU, capacidad, voltaje…). Así se renderiza tal cual, sin caja. Di qué armaste y con qué medidas.
 4) Puedes crear VARIOS objetos en un turno, y también mover, girar, redimensionar, renombrar o eliminar los existentes (refiérelos por su nombre). Antes de ELIMINAR, confirma con el usuario.
 5) ACABADOS: puedes vestir el espacio con "acabado_piso" (toda la sede u un área concreta) y "acabado_muros". Tipos de piso: duela · porcelanato · azulejo · cemento · alfombra · pintura. Tipos de muro: pintura · azulejo · ladrillo · cemento · yeso. El color acepta nombres en español (blanco, arena, verde menta, terracota, madera clara…) o hex (#a67c52).
 6) FOTOS DE REFERENCIA: el usuario puede mandarte fotos de ejemplos (muebles, acabados, diseños que le gustan). MÍRALAS y actúa: identifica materiales, colores y estilo, DI lo que ves ("veo duela clara y muros verde menta…") y aplícalo con las herramientas — acabados equivalentes, objetos con medidas parecidas. Si la foto muestra un mueble específico que las formas genéricas no cubren, créalo con el nombre más cercano y sugiere subir un .glb (escaneado o de meshy.ai) para el detalle fino.
@@ -507,6 +508,46 @@ const TOOLS_DISENADOR: Anthropic.Tool[] = [
         categoria: { type: 'string', enum: ['mueble', 'herramienta', 'insumo', 'equipo'], description: 'Por defecto: mueble.' },
       },
       required: ['nombre', 'area', 'ancho', 'fondo'],
+    },
+  },
+  {
+    name: 'disenar_objeto',
+    description: 'Crea un objeto MODELÁNDOLO desde cero con primitivas (cajas/cilindros/esferas/conos) cuando no hay forma predefinida o se pide un PRODUCTO CONCRETO (ej. "aire acondicionado Mirage X3"). Infiere medidas y materiales reales del producto, arma el modelo con primitivas y llena su ficha técnica. Se renderiza tal cual en el 3D.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        nombre: { type: 'string', description: 'Nombre del objeto (incluye marca/modelo si aplica).' },
+        area: { type: 'string', description: 'Área/habitación donde va.' },
+        ancho: { type: 'number', description: 'Huella en x (m).' },
+        fondo: { type: 'number', description: 'Huella en y (m).' },
+        x: { type: 'number', description: 'Esquina sup-izq (m, opcional: sin ella se busca hueco).' },
+        y: { type: 'number', description: 'Esquina sup-izq (m, opcional).' },
+        giro: { type: 'number', description: 'Grados horario (opcional).' },
+        categoria: { type: 'string', enum: ['mueble', 'herramienta', 'insumo', 'equipo'] },
+        primitivas: {
+          type: 'array',
+          description: 'Las piezas del objeto en METROS, centradas en el origen (x,z ≈ 0), y = altura desde el piso (el objeto reposa en y=0). Usa pocas piezas bien proporcionadas.',
+          items: {
+            type: 'object',
+            properties: {
+              forma: { type: 'string', enum: ['caja', 'cilindro', 'esfera', 'cono'] },
+              w: { type: 'number', description: 'ancho (caja)' }, h: { type: 'number', description: 'alto (caja/cilindro/cono)' }, d: { type: 'number', description: 'fondo (caja)' },
+              r: { type: 'number', description: 'radio (cilindro/esfera/cono)' },
+              x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' },
+              rotX: { type: 'number' }, rotY: { type: 'number' }, rotZ: { type: 'number' },
+              color: { type: 'string', description: 'hex #rrggbb' },
+              material: { type: 'string', description: 'madera | metal | metalOscuro | tela | blanco | negro | cristal | emisivo | plastico' },
+            },
+            required: ['forma'],
+          },
+        },
+        ficha: {
+          type: 'array',
+          description: 'Ficha técnica: marca, modelo, dimensiones, consumo/BTU, capacidad, voltaje, etc.',
+          items: { type: 'object', properties: { campo: { type: 'string' }, valor: { type: 'string' } }, required: ['campo', 'valor'] },
+        },
+      },
+      required: ['nombre', 'area', 'ancho', 'fondo', 'primitivas'],
     },
   },
   {

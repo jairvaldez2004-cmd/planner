@@ -25,6 +25,7 @@ import type { Recurso } from '@/domain/recursos';
 import { indiceRecursos, costearProceso } from '@/domain/costeo';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
+import { normalizarPrimitivas, leerModelo3D, alturaModelo } from '@/domain/modelo-parametrico';
 
 let ok = 0, fail = 0;
 const fails: string[] = [];
@@ -313,6 +314,22 @@ check('Cuello de espacio = Cabina (15 min)', sim.cuelloEspacio?.nombre === 'Cabi
 check('Recepción acumula 8 min en 2 procesos', sim.porEspacio.find((e) => e.nombre === 'Recepción')?.minutos === 8);
 check('Cuello de rol = Perforador (15 min)', sim.cuelloRol?.nombre === 'Perforador');
 check('Recorrido con 2 cambios de espacio', sim.cambiosEspacio === 2);
+
+// ============================================================
+// 12) MODELO 3D PARAMÉTRICO (lo que arma el chat desde primitivas)
+// ============================================================
+h('12) Modelo paramétrico: el chat describe el objeto con primitivas y se saneó');
+// Ej.: un "aire acondicionado (minisplit)" como caja blanca montada + rejilla.
+const primsAC = normalizarPrimitivas([
+  { forma: 'caja', w: 0.9, h: 0.3, d: 0.22, x: 0, y: 2.05, z: 0, color: '#f2f2ee', material: 'blanco' },
+  { forma: 'caja', w: 0.82, h: 0.04, d: 0.01, x: 0, y: 1.94, z: 0.12, material: 'metal' },
+  { forma: 'caja', w: 999, h: -3, d: 0.2, x: 0, y: 0.5, z: 0 }, // valores locos → deben sanearse
+]);
+check('Normaliza 3 primitivas (con clamp de valores locos)', primsAC.length === 3 && primsAC[2]!.w <= 12 && primsAC[2]!.h >= 0.001);
+check('Conserva color y material válidos', primsAC[0]!.color === '#f2f2ee' && primsAC[0]!.material === 'blanco');
+check('alturaModelo del AC ≈ 2.2 m', Math.abs(alturaModelo(primsAC) - 2.2) < 0.01);
+check('leerModelo3D lee un array en data.modelo3d', leerModelo3D({ modelo3d: primsAC }).length === 3);
+check('leerModelo3D lee también un string JSON (data aplanada)', leerModelo3D({ modelo3d: JSON.stringify([{ forma: 'esfera', r: 0.3, x: 0, y: 0.3, z: 0 }]) }).length === 1);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado
