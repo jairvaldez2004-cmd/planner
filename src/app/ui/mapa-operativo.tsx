@@ -28,6 +28,7 @@ import { ETAPAS_OBJETIVO, etapaInfo } from '@/domain/etapas';
 import type { EtapaObjetivo } from '@/domain/etapas';
 import { InstructivoMapa } from './instructivo-mapa';
 import { AgendaRecursos } from './agenda-recursos';
+import { SimulacionMapa } from './simulacion-mapa';
 import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -58,7 +59,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const [selProc, setSelProc] = useState<string | null>(null);
   const [selDepto, setSelDepto] = useState<string | null>(null);
   const [nuevoDepto, setNuevoDepto] = useState('');
-  const [panel, setPanel] = useState<'mapa' | 'instructivo' | 'agenda'>('mapa');
+  const [panel, setPanel] = useState<'mapa' | 'instructivo' | 'agenda' | 'simulacion'>('mapa');
   const [msg, setMsg] = useState('');
   // Flujos ANIDADOS: `nivel` = el paso dentro del que estamos (null = mapa raíz);
   // `ruta` = migas de pan para navegar hacia arriba.
@@ -258,6 +259,11 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
       onCerrar={() => setPanel('mapa')}
       onIrProceso={(id) => { const p = procesos.find((x) => x.id === id); if (p) { setFase(p.fase); setSelProc(id); } setPanel('mapa'); }} />;
   }
+  if (panel === 'simulacion') {
+    return <SimulacionMapa procesos={procesos} etapa={etapa}
+      onCerrar={() => setPanel('mapa')}
+      onIrProceso={(nombre) => { const p = procesos.find((x) => x.nombre === nombre); if (p) { setFase(p.fase); setSelProc(p.id); } setPanel('mapa'); }} />;
+  }
 
   return (
     <section>
@@ -331,6 +337,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
         <button style={btnSm} onClick={() => void altaProceso()}>＋ Proceso</button>
         <button style={btnSm} onClick={() => setPanel('instructivo')} title="Documento imprimible con el paso a paso de esta etapa">🖨️ Instructivo</button>
         <button style={btnSm} onClick={() => setPanel('agenda')} title="Semana de los recursos compartidos y sus choques">🗓️ Agenda</button>
+        <button style={btnSm} onClick={() => setPanel('simulacion')} title="Simula los procesos sobre el espacio: carga por espacio/rol, cuellos y recorrido">🎬 Simular</button>
         {!nivel && <button style={btnSm} onClick={() => void importar()} title="Siembra en el mapa los pasos de las rutas del catálogo">⬇ Importar catálogo</button>}
         {!nivel && <button style={btnSm} onClick={() => void rescatarTiempos()} title="Lee el tiempo que traen las presentaciones del catálogo y lo baja a los pasos">⏱ Rescatar tiempos</button>}
       </div>

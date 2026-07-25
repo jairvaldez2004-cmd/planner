@@ -432,6 +432,29 @@ async function main() {
   }
   console.log(`✅ Videos/documentos de apoyo en ${conApoyo} procesos.`);
 
+  // 12) Tiempos y espacio por proceso (servicio) → alimenta la SIMULACIÓN.
+  const SIM_PROC: Record<string, { min: number; espacio: string }> = {
+    'PROC-mrufyw6p-r47xh': { min: 5, espacio: 'Recepción y espera' },   // Recibir al cliente
+    'PROC-mrufywtg-la51y': { min: 10, espacio: 'Sala Principal' },      // Asesoría
+    'PROC-mrufyxg8-7kgab': { min: 5, espacio: 'Recepción y espera' },   // Verificar edad / consentimiento
+    'PROC-mrufyymw-asgfq': { min: 5, espacio: 'Cabina de perforación' },// Marcaje anatómico
+    'PROC-mrufyz9n-0qn42': { min: 5, espacio: 'Cabina de perforación' },// Asepsia
+    'PROC-mrufyzuh-p0829': { min: 10, espacio: 'Cabina de perforación' },// Perforación
+    'PROC-mrufz0gb-4ppz7': { min: 5, espacio: 'Cabina de perforación' },// Colocar joyería
+    'PROC-mrufz134-u4ckv': { min: 5, espacio: 'Cabina de perforación' },// Indicaciones de cuidado
+    'PROC-mrufyy13-xh3ks': { min: 5, espacio: 'Recepción y espera' },   // Cobrar
+    'PROC-mrufz1pt-djykd': { min: 15, espacio: 'Esterilización' },      // Limpieza y esterilización
+  };
+  let simSeed = 0;
+  for (const [pid, v] of Object.entries(SIM_PROC)) {
+    const pr = await prisma.proceso.findUnique({ where: { id: pid } });
+    if (!pr) continue;
+    const dd = (pr.data as Record<string, unknown>) ?? {};
+    await prisma.proceso.update({ where: { id: pid }, data: { data: J({ ...dd, tiempoMin: v.min, tiempoEstimado: false, espacios: [{ nombre: v.espacio }] }) } });
+    simSeed++;
+  }
+  console.log(`✅ Tiempos y espacio en ${simSeed} procesos (simulación).`);
+
   console.log('\n🎉 Altercing Studio llenado. Recarga la app.');
 }
 

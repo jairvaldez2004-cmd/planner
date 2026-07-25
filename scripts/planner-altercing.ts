@@ -24,6 +24,7 @@ import { recursoVacio, proveedorVacio, numero, subtotalRecurso } from '@/domain/
 import type { Recurso } from '@/domain/recursos';
 import { indiceRecursos, costearProceso } from '@/domain/costeo';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
+import { simular } from '@/domain/simulacion';
 
 let ok = 0, fail = 0;
 const fails: string[] = [];
@@ -291,6 +292,27 @@ const rep = reporteEscaneo(
 check('Reporte: solo áreas/cuartos (2, la "capa" no cuenta)', rep.nCuartos === 2);
 check('Reporte: total = 12 + 3 = 15 m²', rep.totalM2 === 15);
 check('Reporte: muros 5 m de longitud y 1 puerta', rep.muros.longitudTotal === 5 && rep.muros.nPuertas === 1);
+
+// ============================================================
+// 11) SIMULACIÓN — procesos sobre el espacio (carga, cuellos, recorrido)
+// ============================================================
+h('11) Simulación: carga por espacio/rol, cuellos de botella y recorrido');
+const sp = (id: string, nombre: string, rol: string, espacio: string, tiempo: number, destino?: string): ProcesoNodo => ({
+  id, departamentoId: 'd', nombre, fase: 'durante', etapaDesde: 'arrancar', orden: 0,
+  roles: [rol], herramientas: [], insumos: [], espacios: [{ nombre: espacio }], tiempoMin: tiempo,
+  ramas: destino ? [{ id: id + 'r', evento: 'sigue', destinoProcesoId: destino }] : [],
+});
+const simProcs: ProcesoNodo[] = [
+  sp('a', 'Recepción', 'Recepcionista', 'Recepción', 5, 'b'),
+  sp('b', 'Perforación', 'Perforador', 'Cabina', 15, 'c'),
+  sp('c', 'Cobro', 'Recepcionista', 'Recepción', 3),
+];
+const sim = simular(simProcs);
+check('Tiempo total = 23 min', sim.totalMin === 23);
+check('Cuello de espacio = Cabina (15 min)', sim.cuelloEspacio?.nombre === 'Cabina' && sim.cuelloEspacio?.minutos === 15);
+check('Recepción acumula 8 min en 2 procesos', sim.porEspacio.find((e) => e.nombre === 'Recepción')?.minutos === 8);
+check('Cuello de rol = Perforador (15 min)', sim.cuelloRol?.nombre === 'Perforador');
+check('Recorrido con 2 cambios de espacio', sim.cambiosEspacio === 2);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado
