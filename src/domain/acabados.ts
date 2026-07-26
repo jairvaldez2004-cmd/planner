@@ -3,8 +3,8 @@
 // texto). La vista 3D genera la textura procedural correspondiente (ui/texturas.ts);
 // aquí vive todo lo puro: catálogo, codificación y colores en español.
 
-export const TIPOS_PISO = ['duela', 'porcelanato', 'azulejo', 'cemento', 'alfombra', 'pintura'] as const;
-export const TIPOS_MURO = ['pintura', 'azulejo', 'ladrillo', 'cemento', 'yeso'] as const;
+export const TIPOS_PISO = ['duela', 'porcelanato', 'azulejo', 'cemento', 'alfombra', 'pintura', 'marmol', 'mosaico', 'microcemento'] as const;
+export const TIPOS_MURO = ['pintura', 'azulejo', 'ladrillo', 'cemento', 'yeso', 'microcemento', 'madera'] as const;
 export type TipoPiso = typeof TIPOS_PISO[number];
 export type TipoMuro = typeof TIPOS_MURO[number];
 
@@ -14,6 +14,7 @@ export interface Acabado { tipo: string; color: string } // color siempre #rrggb
 const COLOR_DEF: Record<string, string> = {
   duela: '#a67c52', porcelanato: '#d8d2c8', azulejo: '#e8ecec', cemento: '#b9bcbf',
   alfombra: '#8b8f99', pintura: '#f2efe9', ladrillo: '#a85f43', yeso: '#f4f1ea',
+  marmol: '#ece9e3', mosaico: '#cdd8d2', microcemento: '#c6c2ba', madera: '#a67c52',
 };
 
 // Nombres de color en español → hex (los que la gente dice al describir acabados).

@@ -72,6 +72,8 @@ interface Props {
 export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlto, proyectoId, capa, onCambio, onCerrar }: Props) {
   const montRef = useRef<HTMLDivElement | null>(null);
   const [muroAlt, setMuroAlt] = useState(2.6);
+  const [modo, setModo] = useState<'orbita' | 'primera'>('orbita');
+  const fpKeys = useRef<Set<string>>(new Set());
   const [selId, setSelId] = useState<string | null>(null);   // objeto seleccionado (manipulación)
   const selRef = useRef<string | null>(null);
   selRef.current = selId;
@@ -165,6 +167,23 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI / 2 - 0.03; // no bajar del suelo
     controls.minDistance = 2; controls.maxDistance = 60;
+
+    // --- PRIMERA PERSONA (avatar): cámara a la altura de los ojos, mirar arrastrando, caminar con WASD/flechas ---
+    const modoFP = modo === 'primera';
+    const clampN = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    let yaw = Math.PI, pitch = 0, looking = false, lastX = 0, lastY = 0;
+    if (modoFP) {
+      controls.enabled = false;
+      camera.position.set(W / 2, 1.6, Math.max(1.2, D - 1.2));
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!modoFP) return;
+      const k = (e.key.length === 1 ? e.key : e.key).toLowerCase();
+      if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { fpKeys.current.add(k); e.preventDefault(); }
+    };
+    const onKeyUp = (e: KeyboardEvent) => { fpKeys.current.delete(e.key.toLowerCase()); };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
 
     // --- luces: hemisferio (cielo) + sol direccional con sombras ---
     scene.add(new THREE.HemisphereLight(0xffffff, 0x8a95a5, 1.0));
@@ -418,6 +437,7 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
     };
 
     const onDown = (e: PointerEvent) => {
+      if (modoFP) { looking = true; lastX = e.clientX; lastY = e.clientY; renderer.domElement.setPointerCapture(e.pointerId); return; }
       const ancla = anclaEn(e);
       if (!ancla) return;                      // clic al vacío: orbitar normal (no deselecciona)
       setSelId(String(ancla.userData.id));
@@ -428,6 +448,13 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
       renderer.domElement.setPointerCapture(e.pointerId);
     };
     const onMove = (e: PointerEvent) => {
+      if (modoFP) {
+        if (!looking) return;
+        yaw -= (e.clientX - lastX) * 0.005;
+        pitch = clampN(pitch - (e.clientY - lastY) * 0.005, -1.2, 1.2);
+        lastX = e.clientX; lastY = e.clientY;
+        return;
+      }
       if (!drag) return;
       const p = puntoPiso(e);
       if (!p) return;
@@ -438,6 +465,7 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
       drag.movido = true;
     };
     const onUp = () => {
+      if (modoFP) { looking = false; return; }
       controls.enabled = true;
       if (!drag) return;
       const { ancla, movido } = drag;
@@ -475,10 +503,26 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
     const dir = new THREE.Vector3();
     const tick = () => {
       if (!vivo) return;
-      controls.update();
-      // dollhouse: oculta los muros que quedan entre la cámara y el interior
-      dir.copy(camera.position).sub(centro);
-      for (const m of muros) m.mesh.visible = m.normal.dot(dir) <= 0.1;
+      if (modoFP) {
+        const k = fpKeys.current, sp = 0.05;
+        const f = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));       // adelante (proyección al piso)
+        const rt = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));     // derecha
+        if (k.has('w') || k.has('arrowup')) camera.position.addScaledVector(f, sp);
+        if (k.has('s') || k.has('arrowdown')) camera.position.addScaledVector(f, -sp);
+        if (k.has('a') || k.has('arrowleft')) camera.position.addScaledVector(rt, -sp);
+        if (k.has('d') || k.has('arrowright')) camera.position.addScaledVector(rt, sp);
+        camera.position.y = 1.6;                                            // altura de los ojos
+        camera.position.x = clampN(camera.position.x, 0.3, Math.max(0.3, W - 0.3));
+        camera.position.z = clampN(camera.position.z, 0.3, Math.max(0.3, D - 0.3));
+        const cp = Math.cos(pitch);
+        camera.lookAt(camera.position.x + Math.sin(yaw) * cp, 1.6 + Math.sin(pitch), camera.position.z + Math.cos(yaw) * cp);
+        for (const m of muros) m.mesh.visible = true;                       // dentro: no ocultar muros
+      } else {
+        controls.update();
+        // dollhouse: oculta los muros que quedan entre la cámara y el interior
+        dir.copy(camera.position).sub(centro);
+        for (const m of muros) m.mesh.visible = m.normal.dot(dir) <= 0.1;
+      }
       renderer.render(scene, camera);
       requestAnimationFrame(tick);
     };
@@ -491,6 +535,9 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
       renderer.domElement.removeEventListener('pointermove', onMove);
       renderer.domElement.removeEventListener('pointerup', onUp);
       renderer.domElement.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      fpKeys.current.clear();
       controls.dispose();
       scene.traverse((o) => {
         const mesh = o as THREE.Mesh;
@@ -501,7 +548,7 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
       renderer.dispose();
       mont.removeChild(renderer.domElement);
     };
-  }, [espacios, objetos, elementos, footAncho, footAlto, muroAlt, modelos, selId, escaneo, verEscaneo]);
+  }, [espacios, objetos, elementos, footAncho, footAlto, muroAlt, modelos, selId, escaneo, verEscaneo, modo]);
 
   // ---- acciones del panel de manipulación (todas reversibles con ↩) ----
   function girar(delta: number) {
@@ -539,6 +586,10 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
         <span style={{ fontSize: 12, color: '#666' }}>Altura de muro</span>
         <input type="range" min={0} max={3.5} step={0.1} value={muroAlt} onChange={(e) => setMuroAlt(Number(e.target.value))} />
         <span style={{ fontSize: 12, color: '#666' }}>{muroAlt.toFixed(1)} m</span>
+        <button style={{ ...btn, background: modo === 'primera' ? '#8a4fbf' : '#fff', color: modo === 'primera' ? '#fff' : '#333', borderColor: modo === 'primera' ? '#8a4fbf' : '#999', fontWeight: 'bold' }}
+          onClick={() => setModo((m) => m === 'primera' ? 'orbita' : 'primera')} title="Recorre el plano caminando (avatar en primera persona)">
+          {modo === 'primera' ? '🔭 Vista órbita' : '🚶 Primera persona'}
+        </button>
         <span style={{ flex: 1 }} />
         {/* escaneo del local completo (fotogrametría/LiDAR del teléfono → .glb) */}
         <input ref={escaneoRef} type="file" accept=".glb,model/gltf-binary" style={{ display: 'none' }}
@@ -565,6 +616,22 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
       <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(0, 1fr) 330px', gap: '0.75rem', alignItems: 'start' }}>
         <div>
           <div ref={montRef} style={{ border: '1px solid #ddd', borderRadius: 10, overflow: 'hidden', lineHeight: 0, touchAction: 'none' }} />
+
+          {/* controles de caminar (primera persona) — útiles en móvil */}
+          {modo === 'primera' && (
+            <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.9rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {([['w', '▲'], ['s', '▼'], ['a', '◀'], ['d', '▶']] as const).map(([k, label]) => (
+                  <button key={k} style={{ ...btn, width: 46, height: 40, fontSize: 16, userSelect: 'none', touchAction: 'none' }}
+                    onPointerDown={(e) => { e.preventDefault(); fpKeys.current.add(k); }}
+                    onPointerUp={() => fpKeys.current.delete(k)}
+                    onPointerLeave={() => fpKeys.current.delete(k)}
+                    onPointerCancel={() => fpKeys.current.delete(k)}>{label}</button>
+                ))}
+              </div>
+              <span style={{ fontSize: 12, color: '#666' }}>🚶 Arrastra en la escena para <strong>mirar</strong> · <strong>WASD/flechas</strong> o estos botones para <strong>caminar</strong>. Estás a 1.6 m (altura de los ojos).</span>
+            </div>
+          )}
 
           {/* panel de manipulación del objeto seleccionado */}
           {selObj && (

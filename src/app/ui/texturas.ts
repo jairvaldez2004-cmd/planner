@@ -79,6 +79,42 @@ function dibujar(tipo: string, color: string): HTMLCanvasElement {
       g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 20, y + 6, x + 40, y); g.stroke();
     }
   }
+  else if (tipo === 'marmol') {
+    // vetas onduladas sobre el fondo
+    for (let i = 0; i < 7; i++) {
+      g.strokeStyle = tinte(color, 0.72); g.lineWidth = 1.6; g.beginPath();
+      let y0 = Math.random() * PX; g.moveTo(0, y0);
+      for (let x = 0; x <= PX; x += PX / 6) { y0 += (Math.random() - 0.5) * PX * 0.22; g.lineTo(x, y0); } g.stroke();
+    }
+    for (let i = 0; i < 12; i++) {
+      g.strokeStyle = tinte(color, 0.86); g.lineWidth = 0.7; g.beginPath();
+      let y0 = Math.random() * PX; g.moveTo(0, y0);
+      for (let x = 0; x <= PX; x += PX / 9) { y0 += (Math.random() - 0.5) * PX * 0.12; g.lineTo(x, y0); } g.stroke();
+    }
+  } else if (tipo === 'mosaico') {
+    // mosaico hidráulico de 20 cm con rombo central
+    const paso = PX / 5;
+    for (let gy = 0; gy < 5; gy++) for (let gx = 0; gx < 5; gx++) {
+      const x = gx * paso, y = gy * paso;
+      g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 1.5; g.strokeRect(x, y, paso, paso);
+      g.fillStyle = tinte(color, ((gx + gy) % 2) ? 0.82 : 1.14);
+      g.beginPath(); g.moveTo(x + paso / 2, y + paso * 0.18); g.lineTo(x + paso * 0.82, y + paso / 2); g.lineTo(x + paso / 2, y + paso * 0.82); g.lineTo(x + paso * 0.18, y + paso / 2); g.closePath(); g.fill();
+    }
+  } else if (tipo === 'microcemento') {
+    // pulido fino con manchas suaves
+    for (let i = 0; i < 500; i++) {
+      g.fillStyle = tinte(color, 0.95 + Math.random() * 0.1);
+      g.beginPath(); g.arc(Math.random() * PX, Math.random() * PX, 2 + Math.random() * 6, 0, Math.PI * 2); g.fill();
+    }
+  } else if (tipo === 'madera') {
+    // duelas verticales (muro de madera)
+    const w = PX * 0.16;
+    for (let x = 0, col = 0; x < PX; x += w, col++) {
+      g.fillStyle = tinte(color, 0.9 + (col % 3) * 0.07); g.fillRect(x, 0, w - 1, PX);
+      g.strokeStyle = tinte(color, 0.6); g.lineWidth = 1; g.strokeRect(x, 0, w - 1, PX);
+      for (let i = 0; i < 4; i++) { g.strokeStyle = tinte(color, 0.8); g.beginPath(); const vx = x + (i + 1) * w / 5; g.moveTo(vx, 0); g.bezierCurveTo(vx + 2, PX / 3, vx - 2, 2 * PX / 3, vx, PX); g.stroke(); }
+    }
+  }
   // 'pintura' = color liso, sin patrón
   return c;
 }
@@ -88,7 +124,7 @@ function dibujar(tipo: string, color: string): HTMLCanvasElement {
 export function materialAcabado(encoded: string | undefined | null, metrosX: number, metrosY: number): THREE.MeshStandardMaterial | null {
   const a = parseAcabado(encoded);
   if (!a) return null;
-  const rugosidad: Record<string, number> = { duela: 0.55, porcelanato: 0.25, azulejo: 0.2, cemento: 0.8, alfombra: 0.98, pintura: 0.85, ladrillo: 0.9, yeso: 0.92 };
+  const rugosidad: Record<string, number> = { duela: 0.55, porcelanato: 0.25, azulejo: 0.2, cemento: 0.8, alfombra: 0.98, pintura: 0.85, ladrillo: 0.9, yeso: 0.92, marmol: 0.18, mosaico: 0.3, microcemento: 0.6, madera: 0.55 };
   if (a.tipo === 'pintura') {
     return new THREE.MeshStandardMaterial({ color: a.color, roughness: rugosidad.pintura ?? 0.85, metalness: 0 });
   }
