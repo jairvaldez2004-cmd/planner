@@ -19,7 +19,7 @@ import type { EspacioSrc, ProcesoSrc } from '@/domain/proyeccion';
 import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
 import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
-import { costosDeRecursos, componentesDeEquipo, proveedoresATabla } from '@/domain/proyeccion';
+import { costosDeRecursos, componentesDeEquipo, proveedoresATabla, agentesDeProcesos, componentesDeAutomatizacion } from '@/domain/proyeccion';
 import { recursoVacio, proveedorVacio, numero, subtotalRecurso } from '@/domain/recursos';
 import type { Recurso } from '@/domain/recursos';
 import { indiceRecursos, costearProceso } from '@/domain/costeo';
@@ -330,6 +330,27 @@ check('Conserva color y material válidos', primsAC[0]!.color === '#f2f2ee' && p
 check('alturaModelo del AC ≈ 2.2 m', Math.abs(alturaModelo(primsAC) - 2.2) < 0.01);
 check('leerModelo3D lee un array en data.modelo3d', leerModelo3D({ modelo3d: primsAC }).length === 3);
 check('leerModelo3D lee también un string JSON (data aplanada)', leerModelo3D({ modelo3d: JSON.stringify([{ forma: 'esfera', r: 0.3, x: 0, y: 0.3, z: 0 }]) }).length === 1);
+
+// ============================================================
+// 13) ORGANIZADOR DE EQUIPO (IA): automatizar procesos → plano de software
+// ============================================================
+h('13) Automatización de procesos alimenta el plano de software (IA → agentes · n8n/software → componentes)');
+const procsAuto: ProcesoSrc[] = [
+  { nombre: 'Dar de alta el catálogo', roles: ['Recepción'], entrada: 'lista de servicios', salida: 'catálogo publicado',
+    automatizacion: { con: 'ia', herramienta: 'Agente de catálogo', nota: 'Redacta y publica el catálogo desde una lista.' } },
+  { nombre: 'Recordatorio de cita', roles: ['Recepción'], salida: 'WhatsApp enviado',
+    automatizacion: { con: 'n8n', herramienta: 'n8n: recordatorio' } },
+  { nombre: 'Perforar', roles: ['Perforador'] }, // manual: no proyecta nada
+  { nombre: 'Sub', roles: [], padreProcesoId: 'X', automatizacion: { con: 'ia' } }, // subproceso: se ignora
+];
+const agentes = agentesDeProcesos(procsAuto);
+const compsAuto = componentesDeAutomatizacion(procsAuto);
+check('Solo el proceso IA de nivel raíz se vuelve ficha de agente', agentes.length === 1 && agentes[0]!.nombre === 'Agente de catálogo');
+check('La ficha de agente lleva su capacidad y scope', String(agentes[0]!.capability).includes('catálogo publicado') && String(agentes[0]!.scope).includes('Redacta'));
+check('El proceso n8n se vuelve componente técnico', compsAuto.length === 1 && String(compsAuto[0]!.componente).includes('recordatorio'));
+check('El componente declara que reemplaza el trabajo manual', String(compsAuto[0]!.sustitucion).includes('Recordatorio de cita'));
+check('Los procesos manuales y los subprocesos NO proyectan software', agentes.length + compsAuto.length === 2);
+check('Mapa enriquece IA/agentes y TEC/componentes', superficiesDePlano('IA').some((s) => s.superficie === 'mapa') && superficiesDePlano('TEC').some((s) => s.superficie === 'mapa'));
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

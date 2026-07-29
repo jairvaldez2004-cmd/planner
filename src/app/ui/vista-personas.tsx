@@ -7,8 +7,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as RPointerEvent } from 'react';
-import { listarEmpleados, guardarEmpleado, eliminarEmpleado } from '@/app/actions/rh.actions';
+import { listarEmpleados, guardarEmpleado, eliminarEmpleado, conversarOrganizadorRH, cargarChatOrganizadorRH } from '@/app/actions/rh.actions';
 import { listarDepartamentos, listarProcesos } from '@/app/actions/mapa.actions';
+import { ChatArquitecto } from './chat-arquitecto';
 import { ESTADOS_EMPLEADO, estadoEmpleado, empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
 import { flujoDePersona, flujoDeRol, indiceRoles, rolesConocidos, quienesHacen, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
@@ -31,7 +32,7 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
   const [deptoNombreMap, setDeptoNombreMap] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<string | null>(null);
   const [verFlujo, setVerFlujo] = useState(false);
-  const [vista, setVista] = useState<'personas' | 'roles' | 'terceros'>('personas');
+  const [vista, setVista] = useState<'personas' | 'roles' | 'terceros' | 'ia'>('personas');
   const [rolSel, setRolSel] = useState<string | null>(null);
   const [buscarRol, setBuscarRol] = useState('');
   const [loading, setLoading] = useState(true);
@@ -91,7 +92,7 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
 
       {/* Tabs: Personas | Roles */}
       <div style={{ display: 'flex', gap: '0.4rem', margin: '0.5rem 0 0.4rem' }}>
-        {([['personas', '👥 Personas'], ['roles', '🏷️ Roles'], ['terceros', '🏢 Terceros']] as const).map(([id, label]) => (
+        {([['personas', '👥 Personas'], ['roles', '🏷️ Roles'], ['terceros', '🏢 Terceros'], ['ia', '🤖 Organizar IA']] as const).map(([id, label]) => (
           <button key={id} onClick={() => { setVista(id); setRolSel(null); }}
             style={{ ...btn, background: vista === id ? '#8a4fbf' : '#fff', color: vista === id ? '#fff' : '#4a3a63', borderColor: vista === id ? '#8a4fbf' : '#d5cde2', fontWeight: 'bold' }}>{label}</button>
         ))}
@@ -102,6 +103,10 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
       {vista === 'roles' && <RolesLista roles={rolesIdx} buscar={buscarRol} onBuscar={setBuscarRol} onAbrir={setRolSel} />}
 
       {vista === 'terceros' && <FlujoInterEmpresa negocio={nombreProyecto || 'Este negocio'} proveedores={terceros} />}
+
+      {vista === 'ia' && (
+        <OrganizadorIA proyectoId={proyectoId} empleados={emps} procesos={procesosFull} nombreDepto={nombreDepto} onCambio={cargar} movil={movil} />
+      )}
 
       {vista === 'personas' && (
        <>
@@ -362,7 +367,7 @@ function FlujoCanvas({ pasos, procesos, empleados, nombreDepto, yo }: {
             return (
               <div key={n.id} onPointerDown={(e) => onDown(e, n.id)} onPointerMove={onMove} onPointerUp={() => onUp(n.id)}
                 style={{ position: 'absolute', left: p.x, top: p.y, width: W, minHeight: H, border: `2px solid ${bc}`, borderRadius: 10, background: n.propio ? '#faf7ff' : '#fff', padding: '0.35rem 0.5rem', boxSizing: 'border-box', boxShadow: sel === n.id ? '0 0 0 2px #5b6b8c33' : '0 1px 3px rgba(0,0,0,0.08)', cursor: 'grab', touchAction: 'none' }}>
-                <div style={{ fontWeight: 'bold', fontSize: 12, lineHeight: 1.15 }}>{n.nombre}</div>
+                <div style={{ fontWeight: 'bold', fontSize: 12, lineHeight: 1.15 }}>{byId.get(n.id)?.automatizacion ? '🤖 ' : ''}{n.nombre}</div>
                 <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{n.depto}</div>
                 <div style={{ fontSize: 10, color: ext ? '#b5651d' : '#555', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ext ? '🏢 ' : '👤 '}{quienStr(n.quien)}</div>
                 {n.hijos > 0 && <button style={{ ...btnSm, marginTop: 4, fontSize: 10, padding: '1px 6px', background: '#eef4ff', borderColor: '#cdd8ef', color: '#2b5a97' }} onClick={() => entrar(n.id, n.nombre)}>⤵ subflujo ({n.hijos})</button>}
@@ -387,6 +392,11 @@ function FlujoCanvas({ pasos, procesos, empleados, nombreDepto, yo }: {
             {selProc.entrada ? <div><b>Recibe:</b> {selProc.entrada}</div> : null}
             {selProc.salida ? <div><b>Produce:</b> {selProc.salida}</div> : null}
           </div>
+          {selProc.automatizacion && (
+            <div style={{ fontSize: 12, color: '#2e7d5b', marginTop: 5, background: '#f0f9f4', border: '1px solid #cbe6d8', borderRadius: 6, padding: '0.3rem 0.5rem' }}>
+              🤖 <b>Automatizado</b> ({selProc.automatizacion.con}{selProc.automatizacion.herramienta ? ` · ${selProc.automatizacion.herramienta}` : ''}) → plano de software{selProc.automatizacion.nota ? `. ${selProc.automatizacion.nota}` : ''}
+            </div>
+          )}
           {selProc.instructivo ? <div style={{ fontSize: 12, color: '#444', marginTop: 5, whiteSpace: 'pre-wrap' }}><b>Instructivo:</b> {selProc.instructivo}</div> : null}
           {selNode.hijos > 0 && <button style={{ ...btnSm, marginTop: 6, background: '#eef4ff', borderColor: '#cdd8ef', color: '#2b5a97', fontWeight: 'bold' }} onClick={() => entrar(selProc.id, selProc.nombre)}>⤵ Ver subflujo ({selNode.hijos} pasos)</button>}
         </div>
@@ -533,6 +543,90 @@ function FlujoInterEmpresa({ negocio, proveedores }: { negocio: string; proveedo
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ===== ORGANIZADOR DE EQUIPO (IA) =====
+// ¿Esta persona ejecuta este proceso? (mismo criterio que el snapshot server-side).
+function personaEjecuta(e: Empleado, p: ProcesoNodo): boolean {
+  const nom = p.nombre.trim().toLowerCase();
+  if (e.procesos.some((x) => x.trim().toLowerCase() === nom)) return true;
+  const roles = new Set(e.roles.map((r) => r.trim().toLowerCase()));
+  return p.roles.some((r) => roles.has(r.trim().toLowerCase()));
+}
+
+function OrganizadorIA({ proyectoId, empleados, procesos, nombreDepto, onCambio, movil }: {
+  proyectoId: string; empleados: Empleado[]; procesos: ProcesoNodo[]; nombreDepto: (id: string) => string; onCambio: () => void; movil: boolean;
+}) {
+  const raiz = procesos.filter((p) => !p.padreProcesoId);
+  const automatizados = raiz.filter((p) => p.automatizacion);
+  const manuales = raiz.filter((p) => !p.automatizacion);
+  const sinCubrir = manuales.filter((p) => !empleados.some((e) => personaEjecuta(e, p)));
+  const cargaDe = (e: Empleado) => manuales.filter((p) => personaEjecuta(e, p)).reduce((s, p) => s + (p.tiempoMin ?? 0), 0);
+  const activos = empleados.filter((e) => e.estado !== 'baja');
+  const modoLabel: Record<string, string> = { ia: '🧠 Agente IA', n8n: '🔗 n8n', software: '💻 Software' };
+
+  const stat: CSSProperties = { border: '1px solid #e0dae8', borderRadius: 9, padding: '0.5rem 0.7rem', background: '#fff', textAlign: 'center' };
+
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.6rem' }}>
+        La IA arma el equipo más eficiente: <strong>asigna procesos</strong>, crea <strong>vacantes</strong> donde falta gente y decide qué <strong>automatizar</strong>. Lo que automatiza alimenta el <strong>plano de software</strong> (IA → agentes · n8n/software → componentes).
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.5rem', marginBottom: '0.7rem' }}>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#8a4fbf' }}>{activos.length}</div><div style={{ fontSize: 11, color: '#888' }}>personas activas</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#3b86c9' }}>{manuales.length}</div><div style={{ fontSize: 11, color: '#888' }}>procesos manuales</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#2e9e63' }}>{automatizados.length}</div><div style={{ fontSize: 11, color: '#888' }}>automatizados 🤖</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: sinCubrir.length ? '#c0392b' : '#2e9e63' }}>{sinCubrir.length}</div><div style={{ fontSize: 11, color: '#888' }}>sin cubrir</div></div>
+      </div>
+
+      {/* Carga por persona */}
+      {activos.length > 0 && (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+          {activos.map((e) => {
+            const c = cargaDe(e);
+            return <span key={e.id} style={{ ...tag, background: '#f4f0fb' }}>{e.nombre || '(sin nombre)'} <span style={{ color: c ? '#8a4fbf' : '#aaa', fontWeight: 'bold' }}>~{c} min</span></span>;
+          })}
+        </div>
+      )}
+
+      {/* Procesos sin cubrir (alerta) */}
+      {sinCubrir.length > 0 && (
+        <div style={{ border: '1px solid #f0c9c2', background: '#fdf3f1', borderRadius: 9, padding: '0.5rem 0.7rem', marginBottom: '0.6rem' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#c0392b' }}>⚠ {sinCubrir.length} proceso(s) sin nadie que los haga</div>
+          <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{sinCubrir.map((p) => p.nombre).join(' · ')}</div>
+          <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>Pídele a la IA: “asigna o automatiza los procesos sin cubrir”.</div>
+        </div>
+      )}
+
+      {/* Automatizaciones actuales */}
+      {automatizados.length > 0 && (
+        <div style={{ marginBottom: '0.7rem' }}>
+          <div style={{ fontSize: 12, fontWeight: 'bold', color: '#2e7d5b', marginBottom: 4 }}>🤖 Automatizados → plano de software</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.4rem' }}>
+            {automatizados.map((p) => (
+              <div key={p.id} style={{ border: '1px solid #cbe6d8', borderLeft: '4px solid #2e9e63', borderRadius: 8, padding: '0.4rem 0.55rem', background: '#f6fbf8' }}>
+                <div style={{ fontWeight: 'bold', fontSize: 12.5 }}>{p.nombre}</div>
+                <div style={{ fontSize: 11, color: '#666', marginTop: 1 }}>{nombreDepto(p.departamentoId)}</div>
+                <div style={{ fontSize: 11.5, color: '#2e7d5b', marginTop: 2 }}>{modoLabel[p.automatizacion!.con] ?? p.automatizacion!.con}{p.automatizacion!.herramienta ? ` · ${p.automatizacion!.herramienta}` : ''}</div>
+                {p.automatizacion!.nota && <div style={{ fontSize: 11, color: '#777', marginTop: 1 }}>{p.automatizacion!.nota}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <ChatArquitecto
+        conversar={(h) => conversarOrganizadorRH(h, proyectoId)}
+        saludo={'Soy el Organizador de Equipo. Con el mapa operativo y tu roster puedo: armar el equipo más eficiente, asignar procesos, crear vacantes donde falte gente y decidir qué automatizar con IA/n8n/software (eso alimenta el plano de software). Dime, por ejemplo: “reparte los procesos entre Suzet, Francisco y Flor sin sobrecargar a nadie y automatiza lo repetitivo”.'}
+        placeholder="Ej: arma el equipo y automatiza lo mecánico…"
+        cargarHistorial={() => cargarChatOrganizadorRH(proyectoId)}
+        historialKey={`rhia:${proyectoId}`}
+        onCambio={onCambio}
+        altura={movil ? 320 : 460}
+      />
     </div>
   );
 }

@@ -23,7 +23,7 @@ import type { Fila } from '@/app/captura/csv';
 import { modeloActual } from '@/app/actions/config.actions';
 import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { DocumentoPlano } from '@/domain/plano-doc';
-import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, componentesDeEquipo, proveedoresATabla } from '@/domain/proyeccion';
+import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, componentesDeEquipo, componentesDeAutomatizacion, agentesDeProcesos, proveedoresATabla } from '@/domain/proyeccion';
 import { listarSedes, listarEspacios } from '@/app/actions/espacios.actions';
 import { listarProcesos } from '@/app/actions/mapa.actions';
 import { listarEmpleados } from '@/app/actions/rh.actions';
@@ -68,7 +68,10 @@ async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<R
   if (refs.has('puestos')) out['puestos'] = puestosDeEmpleados(await getEmpleados());
   if (refs.has('personas')) out['personas'] = personasDeSuperficies(await getEspacios(), await getProcesos(), await getEmpleados());
   if (refs.has('costos')) out['costos'] = costosDeRecursos(await getRecursos());
-  if (refs.has('componentes')) out['componentes'] = componentesDeEquipo(await getRecursos());
+  // Componentes técnicos = inventario de equipo (Recursos) + automatizaciones n8n/software (Mapa).
+  if (refs.has('componentes')) out['componentes'] = [...componentesDeEquipo(await getRecursos()), ...componentesDeAutomatizacion(await getProcesos())];
+  // Fichas de agente = procesos que el Organizador (IA) decidió automatizar con IA.
+  if (refs.has('agentes')) out['agentes'] = agentesDeProcesos(await getProcesos());
   if (refs.has('proveedores')) out['proveedores'] = proveedoresATabla(await getProveedores());
   return out;
 }

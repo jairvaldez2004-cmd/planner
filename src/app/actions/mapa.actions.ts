@@ -6,7 +6,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
-import type { Apoyo, AsignacionRecurso, Departamento, FaseMapa, ProcesoNodo, Rama, TipoApoyo, TipoDepartamento } from '@/domain/mapa';
+import type { Apoyo, AsignacionRecurso, Automatizacion, Departamento, FaseMapa, ModoAutomatizacion, ProcesoNodo, Rama, TipoApoyo, TipoDepartamento } from '@/domain/mapa';
 import { ETAPA_BASE } from '@/domain/mapa';
 import type { EtapaObjetivo } from '@/domain/etapas';
 import { ETAPAS_OBJETIVO } from '@/domain/etapas';
@@ -37,6 +37,12 @@ function normApoyo(v: unknown): Apoyo {
   const d = obj(v);
   const tipo = (['video', 'documento', 'enlace'].includes(str(d.tipo)) ? str(d.tipo) : 'enlace') as TipoApoyo;
   return { id: str(d.id) || nid('APO'), tipo, titulo: str(d.titulo), url: str(d.url), nota: str(d.nota) || undefined };
+}
+// Automatización: solo se considera si trae un modo válido; si no, el proceso es manual.
+function normAutomatizacion(v: unknown): Automatizacion | undefined {
+  const d = obj(v);
+  if (!['ia', 'n8n', 'software'].includes(str(d.con))) return undefined;
+  return { con: str(d.con) as ModoAutomatizacion, herramienta: str(d.herramienta) || undefined, nota: str(d.nota) || undefined, ahorroMin: num(d.ahorroMin) };
 }
 
 // =================== DEPARTAMENTOS ===================
@@ -150,6 +156,7 @@ function mapProceso(r: { id: string; departamentoId: string; nombre: string; fas
     instructivo: str(d.instructivo) || undefined,
     ramas: arr<unknown>(d.ramas).map(normRama),
     apoyos: arr<unknown>(d.apoyos).map(normApoyo),
+    automatizacion: normAutomatizacion(d.automatizacion),
     origen: (str(origen.ofertaId) && str(origen.pasoId)) ? { ofertaId: str(origen.ofertaId), pasoId: str(origen.pasoId) } : undefined,
     padreProcesoId: str(d.padreProcesoId) || undefined,
     equipo: arr<unknown>(d.equipo).map(str).filter(Boolean),
@@ -181,6 +188,7 @@ export interface ProcesoPatch {
   herramientas?: string[] | undefined; insumos?: string[] | undefined; espacios?: AsignacionRecurso[] | undefined;
   tiempoMin?: number | undefined; entrada?: string | undefined; salida?: string | undefined;
   instructivo?: string | undefined; ramas?: Rama[] | undefined; apoyos?: Apoyo[] | undefined;
+  automatizacion?: Automatizacion | null | undefined; // null = quitar la automatización (vuelve a manual)
   posX?: number | undefined; posY?: number | undefined;
   departamentoId?: string | undefined; fase?: FaseMapa | undefined;
   etapaDesde?: EtapaObjetivo | undefined; etapaHasta?: EtapaObjetivo | null | undefined;
@@ -208,6 +216,7 @@ export async function actualizarProceso(id: string, patch: ProcesoPatch): Promis
   if (patch.salida !== undefined) data.salida = patch.salida;
   if (patch.instructivo !== undefined) data.instructivo = patch.instructivo;
   if (patch.apoyos !== undefined) data.apoyos = patch.apoyos.map(normApoyo);
+  if (patch.automatizacion !== undefined) { if (patch.automatizacion === null) delete data.automatizacion; else data.automatizacion = normAutomatizacion(patch.automatizacion); }
   if (patch.ramas !== undefined) data.ramas = patch.ramas.map(normRama);
   if (patch.etapaDesde !== undefined) data.etapaDesde = etapa(patch.etapaDesde, ETAPA_BASE);
   if (patch.etapaHasta !== undefined) data.etapaHasta = patch.etapaHasta === null ? undefined : etapa(patch.etapaHasta);

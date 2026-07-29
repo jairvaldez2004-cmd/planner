@@ -8,6 +8,7 @@
 
 import type { Fila } from './plano-doc';
 import type { Empleado } from './rh';
+import type { Automatizacion } from './mapa';
 import type { Recurso, Proveedor } from './recursos';
 import { subtotalRecurso, formatoMoneda, categoriaRecurso } from './recursos';
 
@@ -33,6 +34,8 @@ export const ENRIQUECE: Record<Superficie, Aporte[]> = {
     { planoId: 'ORG', tablaRef: 'personas', nota: 'roles que ejecutan cada proceso' },
     { planoId: 'OPE', nota: 'ciclo, ejecutores y handoffs' },
     { planoId: 'CTR', nota: 'tiempos y KPIs por proceso' },
+    { planoId: 'IA', tablaRef: 'agentes', nota: 'procesos automatizados con IA → fichas de agente' },
+    { planoId: 'TEC', tablaRef: 'componentes', nota: 'automatizaciones (n8n/software) → componentes técnicos' },
   ],
   uc: [
     { planoId: 'COM', nota: 'catálogo y oferta de la unidad' },
@@ -73,6 +76,7 @@ export interface EspacioSrc {
 export interface ProcesoSrc {
   nombre: string; entrada?: string | undefined; salida?: string | undefined;
   roles: string[]; tiempoMin?: number | undefined; padreProcesoId?: string | undefined;
+  automatizacion?: Automatizacion | undefined;
 }
 
 // Divide un campo "Rol1, Rol2 / Rol3" en roles individuales.
@@ -176,6 +180,34 @@ export function componentesDeEquipo(recursos: Recurso[]): Fila[] {
     sustitucion: '',
     entradaSalida: r.grupo || '',
   }));
+}
+
+// Procesos automatizados CON IA → filas de `agentes` (plano IA) = ficha de agente por proceso.
+// Es como el Organizador de Equipo (IA) alimenta el plano de software: cada proceso que
+// decide automatizar con un agente se vuelve una ficha (capacidad, scope, permisos, apagado).
+export function agentesDeProcesos(procesos: ProcesoSrc[]): Fila[] {
+  return procesos
+    .filter((p) => !p.padreProcesoId && p.automatizacion?.con === 'ia' && p.nombre.trim())
+    .map((p): Fila => ({
+      nombre: p.automatizacion!.herramienta || `Agente: ${p.nombre}`,
+      capability: p.nombre + (p.salida ? ` → ${p.salida}` : ''),
+      categoria: 'Automatización de proceso',
+      scope: p.automatizacion!.nota || [p.entrada, p.salida].filter(Boolean).join(' → '),
+      permisos: p.roles.join(', '),
+      apagado: 'Reversible a operación manual',
+    }));
+}
+
+// Procesos automatizados con n8n/software → filas de `componentes` (plano Tecnológico).
+export function componentesDeAutomatizacion(procesos: ProcesoSrc[]): Fila[] {
+  return procesos
+    .filter((p) => !p.padreProcesoId && p.automatizacion && p.automatizacion.con !== 'ia' && p.nombre.trim())
+    .map((p): Fila => ({
+      componente: p.automatizacion!.herramienta || `Automatización: ${p.nombre}`,
+      contrato: [p.entrada, p.salida].filter(Boolean).join(' → '),
+      sustitucion: `Reemplaza el trabajo manual de "${p.nombre}"`,
+      entradaSalida: p.automatizacion!.nota || '',
+    }));
 }
 
 // Directorio de proveedores → filas de `proveedores` (plano Comercial).

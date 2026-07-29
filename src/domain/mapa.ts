@@ -58,6 +58,18 @@ export interface Rama {
   destinoProcesoId?: string | undefined; // → a qué proceso conecta
 }
 
+// AUTOMATIZACIÓN de un proceso: cómo el trabajo humano se sustituye por tecnología.
+// Es la decisión del Organizador de Equipo (IA) y ALIMENTA el plano de software:
+//   · 'ia'       → ficha de agente en el plano IA
+//   · 'n8n' / 'software' → componente en el plano Tecnológico
+export type ModoAutomatizacion = 'ia' | 'n8n' | 'software';
+export interface Automatizacion {
+  con: ModoAutomatizacion;
+  herramienta?: string | undefined;  // ej. "Agente IA de catálogo" · "n8n: alta de cita"
+  nota?: string | undefined;         // qué hace / cómo reemplaza el trabajo manual
+  ahorroMin?: number | undefined;    // minutos de trabajo humano ahorrados por ejecución
+}
+
 // Material de APOYO de un proceso: video / documento / enlace para explicar temas complejos
 // (ej. el jefe de obra muestra un video de cómo aplicar un acabado antes de empezar).
 export type TipoApoyo = 'video' | 'documento' | 'enlace';
@@ -94,6 +106,7 @@ export interface ProcesoNodo {
   salida?: string | undefined;
   instructivo?: string | undefined;    // el paso a paso (vista instructivo)
   apoyos?: Apoyo[] | undefined;        // videos/documentos que explican cómo hacerlo
+  automatizacion?: Automatizacion | undefined; // si el Organizador (IA) decidió automatizarlo
   ramas: Rama[];                       // salidas por disparador (el flujo)
   origen?: { ofertaId: string; pasoId: string } | undefined; // si vino sembrado del catálogo
   padreProcesoId?: string | undefined; // si es un SUBPROCESO dentro de otro paso (flujo anidado)

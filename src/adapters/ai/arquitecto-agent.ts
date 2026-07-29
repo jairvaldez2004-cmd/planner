@@ -671,6 +671,108 @@ export async function correrDisenador3D(
   return correrBucleTools(system, TOOLS_DISENADOR, historial, ejecutar, modelo);
 }
 
+// =================== ORGANIZADOR DE EQUIPO (IA) — arma la plantilla y decide automatización ===================
+// Dentro de Personas & RH: dado el MAPA OPERATIVO (procesos con tiempo/roles/fase) y el
+// ROSTER (personas con roles/procesos/nómina), asigna el trabajo de forma eficiente, crea
+// vacantes donde falta gente y decide qué automatizar con IA/n8n/software. Las decisiones
+// de automatización ALIMENTAN el plano de software (IA → fichas de agente; n8n/software → componentes).
+
+const SYSTEM_ORGANIZADOR_RH = `Eres el ORGANIZADOR DE EQUIPO (IA) del Business Planner. Dado el MAPA OPERATIVO (los procesos con su tiempo, roles y fase) y el ROSTER de personas (con sus roles, procesos actuales, competencias y nómina), tu trabajo es armar el equipo MÁS EFICIENTE y decidir qué conviene AUTOMATIZAR. Ejecutas cambios reales con tus herramientas.
+
+QUÉ HACES:
+1) ASIGNAR procesos a las personas de forma equilibrada — respeta sus roles/competencias y NO sobrecargues a nadie (mira los minutos de carga por persona en el estado). Usa "asignar_proceso". Si una persona necesita un rol que no tiene, dáselo con "asignar_rol". Para rebalancear, "quitar_proceso".
+2) Si hay trabajo que NADIE cubre (falta gente), crea una VACANTE con "crear_vacante" (puesto + departamento + roles + procesos que cubriría). NO inventes personas reales; una vacante es una plaza por contratar.
+3) AUTOMATIZAR lo que sea repetitivo, basado en reglas, de alto volumen o de bajo criterio (captura de datos, recordatorios, agendado, catálogo, cobros, reportes, conciliaciones). Usa "automatizar_proceso" indicando CÓMO: 'ia' (un agente que decide/redacta), 'n8n' (flujo/webhook entre apps) o 'software' (una función/pantalla). Esto ALIMENTA EL PLANO DE SOFTWARE: los de 'ia' se vuelven fichas de agente (plano IA) y los de 'n8n'/'software' se vuelven componentes (plano Tecnológico). Un proceso automatizado deja de consumir tiempo humano — tómalo en cuenta al balancear.
+4) PRIORIZA automatizar antes que contratar cuando el proceso es mecánico. Contratar es para lo que requiere criterio, trato humano o manos.
+
+REGLAS: explica en 1–2 líneas POR QUÉ cada asignación/automatización. No dupliques asignaciones ni automatizaciones que ya existan (las ves en el estado). Si vas a crear varias vacantes o automatizar muchos procesos, resume primero el plan y luego ejecútalo. Refiere a personas y procesos por su nombre exacto del estado.
+
+Estilo: español, claro y directo. Puedes encadenar varias acciones en un turno. Al final, di un resumen de lo que quedó (quién hace qué, qué se automatizó y qué falta contratar).`;
+
+const TOOLS_ORGANIZADOR_RH: Anthropic.Tool[] = [
+  {
+    name: 'asignar_proceso',
+    description: 'Asigna un proceso del mapa a una persona del roster (se suma a los procesos que ejecuta). Refiérelos por su nombre exacto.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: { persona: { type: 'string', description: 'Nombre de la persona (o vacante).' }, proceso: { type: 'string', description: 'Nombre del proceso del mapa.' } },
+      required: ['persona', 'proceso'],
+    },
+  },
+  {
+    name: 'quitar_proceso',
+    description: 'Quita un proceso de una persona (para rebalancear la carga).',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: { persona: { type: 'string' }, proceso: { type: 'string' } },
+      required: ['persona', 'proceso'],
+    },
+  },
+  {
+    name: 'asignar_rol',
+    description: 'Da un rol a una persona (para que pueda ejecutar los procesos que piden ese rol).',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: { persona: { type: 'string' }, rol: { type: 'string' } },
+      required: ['persona', 'rol'],
+    },
+  },
+  {
+    name: 'crear_vacante',
+    description: 'Crea una VACANTE (plaza por contratar) en el roster cuando falta gente para cubrir el trabajo. No es una persona real; queda en estado candidato.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        puesto: { type: 'string', description: 'Puesto a contratar. Ej: "Recepcionista".' },
+        departamento: { type: 'string', description: 'Departamento del Mapa (opcional).' },
+        roles: { type: 'array', items: { type: 'string' }, description: 'Roles que desempeñaría.' },
+        procesos: { type: 'array', items: { type: 'string' }, description: 'Procesos que cubriría.' },
+      },
+      required: ['puesto'],
+    },
+  },
+  {
+    name: 'automatizar_proceso',
+    description: 'Marca un proceso como AUTOMATIZADO y define cómo. Alimenta el plano de software: con="ia" → ficha de agente (plano IA); con="n8n"/"software" → componente (plano Tecnológico).',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        proceso: { type: 'string', description: 'Nombre del proceso del mapa.' },
+        con: { type: 'string', enum: ['ia', 'n8n', 'software'], description: 'ia = agente que decide/redacta · n8n = flujo entre apps · software = función/pantalla.' },
+        herramienta: { type: 'string', description: 'Nombre de la automatización/agente. Ej: "Agente de catálogo", "n8n: recordatorio de cita".' },
+        nota: { type: 'string', description: 'Qué hace y cómo reemplaza el trabajo manual.' },
+        ahorroMin: { type: 'number', description: 'Minutos de trabajo humano que ahorra por ejecución (opcional).' },
+      },
+      required: ['proceso', 'con'],
+    },
+  },
+  {
+    name: 'quitar_automatizacion',
+    description: 'Quita la automatización de un proceso (vuelve a ser manual).',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: { proceso: { type: 'string' } },
+      required: ['proceso'],
+    },
+  },
+];
+
+export async function correrOrganizadorRH(
+  historial: MensajeChat[],
+  estado: string,
+  ejecutar: EjecutorHerramienta,
+  modelo?: ModeloClaude,
+): Promise<ResultadoCurador> {
+  const system = `${SYSTEM_ORGANIZADOR_RH}\n\n${estado}`;
+  return correrBucleTools(system, TOOLS_ORGANIZADOR_RH, historial, ejecutar, modelo);
+}
+
 export interface ContextoProyecto {
   proyecto?: string;   // nombre del proyecto/empresa
   unidades?: string[]; // nombres de UCs ya creadas
