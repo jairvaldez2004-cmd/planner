@@ -20,8 +20,8 @@ import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
 import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
 import { costosDeRecursos, componentesDeEquipo, proveedoresATabla, agentesDeProcesos, componentesDeAutomatizacion } from '@/domain/proyeccion';
-import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra, siguienteEtapaCompra, totalOrden, ordenVacia, solicitudDesdeProducto, contratoVacio, estadoContrato } from '@/domain/recursos';
-import type { Recurso, ProductoProveedor, Producto, Contrato } from '@/domain/recursos';
+import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra, siguienteEtapaCompra, totalOrden, ordenVacia, solicitudDesdeProducto, contratoVacio, estadoContrato, scoreProveedor, incidenciaVacia } from '@/domain/recursos';
+import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from '@/domain/recursos';
 import { indiceRecursos, costearProceso } from '@/domain/costeo';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
@@ -432,6 +432,32 @@ check('Contrato a 10 días → por-vencer con alerta', (() => { const i = estado
 check('Contrato pasado → vencido', estadoContrato(ctr('2026-06-01'), HOY).estado === 'vencido');
 check('Renovación automática NO dispara alerta aunque esté por vencer', estadoContrato(ctr('2026-08-08', { renovacionAutomatica: true }), HOY).alerta === false);
 check('Sin fecha de vencimiento → sin-fecha', estadoContrato(ctr(''), HOY).estado === 'sin-fecha');
+
+// ============================================================
+// 17) CALIDAD + EVALUACIÓN + RIESGO: Score General automático del proveedor
+// ============================================================
+h('17) Score de proveedor: promedio de criterios penalizado por incidencias');
+const provEval = { ...proveedorVacio('PRV-EV'), nombre: 'Distribuidora X', evaluacion: { calidad: 90, precio: 80, tiempo: 70 } };
+const sc0 = scoreProveedor(provEval, []);
+check('Score = promedio de criterios (80)', sc0.score === 80 && sc0.base === 80 && sc0.nCriterios === 3);
+check('Nivel excelente ≥80', sc0.nivel === 'excelente');
+
+// Incidencias penalizan: 1 grave (−8) + 1 media (−4) = −12 → 68.
+const incsX: Incidencia[] = [
+  { ...incidenciaVacia('I1', 'PRV-EV'), gravedad: 'grave' },
+  { ...incidenciaVacia('I2', 'PRV-EV'), gravedad: 'media' },
+  { ...incidenciaVacia('I3', 'OTRO'), gravedad: 'grave' }, // de otro proveedor: no cuenta
+];
+const sc1 = scoreProveedor(provEval, incsX);
+check('Penalización solo de SUS incidencias (−12)', sc1.penalizacion === 12 && sc1.incidencias === 2);
+check('Score penalizado = 68 (bueno)', sc1.score === 68 && sc1.nivel === 'bueno');
+
+// Sin criterios calificados → sin evaluar.
+check('Proveedor sin evaluación → sin-evaluar', scoreProveedor(proveedorVacio('P0'), []).nivel === 'sin-evaluar');
+
+// El normalizador limpia valores fuera de rango y no-criterios.
+const provNorm = normalizarProveedor({ id: 'X', nombre: 'Y', evaluacion: { calidad: 150, precio: -5, inventado: 99 } });
+check('Evaluación: clamp a 100 y descarta criterios inválidos', provNorm.evaluacion.calidad === 100 && provNorm.evaluacion.precio === undefined && (provNorm.evaluacion as Record<string, number>).inventado === undefined);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

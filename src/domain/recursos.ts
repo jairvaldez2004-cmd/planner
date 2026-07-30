@@ -32,6 +32,25 @@ export const CATEGORIAS_PROVEEDOR = [
 export type TipoAdjunto = 'foto' | 'video' | 'documento';
 export interface Adjunto { tipo: TipoAdjunto; titulo: string; url: string }
 
+// Criterios de evaluación del proveedor (Sección 9). Todos "más alto = mejor" (0–100).
+export const CRITERIOS_EVAL = [
+  { id: 'calidad', label: 'Calidad' },
+  { id: 'precio', label: 'Precio' },
+  { id: 'tiempo', label: 'Tiempo de entrega' },
+  { id: 'comunicacion', label: 'Comunicación' },
+  { id: 'garantia', label: 'Garantía' },
+  { id: 'servicio', label: 'Servicio' },
+  { id: 'flexibilidad', label: 'Flexibilidad' },
+  { id: 'disponibilidad', label: 'Disponibilidad' },
+  { id: 'innovacion', label: 'Innovación' },
+  { id: 'confiabilidad', label: 'Bajo riesgo / confiabilidad' },
+] as const;
+
+// Tipos de riesgo (Sección 15) y de incidencia de calidad (Sección 8).
+export const RIESGOS = ['político', 'climático', 'financiero', 'logístico', 'cambiario', 'legal'];
+export const DEPENDENCIAS = ['alta', 'media', 'baja'];
+export const TIPOS_INCIDENCIA = ['rechazo', 'retraso', 'defecto', 'incidencia', 'auditoría'];
+
 export interface Recurso {
   id: string;
   nombre: string;
@@ -78,6 +97,17 @@ export interface Proveedor {
   // Clasificación múltiple (un proveedor puede ser de varias categorías)
   categorias: string[];
   tipo: string;           // LEGACY: qué provee (compatibilidad; se mapea a categorias)
+  // Calidad (Sección 8) — resumen; las incidencias viven en su propia entidad.
+  cumplimiento: string;   // % de cumplimiento
+  tiempoPromedio: string; // tiempo promedio de entrega observado
+  // Evaluación (Sección 9): calificación 0–100 por criterio → Score General automático.
+  evaluacion: Record<string, number>;
+  // Riesgo (Sección 15)
+  proveedorUnico: boolean;    // ¿es el único que nos da esto?
+  dependencia: string;        // alta / media / baja
+  riesgos: string[];          // político, climático, financiero, logístico, cambiario, legal
+  planB: string;              // plan alternativo si falla
+  proveedorAlternativo: string;
   // Multimedia y docs
   adjuntos: Adjunto[];    // fotografías, videos, documentos
   notas: string;
@@ -176,6 +206,7 @@ export function proveedorVacio(id: string): Proveedor {
     id, nombre: '', razonSocial: '', rfc: '', pais: '', estado: '', ciudad: '', direccion: '', gps: '', zonas: [],
     contacto: '', puesto: '', telefono: '', whatsapp: '', email: '', sitioWeb: '', idiomas: [], horario: '',
     moneda: '', incoterms: [], aniosMercado: '', tamano: '', certificaciones: [], categorias: [], tipo: 'insumos',
+    cumplimiento: '', tiempoPromedio: '', evaluacion: {}, proveedorUnico: false, dependencia: '', riesgos: [], planB: '', proveedorAlternativo: '',
     adjuntos: [], notas: '',
   };
 }
@@ -231,8 +262,22 @@ export function normalizarProveedor(v: unknown): Proveedor {
     contacto: s(d.contacto), puesto: s(d.puesto), telefono: s(d.telefono), whatsapp: s(d.whatsapp), email: s(d.email),
     sitioWeb: s(d.sitioWeb), idiomas: sa(d.idiomas), horario: s(d.horario), moneda: s(d.moneda), incoterms: sa(d.incoterms),
     aniosMercado: s(d.aniosMercado), tamano: s(d.tamano), certificaciones: sa(d.certificaciones), categorias, tipo,
+    cumplimiento: s(d.cumplimiento), tiempoPromedio: s(d.tiempoPromedio), evaluacion: normEvaluacion(d.evaluacion),
+    proveedorUnico: d.proveedorUnico === true, dependencia: s(d.dependencia), riesgos: sa(d.riesgos),
+    planB: s(d.planB), proveedorAlternativo: s(d.proveedorAlternativo),
     adjuntos: Array.isArray(d.adjuntos) ? d.adjuntos.map(normAdjunto) : [], notas: s(d.notas),
   };
+}
+
+// Lee el objeto de evaluación: solo criterios conocidos con valor numérico 0–100.
+function normEvaluacion(v: unknown): Record<string, number> {
+  const d = (v && typeof v === 'object') ? v as Record<string, unknown> : {};
+  const out: Record<string, number> = {};
+  for (const c of CRITERIOS_EVAL) {
+    const n = typeof d[c.id] === 'number' ? d[c.id] as number : Number(d[c.id]);
+    if (Number.isFinite(n) && n > 0) out[c.id] = Math.max(0, Math.min(100, Math.round(n)));
+  }
+  return out;
 }
 
 export function normalizarProducto(v: unknown): Producto {
@@ -519,4 +564,61 @@ export function solicitudDesdeProducto(id: string, p: Producto, cantidad: number
     descripcion: p.nombre, cantidad: cantidad !== null ? String(cantidad) : '', unidad: p.unidad,
     fechaSolicitud, notas: 'Generada automáticamente por stock bajo.',
   };
+}
+
+// ---------- Calidad (Sección 8): incidencias del proveedor ----------
+export type GravedadIncidencia = 'leve' | 'media' | 'grave';
+export interface Incidencia {
+  id: string;
+  proveedorId: string;
+  tipo: string;         // rechazo / retraso / defecto / incidencia / auditoría
+  gravedad: GravedadIncidencia;
+  fecha: string;
+  descripcion: string;
+  ordenId: string;      // orden de compra relacionada (opcional)
+  evidencia: string;    // URL de foto/documento
+}
+export function incidenciaVacia(id: string, proveedorId: string): Incidencia {
+  return { id, proveedorId, tipo: 'incidencia', gravedad: 'media', fecha: '', descripcion: '', ordenId: '', evidencia: '' };
+}
+export function normalizarIncidencia(v: unknown): Incidencia {
+  const d = (v && typeof v === 'object') ? v as Record<string, unknown> : {};
+  const gravedad = (['leve', 'media', 'grave'].includes(s(d.gravedad)) ? s(d.gravedad) : 'media') as GravedadIncidencia;
+  return {
+    id: s(d.id) || `INC-${Math.random().toString(36).slice(2, 8)}`, proveedorId: s(d.proveedorId),
+    tipo: s(d.tipo) || 'incidencia', gravedad, fecha: s(d.fecha), descripcion: s(d.descripcion), ordenId: s(d.ordenId), evidencia: s(d.evidencia),
+  };
+}
+
+// ---------- Evaluación (Sección 9): Score General automático ----------
+export type NivelScore = 'excelente' | 'bueno' | 'regular' | 'critico' | 'sin-evaluar';
+export const NIVELES_SCORE: Record<NivelScore, { label: string; color: string; emoji: string }> = {
+  'excelente': { label: 'Excelente', color: '#2e9e63', emoji: '🟢' },
+  'bueno': { label: 'Bueno', color: '#7aa53b', emoji: '🟢' },
+  'regular': { label: 'Regular', color: '#d9a13b', emoji: '🟡' },
+  'critico': { label: 'Crítico', color: '#c0392b', emoji: '🔴' },
+  'sin-evaluar': { label: 'Sin evaluar', color: '#8a93a8', emoji: '⚪' },
+};
+export interface ScoreProveedor {
+  score: number | null;   // 0–100 (null si no hay criterios calificados)
+  nivel: NivelScore;
+  base: number | null;    // promedio de criterios antes de penalizar
+  penalizacion: number;   // puntos restados por incidencias
+  nCriterios: number;
+  incidencias: number;
+}
+// Score = promedio de los criterios calificados, penalizado por incidencias recientes
+// (grave −8 · media −4 · leve −2, tope −40). Es determinista y explicable.
+export function scoreProveedor(p: Proveedor, incidencias: Incidencia[]): ScoreProveedor {
+  const vals = CRITERIOS_EVAL.map((c) => p.evaluacion[c.id]).filter((v): v is number => typeof v === 'number' && v > 0);
+  const base = vals.length ? Math.round(vals.reduce((s2, v) => s2 + v, 0) / vals.length) : null;
+  const incs = incidencias.filter((i) => i.proveedorId === p.id);
+  const penalizacion = Math.min(40, incs.reduce((s2, i) => s2 + (i.gravedad === 'grave' ? 8 : i.gravedad === 'media' ? 4 : 2), 0));
+  let score: number | null = null;
+  let nivel: NivelScore = 'sin-evaluar';
+  if (base !== null) {
+    score = Math.max(0, Math.min(100, base - penalizacion));
+    nivel = score >= 80 ? 'excelente' : score >= 60 ? 'bueno' : score >= 40 ? 'regular' : 'critico';
+  }
+  return { score, nivel, base, penalizacion, nCriterios: vals.length, incidencias: incs.length };
 }

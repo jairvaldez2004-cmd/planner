@@ -17,6 +17,7 @@ import {
   listarVinculos, guardarVinculo, eliminarVinculo,
   listarOrdenes, guardarOrden, eliminarOrden,
   listarContratos, guardarContrato, eliminarContrato,
+  listarIncidencias, guardarIncidencia, eliminarIncidencia,
 } from '@/app/actions/recursos.actions';
 import {
   CATEGORIAS_RECURSO, categoriaRecurso, TIPOS_PROVEEDOR, CATEGORIAS_PROVEEDOR,
@@ -25,8 +26,9 @@ import {
   planearCompra, ACCIONES_COMPRA,
   ETAPAS_COMPRA_INFO, etapaCompraInfo, siguienteEtapaCompra, totalOrden,
   estadoContrato, ESTADOS_CONTRATO, solicitudDesdeProducto,
+  CRITERIOS_EVAL, RIESGOS, DEPENDENCIAS, TIPOS_INCIDENCIA, incidenciaVacia, scoreProveedor, NIVELES_SCORE,
 } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia } from '@/domain/recursos';
 import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -46,6 +48,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   const [vinc, setVinc] = useState<ProductoProveedor[]>([]);
   const [ocs, setOcs] = useState<OrdenCompra[]>([]);
   const [ctrs, setCtrs] = useState<Contrato[]>([]);
+  const [incs, setIncs] = useState<Incidencia[]>([]);
   const [selOC, setSelOC] = useState<string | null>(null);
   const [selCtr, setSelCtr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('recursos');
@@ -60,8 +63,8 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
 
   const cargar = () => {
     setLoading(true);
-    Promise.all([listarRecursos(proyectoId), listarProveedores(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId), listarOrdenes(proyectoId), listarContratos(proyectoId)])
-      .then(([r, p, pr, v, o, c]) => { setRecs(r); setProvs(p); setProds(pr); setVinc(v); setOcs(o); setCtrs(c); }).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([listarRecursos(proyectoId), listarProveedores(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId), listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId)])
+      .then(([r, p, pr, v, o, c, inc]) => { setRecs(r); setProvs(p); setProds(pr); setVinc(v); setOcs(o); setCtrs(c); setIncs(inc); }).catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
 
@@ -78,6 +81,10 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   async function nuevoProv() { const n = await guardarProveedor(proyectoId, { ...proveedorVacio(''), nombre: 'Nuevo proveedor' }); setProvs((l) => [...l, n]); setSelP(n.id); }
   async function patchProv(partial: Partial<Proveedor>) { if (!pSel) return; const u = { ...pSel, ...partial }; setProvs((l) => l.map((x) => x.id === u.id ? u : x)); await guardarProveedor(proyectoId, u); }
   async function borrarProv() { if (!pSel) return; if (!window.confirm(`¿Eliminar "${pSel.nombre}"? También se quitan sus vínculos con productos.`)) return; await eliminarProveedor(proyectoId, pSel.id); setSelP(null); cargar(); }
+  // Incidencias de calidad (por proveedor)
+  async function agregarInc(proveedorId: string) { const n = await guardarIncidencia(proyectoId, { ...incidenciaVacia('', proveedorId), fecha: hoy }); setIncs((l) => [...l, n]); }
+  async function patchInc(inc: Incidencia) { setIncs((l) => l.map((x) => x.id === inc.id ? inc : x)); await guardarIncidencia(proyectoId, inc); }
+  async function borrarInc(id: string) { setIncs((l) => l.filter((x) => x.id !== id)); await eliminarIncidencia(proyectoId, id); }
 
   async function nuevoProd() { const n = await guardarProducto(proyectoId, { ...productoVacio(''), nombre: 'Nuevo producto' }); setProds((l) => [...l, n]); setSelProd(n.id); }
   async function patchProd(partial: Partial<Producto>) { if (!prodSel) return; const u = { ...prodSel, ...partial }; setProds((l) => l.map((x) => x.id === u.id ? u : x)); await guardarProducto(proyectoId, u); }
@@ -232,20 +239,40 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
       {/* ======= PROVEEDORES ======= */}
       {tab === 'proveedores' && (
         <>
+          {(() => {
+            const riesgoUnico = provs.filter((p) => p.proveedorUnico && !p.planB && !p.proveedorAlternativo);
+            if (!riesgoUnico.length) return null;
+            return (
+              <div style={{ background: '#fdecea', border: '1px solid #f0c9c2', borderRadius: 9, padding: '0.45rem 0.7rem', marginBottom: '0.5rem' }}>
+                <strong style={{ fontSize: 12.5, color: '#c0392b' }}>⚠ {riesgoUnico.length} proveedor(es) ÚNICOS sin plan B:</strong>
+                <span style={{ fontSize: 12, color: '#a33', marginLeft: 6 }}>{riesgoUnico.map((p) => p.nombre || '(sin nombre)').join(' · ')}</span>
+              </div>
+            );
+          })()}
           <input style={{ ...inp, maxWidth: 340, marginBottom: '0.5rem' }} placeholder="🔎 Buscar proveedor (nombre, categoría, ciudad)…" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
           <div style={{ display: 'grid', gridTemplateColumns: movil || !pSel ? '1fr' : 'minmax(0, 1fr) 380px', gap: '0.75rem', alignItems: 'start' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
               {!loading && provs.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay proveedores. Pulsa <strong>＋ Proveedor</strong> para dar de alta a quien te surte.</p>}
-              {provsVis.map((p) => (
-                <div key={p.id} onClick={() => setSelP(p.id)}
-                  style={{ border: `1px solid ${selP === p.id ? '#a9720f' : '#e0d3b0'}`, borderLeft: '4px solid #a9720f', borderRadius: 9, padding: '0.5rem 0.6rem', background: selP === p.id ? '#fdf6e3' : '#fff', cursor: 'pointer' }}>
-                  <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>🏭 {p.nombre || '(sin nombre)'}</div>
-                  <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{[p.ciudad, p.pais].filter(Boolean).join(', ') || '—'}{p.contacto ? ` · ${p.contacto}` : ''}</div>
-                  {p.categorias.length > 0 && <div style={{ marginTop: 3 }}>{p.categorias.slice(0, 3).map((c) => <span key={c} style={{ ...chip, fontSize: 10.5, margin: '1px 3px 0 0' }}>{c}</span>)}{p.categorias.length > 3 ? <span style={{ fontSize: 10, color: '#aaa' }}>+{p.categorias.length - 3}</span> : null}</div>}
-                </div>
-              ))}
+              {provsVis.map((p) => {
+                const sc = scoreProveedor(p, incs);
+                const niv = NIVELES_SCORE[sc.nivel];
+                return (
+                  <div key={p.id} onClick={() => setSelP(p.id)}
+                    style={{ border: `1px solid ${selP === p.id ? '#a9720f' : '#e0d3b0'}`, borderLeft: '4px solid #a9720f', borderRadius: 9, padding: '0.5rem 0.6rem', background: selP === p.id ? '#fdf6e3' : '#fff', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontWeight: 'bold', fontSize: 13.5, flex: 1 }}>🏭 {p.nombre || '(sin nombre)'}</span>
+                      {sc.score !== null && <span style={{ fontSize: 11, fontWeight: 'bold', color: '#fff', background: niv.color, borderRadius: 8, padding: '0 7px' }}>{sc.score}</span>}
+                      {p.proveedorUnico && <span title="Proveedor único (riesgo)" style={{ fontSize: 12 }}>⚠</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{[p.ciudad, p.pais].filter(Boolean).join(', ') || '—'}{p.contacto ? ` · ${p.contacto}` : ''}</div>
+                    {p.categorias.length > 0 && <div style={{ marginTop: 3 }}>{p.categorias.slice(0, 3).map((c) => <span key={c} style={{ ...chip, fontSize: 10.5, margin: '1px 3px 0 0' }}>{c}</span>)}{p.categorias.length > 3 ? <span style={{ fontSize: 10, color: '#aaa' }}>+{p.categorias.length - 3}</span> : null}</div>}
+                  </div>
+                );
+              })}
             </div>
-            {pSel && <ProveedorEditor prov={pSel} onPatch={patchProv} onClose={() => setSelP(null)} onDelete={borrarProv} />}
+            {pSel && <ProveedorEditor prov={pSel} incidencias={incs.filter((i) => i.proveedorId === pSel.id)} score={scoreProveedor(pSel, incs)}
+              onPatch={patchProv} onClose={() => setSelP(null)} onDelete={borrarProv}
+              onAddInc={() => void agregarInc(pSel.id)} onPatchInc={patchInc} onBorrarInc={borrarInc} />}
           </div>
         </>
       )}
@@ -510,12 +537,16 @@ function ContratoEditor({ c, provs, info, onPatch, onClose, onDelete }: {
 }
 
 // ===== Editor de PROVEEDOR (ficha rica) =====
-function ProveedorEditor({ prov, onPatch, onClose, onDelete }: {
-  prov: Proveedor; onPatch: (p: Partial<Proveedor>) => void; onClose: () => void; onDelete: () => void;
+function ProveedorEditor({ prov, incidencias, score, onPatch, onClose, onDelete, onAddInc, onPatchInc, onBorrarInc }: {
+  prov: Proveedor; incidencias: Incidencia[]; score: ReturnType<typeof scoreProveedor>;
+  onPatch: (p: Partial<Proveedor>) => void; onClose: () => void; onDelete: () => void;
+  onAddInc: () => void; onPatchInc: (i: Incidencia) => void; onBorrarInc: (id: string) => void;
 }) {
   const T = (label: string, k: keyof Proveedor, ph = '') => (
     <div><label style={lbl}>{label}</label><input style={inp} defaultValue={String(prov[k] ?? '')} key={`${String(k)}-${prov.id}`} placeholder={ph} onBlur={(e) => { if (e.target.value !== prov[k]) onPatch({ [k]: e.target.value } as Partial<Proveedor>); }} /></div>
   );
+  const niv = NIVELES_SCORE[score.nivel];
+  const setEval = (crit: string, val: number) => onPatch({ evaluacion: { ...prov.evaluacion, [crit]: val } });
   return (
     <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -557,6 +588,69 @@ function ProveedorEditor({ prov, onPatch, onClose, onDelete }: {
         </div>
         <Chips label="Incoterms que maneja" valores={prov.incoterms} onChange={(v) => onPatch({ incoterms: v })} opciones={['EXW', 'FOB', 'CIF', 'DAP', 'DDP', 'FCA', 'CPT']} placeholder="FOB, DAP…" />
         <Chips label="Certificaciones" valores={prov.certificaciones} onChange={(v) => onPatch({ certificaciones: v })} placeholder="ISO 9001, HACCP…" />
+      </details>
+
+      {/* ==== EVALUACIÓN Y SCORE ==== */}
+      <div style={{ borderTop: '2px solid #e0d3b0', marginTop: '0.6rem', paddingTop: '0.4rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 'bold', color: '#6b5320', flex: 1 }}>⭐ Evaluación</span>
+          <span style={{ fontSize: 12, fontWeight: 'bold', color: '#fff', background: niv.color, borderRadius: 10, padding: '1px 10px' }}>
+            {niv.emoji} {score.score !== null ? `Score ${score.score}` : 'Sin evaluar'}
+          </span>
+        </div>
+        {score.score !== null && <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{niv.label} · promedio {score.base} de {score.nCriterios} criterios{score.penalizacion ? ` − ${score.penalizacion} por ${score.incidencias} incidencia(s)` : ''}</div>}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.2rem 0.6rem', marginTop: 4 }}>
+          {CRITERIOS_EVAL.map((c) => {
+            const val = prov.evaluacion[c.id] ?? 0;
+            return (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 11, color: '#666', flex: 1 }}>{c.label}</span>
+                <input type="range" min={0} max={100} step={5} value={val} style={{ width: 70 }} onChange={(e) => setEval(c.id, Number(e.target.value))} />
+                <span style={{ fontSize: 11, width: 24, textAlign: 'right', color: val ? '#6b5320' : '#bbb' }}>{val || '—'}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ==== CALIDAD / INCIDENCIAS ==== */}
+      <details>
+        <summary style={sum}>🧪 Calidad e incidencias ({incidencias.length})</summary>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+          {T('% Cumplimiento', 'cumplimiento')}{T('Tiempo promedio', 'tiempoPromedio')}
+        </div>
+        {incidencias.map((i) => (
+          <div key={i.id} style={{ border: '1px solid #e8dcc0', borderRadius: 7, padding: '0.35rem 0.45rem', marginTop: 4, background: '#fff' }}>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <select style={{ ...inp, width: 110, padding: '0.2rem' }} value={i.tipo} onChange={(e) => onPatchInc({ ...i, tipo: e.target.value })}>
+                {TIPOS_INCIDENCIA.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select style={{ ...inp, width: 80, padding: '0.2rem' }} value={i.gravedad} onChange={(e) => onPatchInc({ ...i, gravedad: e.target.value as Incidencia['gravedad'] })}>
+                <option value="leve">leve</option><option value="media">media</option><option value="grave">grave</option>
+              </select>
+              <input style={{ ...inp, width: 120, padding: '0.2rem' }} type="date" defaultValue={i.fecha} key={`if-${i.id}`} onBlur={(e) => { if (e.target.value !== i.fecha) onPatchInc({ ...i, fecha: e.target.value }); }} />
+              <span style={{ cursor: 'pointer', color: '#b33', marginLeft: 'auto' }} onClick={() => onBorrarInc(i.id)}>×</span>
+            </div>
+            <input style={{ ...inp, marginTop: 3 }} placeholder="descripción" defaultValue={i.descripcion} key={`id-${i.id}`} onBlur={(e) => { if (e.target.value !== i.descripcion) onPatchInc({ ...i, descripcion: e.target.value }); }} />
+            <input style={{ ...inp, marginTop: 3 }} placeholder="evidencia (URL)" defaultValue={i.evidencia} key={`ie-${i.id}`} onBlur={(e) => { if (e.target.value !== i.evidencia) onPatchInc({ ...i, evidencia: e.target.value }); }} />
+          </div>
+        ))}
+        <button style={{ ...btnSm, marginTop: 5 }} onClick={onAddInc}>＋ Registrar incidencia</button>
+      </details>
+
+      {/* ==== RIESGO ==== */}
+      <details>
+        <summary style={sum}>⚠️ Riesgo</summary>
+        <label style={{ fontSize: 12, color: '#c0392b', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: 4 }}>
+          <input type="checkbox" checked={prov.proveedorUnico} onChange={(e) => onPatch({ proveedorUnico: e.target.checked })} /> Proveedor ÚNICO (riesgo de dependencia)
+        </label>
+        <label style={lbl}>Dependencia</label>
+        <select style={inp} value={prov.dependencia} onChange={(e) => onPatch({ dependencia: e.target.value })}>
+          <option value="">— sin definir —</option>{DEPENDENCIAS.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <Chips label="Riesgos" valores={prov.riesgos} onChange={(v) => onPatch({ riesgos: v })} opciones={RIESGOS} placeholder="político, cambiario…" />
+        {T('Plan B', 'planB')}
+        {T('Proveedor alternativo', 'proveedorAlternativo')}
       </details>
 
       <details>

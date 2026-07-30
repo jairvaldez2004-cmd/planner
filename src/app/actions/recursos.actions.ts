@@ -5,8 +5,8 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
-import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato } from '@/domain/recursos';
+import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato, normalizarIncidencia } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato, Incidencia } from '@/domain/recursos';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nowISO(): string { return new Date().toISOString(); }
@@ -116,4 +116,19 @@ export async function guardarContrato(proyectoId: string, c: Contrato): Promise<
 }
 export async function eliminarContrato(proyectoId: string, id: string): Promise<void> {
   await guardarLista(proyectoId, 'contratos', (await listarContratos(proyectoId)).filter((x) => x.id !== id));
+}
+
+// --- Incidencias de calidad (Sección 8) ---
+export async function listarIncidencias(proyectoId: string): Promise<Incidencia[]> { return listar(proyectoId, 'incidencias', normalizarIncidencia); }
+export async function guardarIncidencia(proyectoId: string, inc: Incidencia): Promise<Incidencia> {
+  const lista = await listarIncidencias(proyectoId);
+  const id = inc.id?.trim() || nid('INC');
+  const norm = normalizarIncidencia({ ...inc, id });
+  const i = lista.findIndex((x) => x.id === id);
+  if (i >= 0) lista[i] = norm; else lista.push(norm);
+  await guardarLista(proyectoId, 'incidencias', lista);
+  return norm;
+}
+export async function eliminarIncidencia(proyectoId: string, id: string): Promise<void> {
+  await guardarLista(proyectoId, 'incidencias', (await listarIncidencias(proyectoId)).filter((x) => x.id !== id));
 }
