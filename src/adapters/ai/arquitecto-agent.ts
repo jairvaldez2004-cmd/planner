@@ -786,11 +786,26 @@ QUÉ RESPONDES (con datos concretos del estado, priorizando):
 3) Qué se AGOTARÁ pronto, qué CONTRATOS vencen y qué insumos dependen de un PROVEEDOR ÚNICO sin plan B (riesgo).
 4) Qué compras CONSOLIDAR (mismo proveedor) para ahorrar envío; qué proveedor INCUMPLE (score bajo / muchas incidencias) y sus ALTERNATIVAS.
 
-ACCIONES que puedes ejecutar: "generar_solicitud" (crea una solicitud de compra para un producto, con proveedor y cantidad sugeridos) y "registrar_incidencia" (levanta una incidencia de calidad a un proveedor). Antes de generar VARIAS solicitudes, resume el plan y luego ejecútalas. No inventes datos que no estén en el estado; si falta información para decidir, dilo y sugiere capturarla.
+ACCIONES que puedes ejecutar: "solicitar_cotizaciones" (envía por correo una solicitud de cotización de un producto a uno o varios proveedores — si el envío no está configurado, la deja como borrador y registra la gestión), "generar_solicitud" (crea una solicitud de compra para un producto, con proveedor y cantidad sugeridos) y "registrar_incidencia" (levanta una incidencia de calidad a un proveedor). Cuando el usuario te pida pedir/solicitar cotizaciones a proveedores X, Y, Z, USA "solicitar_cotizaciones" con esos nombres. Antes de ejecutar VARIAS acciones, resume el plan y luego ejecútalas. No inventes datos que no estén en el estado; si falta información (p. ej. el correo de un proveedor), dilo.
 
 Estilo: español, claro y accionable. Prioriza y justifica cada recomendación. Puedes encadenar acciones en un turno y cerrar con un resumen de lo que hiciste y lo que falta.`;
 
 const TOOLS_ABASTECIMIENTO: Anthropic.Tool[] = [
+  {
+    name: 'solicitar_cotizaciones',
+    description: 'Envía por correo una SOLICITUD DE COTIZACIÓN (RFQ) de un producto a uno o varios proveedores (por nombre). Redacta el correo, lo envía a cada proveedor con correo registrado, y deja constancia (una orden en etapa Cotización por proveedor). Si el envío de correo no está configurado, entrega los correos como BORRADOR y lo informa.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        producto: { type: 'string', description: 'Nombre del producto a cotizar.' },
+        proveedores: { type: 'array', items: { type: 'string' }, description: 'Nombres de los proveedores a los que pedir cotización.' },
+        cantidad: { type: 'number', description: 'Cantidad a cotizar (opcional).' },
+        mensaje: { type: 'string', description: 'Nota extra para incluir en el correo (opcional).' },
+      },
+      required: ['producto', 'proveedores'],
+    },
+  },
   {
     name: 'generar_solicitud',
     description: 'Crea una SOLICITUD de compra (primera etapa del flujo) para un producto del catálogo. Si omites cantidad, usa la sugerida por el plan; si omites proveedor, usa el más barato.',

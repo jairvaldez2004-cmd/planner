@@ -9,8 +9,9 @@ import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarV
 import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato, Incidencia } from '@/domain/recursos';
 import {
   planearCompra, precioVigente, proveedorMasBarato, vinculosDeProducto, estadoContrato, scoreProveedor,
-  solicitudDesdeProducto, incidenciaVacia,
+  solicitudDesdeProducto, incidenciaVacia, ordenVacia, redactarSolicitudCotizacion,
 } from '@/domain/recursos';
+import { enviarCorreo } from '@/adapters/email/enviar';
 import { correrCentroAbastecimiento } from '@/adapters/ai/arquitecto-agent';
 import type { EjecutorHerramienta, MensajeChat } from '@/adapters/ai/arquitecto-agent';
 import { cargarConversacion, guardarConversacion } from '@/app/actions/contexto.actions';
@@ -190,6 +191,28 @@ export async function conversarCentroAbastecimiento(
 
   const ejecutar: EjecutorHerramienta = async (nombre, input) => {
     try {
+      if (nombre === 'solicitar_cotizaciones') {
+        const [prods, provs] = await Promise.all([listarProductos(proyectoId), listarProveedores(proyectoId)]);
+        const prod = porNombre(prods, String(input.producto ?? ''));
+        if (!prod) return `No encontré el producto "${String(input.producto ?? '')}".`;
+        const nombres = Array.isArray(input.proveedores) ? input.proveedores.map((x) => String(x)) : [];
+        if (!nombres.length) return 'Indica al menos un proveedor.';
+        const cantidad = typeof input.cantidad === 'number' ? input.cantidad : null;
+        const extra = String(input.mensaje ?? '');
+        const lineas: string[] = [];
+        for (const n of nombres) {
+          const prov = porNombre(provs, n);
+          if (!prov) { lineas.push(`• "${n}": no encontrado en el directorio.`); continue; }
+          const { asunto, cuerpo } = redactarSolicitudCotizacion(prod, prov.nombre, cantidad, '', extra);
+          // Deja constancia: una orden en etapa "cotizacion" por proveedor (proceso de compra).
+          await guardarOrden(proyectoId, { ...ordenVacia(''), etapa: 'cotizacion', productoId: prod.id, proveedorId: prov.id, descripcion: prod.nombre, cantidad: cantidad !== null ? String(cantidad) : '', unidad: prod.unidad, fechaSolicitud: hoy, notas: `RFQ enviada a ${prov.email || 'sin correo'}: ${asunto}` });
+          if (!prov.email) { lineas.push(`• ${prov.nombre}: ⚠ sin correo registrado (no se pudo enviar; captura su correo).`); continue; }
+          const r = await enviarCorreo(prov.email, asunto, cuerpo);
+          lineas.push(`• ${prov.nombre} (${prov.email}): ${r.enviado ? '✅ correo enviado' : `📝 borrador (${r.motivo})`}.`);
+        }
+        return `Solicitud de cotización de "${prod.nombre}"${cantidad !== null ? ` (${cantidad} ${prod.unidad})` : ''}:\n${lineas.join('\n')}\nSe registró una orden en etapa Cotización por proveedor.`;
+      }
+
       if (nombre === 'generar_solicitud') {
         const [prods, vinc] = await Promise.all([listarProductos(proyectoId), listarVinculos(proyectoId)]);
         const prod = porNombre(prods, String(input.producto ?? ''));

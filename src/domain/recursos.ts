@@ -566,6 +566,37 @@ export function solicitudDesdeProducto(id: string, p: Producto, cantidad: number
   };
 }
 
+// Redacta un correo de SOLICITUD DE COTIZACIÓN (RFQ) para un producto y proveedor. Puro y
+// testeable; el envío real lo hace el adaptador de correo.
+export function redactarSolicitudCotizacion(prod: Producto, proveedorNombre: string, cantidad: number | null, remitente: string, extra: string): { asunto: string; cuerpo: string } {
+  const cant = cantidad !== null && cantidad > 0 ? `${cantidad}${prod.unidad ? ' ' + prod.unidad : ''}` : 'la cantidad a definir';
+  const specs = [
+    prod.marca && `Marca: ${prod.marca}`,
+    prod.modelo && `Modelo: ${prod.modelo}`,
+    prod.codigoFabricante && `Código fabricante: ${prod.codigoFabricante}`,
+    prod.presentacion && `Presentación: ${prod.presentacion}`,
+    prod.dimensiones && `Dimensiones: ${prod.dimensiones}`,
+  ].filter(Boolean).join(' · ');
+  const asunto = `Solicitud de cotización — ${prod.nombre}`;
+  const cuerpo = [
+    `Estimado equipo de ${proveedorNombre}:`,
+    ``,
+    `Por medio del presente solicitamos su cotización para el siguiente producto:`,
+    ``,
+    `• Producto: ${prod.nombre}`,
+    `• Cantidad: ${cant}`,
+    specs ? `• Especificaciones: ${specs}` : '',
+    ``,
+    `Agradeceríamos incluir: precio unitario, moneda, tiempo de entrega, cantidad mínima, vigencia de la cotización y condiciones de pago.`,
+    extra ? `\n${extra}\n` : '',
+    `Quedamos atentos a su respuesta.`,
+    ``,
+    `Saludos cordiales,`,
+    remitente || 'Departamento de Compras',
+  ].filter((l) => l !== '').join('\n');
+  return { asunto, cuerpo };
+}
+
 // ---------- Calidad (Sección 8): incidencias del proveedor ----------
 export type GravedadIncidencia = 'leve' | 'media' | 'grave';
 export interface Incidencia {

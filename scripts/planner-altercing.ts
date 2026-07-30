@@ -20,7 +20,7 @@ import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
 import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
 import { costosDeRecursos, componentesDeEquipo, proveedoresATabla, agentesDeProcesos, componentesDeAutomatizacion } from '@/domain/proyeccion';
-import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra, siguienteEtapaCompra, totalOrden, ordenVacia, solicitudDesdeProducto, contratoVacio, estadoContrato, scoreProveedor, incidenciaVacia } from '@/domain/recursos';
+import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra, siguienteEtapaCompra, totalOrden, ordenVacia, solicitudDesdeProducto, contratoVacio, estadoContrato, scoreProveedor, incidenciaVacia, redactarSolicitudCotizacion } from '@/domain/recursos';
 import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from '@/domain/recursos';
 import { indiceRecursos, costearProceso } from '@/domain/costeo';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
@@ -458,6 +458,18 @@ check('Proveedor sin evaluación → sin-evaluar', scoreProveedor(proveedorVacio
 // El normalizador limpia valores fuera de rango y no-criterios.
 const provNorm = normalizarProveedor({ id: 'X', nombre: 'Y', evaluacion: { calidad: 150, precio: -5, inventado: 99 } });
 check('Evaluación: clamp a 100 y descarta criterios inválidos', provNorm.evaluacion.calidad === 100 && provNorm.evaluacion.precio === undefined && (provNorm.evaluacion as Record<string, number>).inventado === undefined);
+
+// ============================================================
+// 18) CENTRO IA: redacción de solicitud de cotización (RFQ)
+// ============================================================
+h('18) El agente redacta correos de solicitud de cotización');
+const prodRFQ = { ...productoVacio('PROD-rfq'), nombre: 'Guantes de nitrilo', unidad: 'caja', marca: 'Ambiderm' };
+const rfq = redactarSolicitudCotizacion(prodRFQ, 'Insumos del Bajío', 20, 'Altercing Studio', 'Entrega en Querétaro.');
+check('El asunto nombra el producto', rfq.asunto.includes('Guantes de nitrilo'));
+check('El cuerpo incluye cantidad y unidad', rfq.cuerpo.includes('20 caja'));
+check('El cuerpo saluda al proveedor y pide precio/entrega', rfq.cuerpo.includes('Insumos del Bajío') && rfq.cuerpo.includes('precio unitario') && rfq.cuerpo.includes('tiempo de entrega'));
+check('Incluye la marca en especificaciones', rfq.cuerpo.includes('Ambiderm'));
+check('Incluye el mensaje extra y firma el remitente', rfq.cuerpo.includes('Querétaro') && rfq.cuerpo.includes('Altercing Studio'));
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado
