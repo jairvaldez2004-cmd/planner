@@ -7,6 +7,14 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
 import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato, normalizarIncidencia } from '@/domain/recursos';
 import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato, Incidencia } from '@/domain/recursos';
+import {
+  planearCompra, precioVigente, proveedorMasBarato, vinculosDeProducto, estadoContrato, scoreProveedor,
+  solicitudDesdeProducto, incidenciaVacia,
+} from '@/domain/recursos';
+import { correrCentroAbastecimiento } from '@/adapters/ai/arquitecto-agent';
+import type { EjecutorHerramienta, MensajeChat } from '@/adapters/ai/arquitecto-agent';
+import { cargarConversacion, guardarConversacion } from '@/app/actions/contexto.actions';
+import { modeloActual } from '@/app/actions/config.actions';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nowISO(): string { return new Date().toISOString(); }
@@ -131,4 +139,95 @@ export async function guardarIncidencia(proyectoId: string, inc: Incidencia): Pr
 }
 export async function eliminarIncidencia(proyectoId: string, id: string): Promise<void> {
   await guardarLista(proyectoId, 'incidencias', (await listarIncidencias(proyectoId)).filter((x) => x.id !== id));
+}
+
+// =================== CENTRO DE ABASTECIMIENTO INTELIGENTE (IA) ===================
+// Snapshot que ve la IA cada turno: productos con plan de compra, proveedores con score/riesgo,
+// órdenes abiertas y contratos con estado. Es la base sobre la que razona y actúa.
+async function snapshotAbastecimiento(proyectoId: string): Promise<string> {
+  const [prods, vinc, provs, ocs, ctrs, incs] = await Promise.all([
+    listarProductos(proyectoId), listarVinculos(proyectoId), listarProveedores(proyectoId),
+    listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId),
+  ]);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const provById = new Map(provs.map((p) => [p.id, p]));
+  const nom = (id: string) => provById.get(id)?.nombre ?? '?';
+  const L: string[] = [];
+  L.push(`# Estado de abastecimiento — se actualiza cada turno. Hoy: ${hoy}`);
+  L.push(`Productos (${prods.length}):`);
+  for (const p of prods) {
+    const plan = planearCompra(p, hoy);
+    const barato = proveedorMasBarato(vinc, p.id);
+    const nProv = vinculosDeProducto(vinc, p.id).length;
+    L.push(`  · "${p.nombre}" [${p.categoria}] — stock ${p.stockActual || '?'}/${p.stockMaximo || '?'} · ${plan.diasCobertura !== null ? `${plan.diasCobertura}d cobertura` : 'sin consumo'} · PLAN: ${plan.accion.toUpperCase()} (${plan.motivo})${plan.cantidadSugerida !== null ? ` · sugerido pedir ${plan.cantidadSugerida}` : ''} · ${nProv} proveedor(es)${barato ? `, + barato: ${nom(barato.proveedorId)} a ${precioVigente(barato)} ${barato.moneda}` : ''}`);
+  }
+  if (!prods.length) L.push('  (sin productos capturados)');
+  L.push(`Proveedores (${provs.length}):`);
+  for (const p of provs) {
+    const sc = scoreProveedor(p, incs);
+    L.push(`  · "${p.nombre}" — score ${sc.score ?? 's/e'} (${sc.nivel})${p.proveedorUnico ? ' · ÚNICO' : ''}${p.planB ? ` · planB: ${p.planB}` : (p.proveedorUnico ? ' · SIN plan B' : '')}${p.riesgos.length ? ` · riesgos: ${p.riesgos.join(', ')}` : ''} · ${sc.incidencias} incidencia(s) · ${[p.ciudad, p.pais].filter(Boolean).join(', ') || 's/ubicación'} · categorías: ${p.categorias.join(', ') || '—'}`);
+  }
+  const abiertas = ocs.filter((o) => o.etapa !== 'cerrada');
+  L.push(`Órdenes de compra abiertas (${abiertas.length} de ${ocs.length}):`);
+  for (const o of abiertas) L.push(`  · "${o.descripcion || '(compra)'}" — etapa ${o.etapa}${o.proveedorId ? ` · ${nom(o.proveedorId)}` : ''}${o.cantidad ? ` · ${o.cantidad} ${o.unidad}` : ''}`);
+  L.push(`Contratos (${ctrs.length}):`);
+  for (const c of ctrs) {
+    const info = estadoContrato(c, hoy);
+    L.push(`  · "${c.titulo || '(sin título)'}" — ${info.estado}${info.diasRestantes !== null ? ` (${info.diasRestantes}d)` : ''}${c.proveedorId ? ` · ${nom(c.proveedorId)}` : ''}${c.renovacionAutomatica ? ' · renovación auto' : ''}`);
+  }
+  return L.join('\n');
+}
+
+export async function conversarCentroAbastecimiento(
+  historial: MensajeChat[],
+  proyectoId: string,
+): Promise<{ reply: string; refrescar: boolean }> {
+  const porNombre = <T extends { nombre: string }>(xs: T[], n: string): T | undefined => {
+    const k = n.trim().toLowerCase();
+    return xs.find((x) => x.nombre.trim().toLowerCase() === k) ?? xs.find((x) => x.nombre.toLowerCase().includes(k));
+  };
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const ejecutar: EjecutorHerramienta = async (nombre, input) => {
+    try {
+      if (nombre === 'generar_solicitud') {
+        const [prods, vinc] = await Promise.all([listarProductos(proyectoId), listarVinculos(proyectoId)]);
+        const prod = porNombre(prods, String(input.producto ?? ''));
+        if (!prod) return `No encontré el producto "${String(input.producto ?? '')}". Productos: ${prods.map((p) => p.nombre).join(', ') || 'ninguno'}.`;
+        const plan = planearCompra(prod, hoy);
+        const cantidad = typeof input.cantidad === 'number' ? input.cantidad : plan.cantidadSugerida;
+        let proveedorId = '';
+        if (input.proveedor) { const provs = await listarProveedores(proyectoId); proveedorId = porNombre(provs, String(input.proveedor))?.id ?? ''; }
+        if (!proveedorId) proveedorId = proveedorMasBarato(vinc, prod.id)?.proveedorId ?? '';
+        const oc = await guardarOrden(proyectoId, solicitudDesdeProducto('', prod, cantidad, proveedorId, hoy));
+        return `Solicitud creada para "${prod.nombre}"${cantidad !== null ? ` (${cantidad} ${prod.unidad})` : ''}${proveedorId ? ` con proveedor sugerido` : ' (sin proveedor)'} — etapa Solicitud, folio interno ${oc.id}.`;
+      }
+      if (nombre === 'registrar_incidencia') {
+        const provs = await listarProveedores(proyectoId);
+        const prov = porNombre(provs, String(input.proveedor ?? ''));
+        if (!prov) return `No encontré el proveedor "${String(input.proveedor ?? '')}".`;
+        const gravedad = (['leve', 'media', 'grave'].includes(String(input.gravedad)) ? String(input.gravedad) : 'media') as Incidencia['gravedad'];
+        await guardarIncidencia(proyectoId, { ...incidenciaVacia('', prov.id), tipo: String(input.tipo ?? 'incidencia'), gravedad, descripcion: String(input.descripcion ?? ''), fecha: hoy });
+        return `Incidencia (${gravedad}) registrada a "${prov.nombre}". Su score bajará.`;
+      }
+      return `Herramienta desconocida: ${nombre}`;
+    } catch (e) {
+      return `Error al ejecutar ${nombre}: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  };
+
+  try {
+    const estado = await snapshotAbastecimiento(proyectoId);
+    const r = await correrCentroAbastecimiento(historial, estado, ejecutar, await modeloActual('curador'));
+    await guardarConversacion(`ABAST-IA:${proyectoId}`, [...historial, { role: 'assistant', content: r.reply }]);
+    return { reply: r.reply, refrescar: r.huboCambios };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const falta = /api[_ -]?key|authentication|x-api-key/i.test(msg) ? 'Falta ANTHROPIC_API_KEY.' : msg;
+    return { reply: `⚠ No pude consultar al Centro de Abastecimiento (IA): ${falta}`, refrescar: false };
+  }
+}
+
+export async function cargarChatAbastecimiento(proyectoId: string): Promise<MensajeChat[]> {
+  return cargarConversacion(`ABAST-IA:${proyectoId}`);
 }

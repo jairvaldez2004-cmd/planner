@@ -773,6 +773,65 @@ export async function correrOrganizadorRH(
   return correrBucleTools(system, TOOLS_ORGANIZADOR_RH, historial, ejecutar, modelo);
 }
 
+// =================== CENTRO DE ABASTECIMIENTO INTELIGENTE (IA) ===================
+// Dentro de Recursos & Proveedores: con productos (inventario/plan), proveedores (precio/
+// score/riesgo), órdenes, contratos e incidencias, ayuda a decidir el abastecimiento y puede
+// ejecutar acciones reales (generar solicitud de compra, registrar incidencia).
+
+const SYSTEM_ABASTECIMIENTO = `Eres el CENTRO DE ABASTECIMIENTO INTELIGENTE del Business Planner. Con el catálogo de PRODUCTOS (inventario, consumo, plan de compra), los PROVEEDORES (precio por producto, score, riesgo), las ÓRDENES de compra, los CONTRATOS y las INCIDENCIAS (todo abajo, en el estado), ayudas a tomar decisiones de abastecimiento.
+
+QUÉ RESPONDES (con datos concretos del estado, priorizando):
+1) QUÉ COMPRAR esta semana y qué puede ESPERAR — usa el plan de cada producto (comprar-urgente/hoy/pronto/ok) y los días de cobertura.
+2) QUÉ PROVEEDOR conviene HOY por producto, ponderando precio vigente, score (calidad/tiempo/servicio) y riesgo/distancia. Explica el porqué.
+3) Qué se AGOTARÁ pronto, qué CONTRATOS vencen y qué insumos dependen de un PROVEEDOR ÚNICO sin plan B (riesgo).
+4) Qué compras CONSOLIDAR (mismo proveedor) para ahorrar envío; qué proveedor INCUMPLE (score bajo / muchas incidencias) y sus ALTERNATIVAS.
+
+ACCIONES que puedes ejecutar: "generar_solicitud" (crea una solicitud de compra para un producto, con proveedor y cantidad sugeridos) y "registrar_incidencia" (levanta una incidencia de calidad a un proveedor). Antes de generar VARIAS solicitudes, resume el plan y luego ejecútalas. No inventes datos que no estén en el estado; si falta información para decidir, dilo y sugiere capturarla.
+
+Estilo: español, claro y accionable. Prioriza y justifica cada recomendación. Puedes encadenar acciones en un turno y cerrar con un resumen de lo que hiciste y lo que falta.`;
+
+const TOOLS_ABASTECIMIENTO: Anthropic.Tool[] = [
+  {
+    name: 'generar_solicitud',
+    description: 'Crea una SOLICITUD de compra (primera etapa del flujo) para un producto del catálogo. Si omites cantidad, usa la sugerida por el plan; si omites proveedor, usa el más barato.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        producto: { type: 'string', description: 'Nombre del producto del catálogo.' },
+        cantidad: { type: 'number', description: 'Cantidad a solicitar (opcional).' },
+        proveedor: { type: 'string', description: 'Nombre del proveedor (opcional).' },
+      },
+      required: ['producto'],
+    },
+  },
+  {
+    name: 'registrar_incidencia',
+    description: 'Levanta una incidencia de calidad a un proveedor (afecta su score).',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        proveedor: { type: 'string', description: 'Nombre del proveedor.' },
+        tipo: { type: 'string', enum: ['rechazo', 'retraso', 'defecto', 'incidencia', 'auditoría'] },
+        gravedad: { type: 'string', enum: ['leve', 'media', 'grave'] },
+        descripcion: { type: 'string' },
+      },
+      required: ['proveedor', 'tipo', 'gravedad', 'descripcion'],
+    },
+  },
+];
+
+export async function correrCentroAbastecimiento(
+  historial: MensajeChat[],
+  estado: string,
+  ejecutar: EjecutorHerramienta,
+  modelo?: ModeloClaude,
+): Promise<ResultadoCurador> {
+  const system = `${SYSTEM_ABASTECIMIENTO}\n\n${estado}`;
+  return correrBucleTools(system, TOOLS_ABASTECIMIENTO, historial, ejecutar, modelo);
+}
+
 export interface ContextoProyecto {
   proyecto?: string;   // nombre del proyecto/empresa
   unidades?: string[]; // nombres de UCs ya creadas

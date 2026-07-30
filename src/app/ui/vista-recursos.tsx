@@ -18,7 +18,9 @@ import {
   listarOrdenes, guardarOrden, eliminarOrden,
   listarContratos, guardarContrato, eliminarContrato,
   listarIncidencias, guardarIncidencia, eliminarIncidencia,
+  conversarCentroAbastecimiento, cargarChatAbastecimiento,
 } from '@/app/actions/recursos.actions';
+import { ChatArquitecto } from './chat-arquitecto';
 import {
   CATEGORIAS_RECURSO, categoriaRecurso, TIPOS_PROVEEDOR, CATEGORIAS_PROVEEDOR,
   recursoVacio, proveedorVacio, productoVacio, vinculoVacio, ordenVacia, contratoVacio,
@@ -39,7 +41,7 @@ const chip: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap:
 const sum: CSSProperties = { cursor: 'pointer', fontSize: 12, fontWeight: 'bold', color: '#6b5320', marginTop: '0.6rem' };
 
 type Agrupar = 'categoria' | 'grupo' | 'proveedor' | 'ninguno';
-type Tab = 'recursos' | 'proveedores' | 'productos' | 'compras' | 'contratos';
+type Tab = 'recursos' | 'proveedores' | 'productos' | 'compras' | 'contratos' | 'ia';
 
 export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   const [recs, setRecs] = useState<Recurso[]>([]);
@@ -138,7 +140,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
       </div>
 
       <div style={{ display: 'flex', gap: '0.4rem', margin: '0.5rem 0 0.4rem', flexWrap: 'wrap' }}>
-        {([['recursos', '📦 Recursos'], ['proveedores', '🏭 Proveedores'], ['productos', '🏷️ Productos'], ['compras', '🛒 Compras'], ['contratos', '📄 Contratos']] as const).map(([id, label]) => (
+        {([['recursos', '📦 Recursos'], ['proveedores', '🏭 Proveedores'], ['productos', '🏷️ Productos'], ['compras', '🛒 Compras'], ['contratos', '📄 Contratos'], ['ia', '🧠 Centro IA']] as const).map(([id, label]) => (
           <button key={id} onClick={() => { setTab(id); setSelR(null); setSelP(null); setSelProd(null); setSelOC(null); setSelCtr(null); }}
             style={{ ...btn, background: tab === id ? '#a9720f' : '#fff', color: tab === id ? '#fff' : '#6b5320', borderColor: tab === id ? '#a9720f' : '#e0d3b0', fontWeight: 'bold' }}>{label}</button>
         ))}
@@ -343,7 +345,48 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
         <ContratosLista ctrs={ctrs} sel={selCtr} onSel={setSelCtr} provs={provs} provNombre={provNombre}
           hoy={hoy} onPatch={patchCtr} onDelete={borrarCtr} movil={movil} />
       )}
+
+      {/* ======= CENTRO DE ABASTECIMIENTO INTELIGENTE ======= */}
+      {tab === 'ia' && (
+        <CentroIA proyectoId={proyectoId} prods={prods} provs={provs} ctrs={ctrs} incs={incs} hoy={hoy} movil={movil} onCambio={cargar} />
+      )}
     </section>
+  );
+}
+
+// ===== CENTRO DE ABASTECIMIENTO INTELIGENTE (dashboard + chat IA) =====
+function CentroIA({ proyectoId, prods, provs, ctrs, incs, hoy, movil, onCambio }: {
+  proyectoId: string; prods: Producto[]; provs: Proveedor[]; ctrs: Contrato[]; incs: Incidencia[]; hoy: string; movil: boolean; onCambio: () => void;
+}) {
+  const planes = prods.map((p) => planearCompra(p, hoy));
+  const porComprar = planes.filter((x) => x.accion === 'comprar-urgente' || x.accion === 'comprar-hoy').length;
+  const ctrAlerta = ctrs.filter((c) => estadoContrato(c, hoy).alerta).length;
+  const riesgoUnico = provs.filter((p) => p.proveedorUnico && !p.planB && !p.proveedorAlternativo).length;
+  const scores = provs.map((p) => scoreProveedor(p, incs).score).filter((s): s is number => s !== null);
+  const scorePromedio = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const stat: CSSProperties = { border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.5rem 0.7rem', background: '#fff', textAlign: 'center' };
+
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.6rem' }}>
+        Con tus productos, proveedores, inventario, compras, contratos y calidad, la IA te dice <strong>qué comprar</strong>, <strong>a quién</strong>, <strong>qué se agota</strong>, <strong>qué vence</strong> y <strong>qué es riesgo</strong> — y puede <strong>generar solicitudes</strong> y <strong>registrar incidencias</strong>.
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.5rem', marginBottom: '0.7rem' }}>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: porComprar ? '#c0392b' : '#2e9e63' }}>{porComprar}</div><div style={{ fontSize: 11, color: '#888' }}>por comprar ya</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: ctrAlerta ? '#d9781f' : '#2e9e63' }}>{ctrAlerta}</div><div style={{ fontSize: 11, color: '#888' }}>contratos por vencer</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: riesgoUnico ? '#c0392b' : '#2e9e63' }}>{riesgoUnico}</div><div style={{ fontSize: 11, color: '#888' }}>únicos sin plan B</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#6b5320' }}>{scorePromedio ?? '—'}</div><div style={{ fontSize: 11, color: '#888' }}>score prom. proveedores</div></div>
+      </div>
+      <ChatArquitecto
+        conversar={(h) => conversarCentroAbastecimiento(h, proyectoId)}
+        saludo={'Soy el Centro de Abastecimiento Inteligente. Puedo decirte qué comprar esta semana y qué puede esperar, qué proveedor conviene hoy (precio/score/riesgo), qué se va a agotar, qué contratos vencen y qué insumos dependen de un solo proveedor. También genero solicitudes de compra y registro incidencias. Pregúntame, por ejemplo: “¿qué necesito comprar esta semana y a quién?”.'}
+        placeholder="Ej: ¿qué compro esta semana y a qué proveedor?"
+        cargarHistorial={() => cargarChatAbastecimiento(proyectoId)}
+        historialKey={`abast:${proyectoId}`}
+        onCambio={onCambio}
+        altura={movil ? 340 : 480}
+      />
+    </div>
   );
 }
 
