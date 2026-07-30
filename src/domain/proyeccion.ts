@@ -10,6 +10,7 @@ import type { Fila } from './plano-doc';
 import type { Empleado } from './rh';
 import type { Automatizacion } from './mapa';
 import type { Recurso, Proveedor, Producto, ProductoProveedor, Embarque, Contrato } from './recursos';
+import { ETAPAS_OBJETIVO } from './etapas';
 import { subtotalRecurso, formatoMoneda, categoriaRecurso, numero, proveedorMasBarato, precioVigente, costoLogisticoEmbarque } from './recursos';
 
 // ---------- Registro declarativo: qué planos enriquece cada superficie (para UI) ----------
@@ -48,7 +49,7 @@ export const ENRIQUECE: Record<Superficie, Aporte[]> = {
     { planoId: 'ORG', tablaRef: 'personas', nota: 'roles y jerarquía por persona' },
     { planoId: 'OPE', nota: 'ejecutores por proceso' },
     { planoId: 'FIN', nota: 'nómina y costo del personal' },
-    { planoId: 'JUR', nota: 'datos fiscales (RFC/CURP) y contratos laborales' },
+    { planoId: 'JUR', tablaRef: 'legales', nota: 'contrato laboral y alta fiscal por persona interna' },
   ],
   recursos: [
     { planoId: 'FIN', tablaRef: 'costos', nota: 'costo de insumos, herramientas, equipo y muebles' },
@@ -265,6 +266,31 @@ export function legalesDeContratos(contratos: Contrato[]): Fila[] {
     documento: c.titulo,
     tipo: 'contrato',
     responsable: c.responsables || '',
+  }));
+}
+
+// Personas internas → filas de `legales` (plano Jurídico) = contratos laborales + alta fiscal.
+export function legalesDeEmpleados(empleados: Empleado[]): Fila[] {
+  const internos = empleados.filter((e) => !e.externo && (e.puesto.trim() || e.nombre.trim()) && e.estado !== 'baja');
+  const filas: Fila[] = internos.map((e): Fila => ({
+    documento: `Contrato laboral / alta — ${e.nombre || e.puesto}`,
+    tipo: 'contrato',
+    responsable: 'Dirección / Contador',
+  }));
+  if (internos.length) filas.push({ documento: 'Alta patronal (IMSS) y registro de nómina', tipo: 'permiso', responsable: 'Contador' });
+  return filas;
+}
+
+// Ruta de etapas del negocio → filas de `rondas` (plano Inversionista) = tramos de inversión
+// derivados de la estrategia (META/EST): cada etapa hasta la objetivo es un tramo que desbloquea
+// la siguiente. No recaptura: sale de la etapa objetivo fijada.
+export function rondasDeRuta(etapaObjetivo: string | undefined): Fila[] {
+  const objN = ETAPAS_OBJETIVO.find((e) => e.id === etapaObjetivo)?.n ?? ETAPAS_OBJETIVO[0]!.n;
+  const tramos = ETAPAS_OBJETIVO.filter((e) => e.n <= objN);
+  return tramos.map((e, i): Fila => ({
+    ronda: `${e.n}. ${e.label}`,
+    uso: e.descripcion,
+    hito: i < tramos.length - 1 ? `Habilita "${tramos[i + 1]!.label}"` : 'Objetivo alcanzado',
   }));
 }
 

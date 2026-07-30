@@ -23,7 +23,7 @@ import { costosDeRecursos, componentesDeEquipo, proveedoresATabla, agentesDeProc
 import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra, siguienteEtapaCompra, totalOrden, ordenVacia, solicitudDesdeProducto, contratoVacio, estadoContrato, scoreProveedor, incidenciaVacia, redactarSolicitudCotizacion, normalizarInteraccion, interaccionesDeProveedor, ultimoContacto, requiereSeguimiento, seguimientosPendientes } from '@/domain/recursos';
 import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from '@/domain/recursos';
 import { indiceRecursos, costearProceso, indiceCosto } from '@/domain/costeo';
-import { costosDeProductos, costosDeEmbarques, ingresosDeOfertas, kpisDeProcesos, legalesDeContratos, unidadesDeUCs } from '@/domain/proyeccion';
+import { costosDeProductos, costosDeEmbarques, ingresosDeOfertas, kpisDeProcesos, legalesDeContratos, unidadesDeUCs, legalesDeEmpleados, rondasDeRuta } from '@/domain/proyeccion';
 import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque, normalizarEmbarque, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista, planArranque } from '@/domain/recursos';
 import type { Transportista, Importacion } from '@/domain/recursos';
 import { importacionVacia, desgloseAduana, costoAduana, estadoRecepcion } from '@/domain/recursos';
@@ -634,6 +634,27 @@ check('legalesDeContratos: cada contrato → documento tipo contrato', leg.lengt
 // ESC ← unidades (de las UCs).
 const uni = unidadesDeUCs([{ nombre: 'Piercings' }, { nombre: 'Tatuajes' }, { nombre: '' }]);
 check('unidadesDeUCs: cada UC → unidad de escala (2)', uni.length === 2 && uni[0]!.unidad === 'Piercings');
+
+// ============================================================
+// 27) CERRAR EL LLENADO: JUR←fiscal de Personas · INV←rondas de la ruta
+// ============================================================
+h('27) Proyecciones de cierre: contratos laborales (JUR) y tramos de inversión (INV)');
+const emps27: Empleado[] = [
+  { ...empleadoVacio('E1'), nombre: 'Suzet', puesto: 'Directora', estado: 'activo', externo: false },
+  { ...empleadoVacio('E2'), nombre: 'Contador', puesto: 'Contador', estado: 'activo', externo: true }, // externo: no cuenta
+  { ...empleadoVacio('E3'), nombre: 'Ex', puesto: 'X', estado: 'baja', externo: false }, // baja: no cuenta
+];
+const legEmp = legalesDeEmpleados(emps27);
+check('legalesDeEmpleados: 1 interno activo → contrato + alta patronal (2 filas)', legEmp.length === 2 && legEmp[0]!.documento.includes('Suzet'));
+check('El alta patronal es un permiso a cargo del Contador', legEmp[1]!.tipo === 'permiso' && legEmp[1]!.responsable === 'Contador');
+check('Externos y bajas NO generan contrato laboral', !legEmp.some((l) => String(l.documento).includes('Contador') || String(l.documento).includes('Ex')));
+
+// INV ← rondas de la ruta (etapa objetivo = expandir → 2 tramos).
+const rondasExp = rondasDeRuta('expandir');
+check('rondasDeRuta(expandir): 2 tramos (arrancar + expandir)', rondasExp.length === 2 && String(rondasExp[0]!.ronda).includes('Arrancar'));
+check('Cada tramo desbloquea el siguiente; el último es objetivo', String(rondasExp[0]!.hito).includes('Expandir') && rondasExp[1]!.hito === 'Objetivo alcanzado');
+check('rondasDeRuta(vender): la ruta completa (5 tramos)', rondasDeRuta('vender').length === 5);
+check('Sin etapa objetivo → al menos el primer tramo', rondasDeRuta(undefined).length === 1);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

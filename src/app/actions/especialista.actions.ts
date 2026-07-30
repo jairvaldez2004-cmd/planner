@@ -23,7 +23,7 @@ import type { Fila } from '@/app/captura/csv';
 import { modeloActual } from '@/app/actions/config.actions';
 import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { DocumentoPlano } from '@/domain/plano-doc';
-import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, costosDeProductos, costosDeEmbarques, componentesDeEquipo, componentesDeAutomatizacion, agentesDeProcesos, proveedoresATabla, ingresosDeOfertas, kpisDeProcesos, legalesDeContratos, unidadesDeUCs } from '@/domain/proyeccion';
+import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, costosDeProductos, costosDeEmbarques, componentesDeEquipo, componentesDeAutomatizacion, agentesDeProcesos, proveedoresATabla, ingresosDeOfertas, kpisDeProcesos, legalesDeContratos, legalesDeEmpleados, unidadesDeUCs, rondasDeRuta } from '@/domain/proyeccion';
 import { listarSedes, listarEspacios } from '@/app/actions/espacios.actions';
 import { listarProcesos } from '@/app/actions/mapa.actions';
 import { listarEmpleados } from '@/app/actions/rh.actions';
@@ -83,6 +83,8 @@ async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<R
   };
   let ucs: { nombre: string }[] | null = null;
   const getUCs = async () => { if (!ucs) ucs = (await prisma.unidadComercial.findMany({ where: { proyectoId } })).map((u) => ({ nombre: u.nombre })); return ucs; };
+  let etapaObj: string | undefined | null = null;
+  const getEtapaObjetivo = async () => { if (etapaObj === null) etapaObj = (await obtenerProyectoBase(proyectoId))?.etapaObjetivo; return etapaObj; };
   if (refs.has('ambientes')) out['ambientes'] = ambientesDeEspacios(await getEspacios());
   if (refs.has('procesos')) out['procesos'] = procesosDeMapa(await getProcesos());
   if (refs.has('puestos')) out['puestos'] = puestosDeEmpleados(await getEmpleados());
@@ -97,8 +99,11 @@ async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<R
   // Proyecciones nuevas: ingresos (FIN) · kpis (CTR) · legales (JUR) · unidades (ESC).
   if (refs.has('ingresos')) out['ingresos'] = ingresosDeOfertas(await getOfertas());
   if (refs.has('kpis')) out['kpis'] = kpisDeProcesos(await getProcesos());
-  if (refs.has('legales')) out['legales'] = legalesDeContratos(await getContratos());
+  // Jurídico = contratos del abastecimiento + contrato laboral/alta fiscal por persona interna.
+  if (refs.has('legales')) out['legales'] = [...legalesDeContratos(await getContratos()), ...legalesDeEmpleados(await getEmpleados())];
   if (refs.has('unidades')) out['unidades'] = unidadesDeUCs(await getUCs());
+  // Inversionista = tramos de inversión derivados de la ruta de etapas (estrategia).
+  if (refs.has('rondas')) out['rondas'] = rondasDeRuta(await getEtapaObjetivo());
   return out;
 }
 
