@@ -20,7 +20,7 @@ import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
 import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
 import { costosDeRecursos, componentesDeEquipo, proveedoresATabla, agentesDeProcesos, componentesDeAutomatizacion } from '@/domain/proyeccion';
-import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra, siguienteEtapaCompra, totalOrden, ordenVacia, solicitudDesdeProducto, contratoVacio, estadoContrato, scoreProveedor, incidenciaVacia, redactarSolicitudCotizacion } from '@/domain/recursos';
+import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra, siguienteEtapaCompra, totalOrden, ordenVacia, solicitudDesdeProducto, contratoVacio, estadoContrato, scoreProveedor, incidenciaVacia, redactarSolicitudCotizacion, normalizarInteraccion, interaccionesDeProveedor, ultimoContacto, requiereSeguimiento, seguimientosPendientes } from '@/domain/recursos';
 import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from '@/domain/recursos';
 import { indiceRecursos, costearProceso } from '@/domain/costeo';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
@@ -470,6 +470,27 @@ check('El cuerpo incluye cantidad y unidad', rfq.cuerpo.includes('20 caja'));
 check('El cuerpo saluda al proveedor y pide precio/entrega', rfq.cuerpo.includes('Insumos del Bajío') && rfq.cuerpo.includes('precio unitario') && rfq.cuerpo.includes('tiempo de entrega'));
 check('Incluye la marca en especificaciones', rfq.cuerpo.includes('Ambiderm'));
 check('Incluye el mensaje extra y firma el remitente', rfq.cuerpo.includes('Querétaro') && rfq.cuerpo.includes('Altercing Studio'));
+
+// ============================================================
+// 19) RELACIÓN COMERCIAL: bitácora + motor de seguimiento
+// ============================================================
+h('19) Bitácora de interacciones y seguimiento por proveedor');
+const bitac = [
+  normalizarInteraccion({ id: 'A', proveedorId: 'P1', tipo: 'cotización', direccion: 'saliente', fecha: '2026-07-20', resumen: 'RFQ guantes' }),
+  normalizarInteraccion({ id: 'B', proveedorId: 'P1', tipo: 'respuesta', direccion: 'entrante', fecha: '2026-07-25', resumen: 'mandó precio' }),
+  normalizarInteraccion({ id: 'C', proveedorId: 'P2', tipo: 'nota', direccion: 'saliente', fecha: '2026-07-10', resumen: 'primer contacto' }),
+];
+check('interaccionesDeProveedor filtra y ordena (recientes primero)', (() => { const l = interaccionesDeProveedor(bitac, 'P1'); return l.length === 2 && l[0]!.id === 'B'; })());
+check('ultimoContacto = fecha más reciente', ultimoContacto('P1', bitac) === '2026-07-25');
+check('normalizarInteraccion respeta dirección entrante', bitac[1]!.direccion === 'entrante');
+
+const pSeg = { ...proveedorVacio('P1'), nombre: 'A', proximoSeguimiento: '2026-07-28' };
+const pFuturo = { ...proveedorVacio('P2'), nombre: 'B', proximoSeguimiento: '2026-08-15' };
+const pSin = { ...proveedorVacio('P3'), nombre: 'C' };
+check('requiereSeguimiento true si la fecha ya pasó (hoy 2026-07-29)', requiereSeguimiento(pSeg, HOY));
+check('requiereSeguimiento false si es futura', !requiereSeguimiento(pFuturo, HOY));
+check('requiereSeguimiento false sin fecha', !requiereSeguimiento(pSin, HOY));
+check('seguimientosPendientes solo devuelve los vencidos', (() => { const l = seguimientosPendientes([pSeg, pFuturo, pSin], HOY); return l.length === 1 && l[0]!.nombre === 'A'; })());
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

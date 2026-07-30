@@ -51,6 +51,10 @@ export const RIESGOS = ['político', 'climático', 'financiero', 'logístico', '
 export const DEPENDENCIAS = ['alta', 'media', 'baja'];
 export const TIPOS_INCIDENCIA = ['rechazo', 'retraso', 'defecto', 'incidencia', 'auditoría'];
 
+// Relación comercial: estados de la relación y tipos de interacción de la bitácora.
+export const ESTADOS_RELACION = ['prospecto', 'activo', 'preferente', 'inactivo'];
+export const TIPOS_INTERACCION = ['correo enviado', 'respuesta', 'llamada', 'whatsapp', 'cita', 'cotización', 'nota'];
+
 export interface Recurso {
   id: string;
   nombre: string;
@@ -108,6 +112,10 @@ export interface Proveedor {
   riesgos: string[];          // político, climático, financiero, logístico, cambiario, legal
   planB: string;              // plan alternativo si falla
   proveedorAlternativo: string;
+  // Relación comercial (CRM): seguimiento continuo a cada proveedor, compremos o no.
+  estadoRelacion: string;      // prospecto / activo / preferente / inactivo
+  proximoSeguimiento: string;  // fecha del próximo contacto (motor de seguimiento)
+  responsable: string;         // quién lleva la relación (firma los correos, da voz humana)
   // Multimedia y docs
   adjuntos: Adjunto[];    // fotografías, videos, documentos
   notas: string;
@@ -207,6 +215,7 @@ export function proveedorVacio(id: string): Proveedor {
     contacto: '', puesto: '', telefono: '', whatsapp: '', email: '', sitioWeb: '', idiomas: [], horario: '',
     moneda: '', incoterms: [], aniosMercado: '', tamano: '', certificaciones: [], categorias: [], tipo: 'insumos',
     cumplimiento: '', tiempoPromedio: '', evaluacion: {}, proveedorUnico: false, dependencia: '', riesgos: [], planB: '', proveedorAlternativo: '',
+    estadoRelacion: '', proximoSeguimiento: '', responsable: '',
     adjuntos: [], notas: '',
   };
 }
@@ -265,6 +274,7 @@ export function normalizarProveedor(v: unknown): Proveedor {
     cumplimiento: s(d.cumplimiento), tiempoPromedio: s(d.tiempoPromedio), evaluacion: normEvaluacion(d.evaluacion),
     proveedorUnico: d.proveedorUnico === true, dependencia: s(d.dependencia), riesgos: sa(d.riesgos),
     planB: s(d.planB), proveedorAlternativo: s(d.proveedorAlternativo),
+    estadoRelacion: s(d.estadoRelacion), proximoSeguimiento: s(d.proximoSeguimiento), responsable: s(d.responsable),
     adjuntos: Array.isArray(d.adjuntos) ? d.adjuntos.map(normAdjunto) : [], notas: s(d.notas),
   };
 }
@@ -619,6 +629,46 @@ export function normalizarIncidencia(v: unknown): Incidencia {
     id: s(d.id) || `INC-${Math.random().toString(36).slice(2, 8)}`, proveedorId: s(d.proveedorId),
     tipo: s(d.tipo) || 'incidencia', gravedad, fecha: s(d.fecha), descripcion: s(d.descripcion), ordenId: s(d.ordenId), evidencia: s(d.evidencia),
   };
+}
+
+// ---------- Relación comercial: bitácora de interacciones + seguimiento ----------
+export interface Interaccion {
+  id: string;
+  proveedorId: string;
+  tipo: string;                          // correo enviado / respuesta / llamada / cita / nota…
+  canal: string;                         // correo / teléfono / whatsapp / presencial
+  direccion: 'saliente' | 'entrante';
+  fecha: string;
+  resumen: string;
+  ordenId: string;                       // orden de compra relacionada (opcional)
+}
+export function interaccionVacia(id: string, proveedorId: string): Interaccion {
+  return { id, proveedorId, tipo: 'nota', canal: '', direccion: 'saliente', fecha: '', resumen: '', ordenId: '' };
+}
+export function normalizarInteraccion(v: unknown): Interaccion {
+  const d = (v && typeof v === 'object') ? v as Record<string, unknown> : {};
+  return {
+    id: s(d.id) || `INT-${Math.random().toString(36).slice(2, 8)}`, proveedorId: s(d.proveedorId),
+    tipo: s(d.tipo) || 'nota', canal: s(d.canal), direccion: d.direccion === 'entrante' ? 'entrante' : 'saliente',
+    fecha: s(d.fecha), resumen: s(d.resumen), ordenId: s(d.ordenId),
+  };
+}
+// Interacciones de un proveedor, más recientes primero.
+export function interaccionesDeProveedor(ints: Interaccion[], proveedorId: string): Interaccion[] {
+  return ints.filter((i) => i.proveedorId === proveedorId).sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
+}
+// Fecha del último contacto registrado (o '' si nunca).
+export function ultimoContacto(proveedorId: string, ints: Interaccion[]): string {
+  const fechas = ints.filter((i) => i.proveedorId === proveedorId).map((i) => i.fecha).filter(Boolean).sort();
+  return fechas.length ? fechas[fechas.length - 1]! : '';
+}
+// ¿Toca dar seguimiento hoy? (tiene fecha de próximo seguimiento y ya llegó/pasó).
+export function requiereSeguimiento(p: Proveedor, hoyISO: string): boolean {
+  return !!p.proximoSeguimiento && p.proximoSeguimiento <= hoyISO;
+}
+// Proveedores con seguimiento pendiente, del más atrasado al más reciente.
+export function seguimientosPendientes(provs: Proveedor[], hoyISO: string): Proveedor[] {
+  return provs.filter((p) => requiereSeguimiento(p, hoyISO)).sort((a, b) => (a.proximoSeguimiento < b.proximoSeguimiento ? -1 : 1));
 }
 
 // ---------- Evaluación (Sección 9): Score General automático ----------

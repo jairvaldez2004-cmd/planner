@@ -18,6 +18,7 @@ import {
   listarOrdenes, guardarOrden, eliminarOrden,
   listarContratos, guardarContrato, eliminarContrato,
   listarIncidencias, guardarIncidencia, eliminarIncidencia,
+  listarInteracciones, guardarInteraccion, eliminarInteraccion,
   conversarCentroAbastecimiento, cargarChatAbastecimiento,
 } from '@/app/actions/recursos.actions';
 import { ChatArquitecto } from './chat-arquitecto';
@@ -29,8 +30,9 @@ import {
   ETAPAS_COMPRA_INFO, etapaCompraInfo, siguienteEtapaCompra, totalOrden,
   estadoContrato, ESTADOS_CONTRATO, solicitudDesdeProducto,
   CRITERIOS_EVAL, RIESGOS, DEPENDENCIAS, TIPOS_INCIDENCIA, incidenciaVacia, scoreProveedor, NIVELES_SCORE,
+  ESTADOS_RELACION, TIPOS_INTERACCION, interaccionesDeProveedor, ultimoContacto, seguimientosPendientes,
 } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia, Interaccion } from '@/domain/recursos';
 import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -51,6 +53,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   const [ocs, setOcs] = useState<OrdenCompra[]>([]);
   const [ctrs, setCtrs] = useState<Contrato[]>([]);
   const [incs, setIncs] = useState<Incidencia[]>([]);
+  const [ints, setInts] = useState<Interaccion[]>([]);
   const [selOC, setSelOC] = useState<string | null>(null);
   const [selCtr, setSelCtr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('recursos');
@@ -65,8 +68,8 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
 
   const cargar = () => {
     setLoading(true);
-    Promise.all([listarRecursos(proyectoId), listarProveedores(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId), listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId)])
-      .then(([r, p, pr, v, o, c, inc]) => { setRecs(r); setProvs(p); setProds(pr); setVinc(v); setOcs(o); setCtrs(c); setIncs(inc); }).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([listarRecursos(proyectoId), listarProveedores(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId), listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId)])
+      .then(([r, p, pr, v, o, c, inc, itx]) => { setRecs(r); setProvs(p); setProds(pr); setVinc(v); setOcs(o); setCtrs(c); setIncs(inc); setInts(itx); }).catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
 
@@ -87,6 +90,10 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   async function agregarInc(proveedorId: string) { const n = await guardarIncidencia(proyectoId, { ...incidenciaVacia('', proveedorId), fecha: hoy }); setIncs((l) => [...l, n]); }
   async function patchInc(inc: Incidencia) { setIncs((l) => l.map((x) => x.id === inc.id ? inc : x)); await guardarIncidencia(proyectoId, inc); }
   async function borrarInc(id: string) { setIncs((l) => l.filter((x) => x.id !== id)); await eliminarIncidencia(proyectoId, id); }
+  // Interacciones (bitácora de relación)
+  async function agregarInt(proveedorId: string) { const n = await guardarInteraccion(proyectoId, { id: '', proveedorId, tipo: 'nota', canal: '', direccion: 'saliente', fecha: hoy, resumen: '', ordenId: '' }); setInts((l) => [...l, n]); }
+  async function patchInt(it: Interaccion) { setInts((l) => l.map((x) => x.id === it.id ? it : x)); await guardarInteraccion(proyectoId, it); }
+  async function borrarInt(id: string) { setInts((l) => l.filter((x) => x.id !== id)); await eliminarInteraccion(proyectoId, id); }
 
   async function nuevoProd() { const n = await guardarProducto(proyectoId, { ...productoVacio(''), nombre: 'Nuevo producto' }); setProds((l) => [...l, n]); setSelProd(n.id); }
   async function patchProd(partial: Partial<Producto>) { if (!prodSel) return; const u = { ...prodSel, ...partial }; setProds((l) => l.map((x) => x.id === u.id ? u : x)); await guardarProducto(proyectoId, u); }
@@ -264,6 +271,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ fontWeight: 'bold', fontSize: 13.5, flex: 1 }}>🏭 {p.nombre || '(sin nombre)'}</span>
                       {sc.score !== null && <span style={{ fontSize: 11, fontWeight: 'bold', color: '#fff', background: niv.color, borderRadius: 8, padding: '0 7px' }}>{sc.score}</span>}
+                      {p.proximoSeguimiento && p.proximoSeguimiento <= hoy && <span title={`Seguimiento pendiente desde ${p.proximoSeguimiento}`} style={{ fontSize: 12 }}>⏰</span>}
                       {p.proveedorUnico && <span title="Proveedor único (riesgo)" style={{ fontSize: 12 }}>⚠</span>}
                     </div>
                     <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{[p.ciudad, p.pais].filter(Boolean).join(', ') || '—'}{p.contacto ? ` · ${p.contacto}` : ''}</div>
@@ -273,8 +281,10 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
               })}
             </div>
             {pSel && <ProveedorEditor prov={pSel} incidencias={incs.filter((i) => i.proveedorId === pSel.id)} score={scoreProveedor(pSel, incs)}
+              interacciones={interaccionesDeProveedor(ints, pSel.id)} ultContacto={ultimoContacto(pSel.id, ints)}
               onPatch={patchProv} onClose={() => setSelP(null)} onDelete={borrarProv}
-              onAddInc={() => void agregarInc(pSel.id)} onPatchInc={patchInc} onBorrarInc={borrarInc} />}
+              onAddInc={() => void agregarInc(pSel.id)} onPatchInc={patchInc} onBorrarInc={borrarInc}
+              onAddInt={() => void agregarInt(pSel.id)} onPatchInt={patchInt} onBorrarInt={borrarInt} />}
           </div>
         </>
       )}
@@ -364,6 +374,7 @@ function CentroIA({ proyectoId, prods, provs, ctrs, incs, hoy, movil, onCambio }
   const riesgoUnico = provs.filter((p) => p.proveedorUnico && !p.planB && !p.proveedorAlternativo).length;
   const scores = provs.map((p) => scoreProveedor(p, incs).score).filter((s): s is number => s !== null);
   const scorePromedio = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const segHoy = seguimientosPendientes(provs, hoy).length;
   const stat: CSSProperties = { border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.5rem 0.7rem', background: '#fff', textAlign: 'center' };
 
   return (
@@ -375,12 +386,13 @@ function CentroIA({ proyectoId, prods, provs, ctrs, incs, hoy, movil, onCambio }
         <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: porComprar ? '#c0392b' : '#2e9e63' }}>{porComprar}</div><div style={{ fontSize: 11, color: '#888' }}>por comprar ya</div></div>
         <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: ctrAlerta ? '#d9781f' : '#2e9e63' }}>{ctrAlerta}</div><div style={{ fontSize: 11, color: '#888' }}>contratos por vencer</div></div>
         <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: riesgoUnico ? '#c0392b' : '#2e9e63' }}>{riesgoUnico}</div><div style={{ fontSize: 11, color: '#888' }}>únicos sin plan B</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: segHoy ? '#d9781f' : '#2e9e63' }}>{segHoy}</div><div style={{ fontSize: 11, color: '#888' }}>seguimientos hoy</div></div>
         <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#6b5320' }}>{scorePromedio ?? '—'}</div><div style={{ fontSize: 11, color: '#888' }}>score prom. proveedores</div></div>
       </div>
       <ChatArquitecto
         conversar={(h) => conversarCentroAbastecimiento(h, proyectoId)}
-        saludo={'Soy el Centro de Abastecimiento Inteligente. Puedo decirte qué comprar esta semana y qué puede esperar, qué proveedor conviene hoy (precio/score/riesgo), qué se va a agotar, qué contratos vencen y qué insumos dependen de un solo proveedor. También genero solicitudes de compra y registro incidencias. Pregúntame, por ejemplo: “¿qué necesito comprar esta semana y a quién?”.'}
-        placeholder="Ej: ¿qué compro esta semana y a qué proveedor?"
+        saludo={'Llevo tus compras y la relación con proveedores. Te digo qué comprar y a quién, cuido a cada proveedor con seguimiento (compremos o no), y escribo los correos yo mismo (cotizaciones, seguimientos, citas) de forma natural. Cuando me pases una respuesta de un proveedor, lleno sus datos solo. Prueba: “pide cotización de guantes a Insumos del Bajío y Distribuidora X”, o “¿a quién le toca seguimiento hoy?”.'}
+        placeholder="Ej: pide cotización de X a estos proveedores…"
         cargarHistorial={() => cargarChatAbastecimiento(proyectoId)}
         historialKey={`abast:${proyectoId}`}
         onCambio={onCambio}
@@ -580,10 +592,12 @@ function ContratoEditor({ c, provs, info, onPatch, onClose, onDelete }: {
 }
 
 // ===== Editor de PROVEEDOR (ficha rica) =====
-function ProveedorEditor({ prov, incidencias, score, onPatch, onClose, onDelete, onAddInc, onPatchInc, onBorrarInc }: {
+function ProveedorEditor({ prov, incidencias, score, interacciones, ultContacto, onPatch, onClose, onDelete, onAddInc, onPatchInc, onBorrarInc, onAddInt, onPatchInt, onBorrarInt }: {
   prov: Proveedor; incidencias: Incidencia[]; score: ReturnType<typeof scoreProveedor>;
+  interacciones: Interaccion[]; ultContacto: string;
   onPatch: (p: Partial<Proveedor>) => void; onClose: () => void; onDelete: () => void;
   onAddInc: () => void; onPatchInc: (i: Incidencia) => void; onBorrarInc: (id: string) => void;
+  onAddInt: () => void; onPatchInt: (i: Interaccion) => void; onBorrarInt: (id: string) => void;
 }) {
   const T = (label: string, k: keyof Proveedor, ph = '') => (
     <div><label style={lbl}>{label}</label><input style={inp} defaultValue={String(prov[k] ?? '')} key={`${String(k)}-${prov.id}`} placeholder={ph} onBlur={(e) => { if (e.target.value !== prov[k]) onPatch({ [k]: e.target.value } as Partial<Proveedor>); }} /></div>
@@ -655,6 +669,36 @@ function ProveedorEditor({ prov, incidencias, score, onPatch, onClose, onDelete,
           })}
         </div>
       </div>
+
+      {/* ==== RELACIÓN COMERCIAL / BITÁCORA ==== */}
+      <details open>
+        <summary style={sum}>🤝 Relación ({interacciones.length} interacción{interacciones.length !== 1 ? 'es' : ''})</summary>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+          <div><label style={lbl}>Estado de relación</label>
+            <select style={inp} value={prov.estadoRelacion} onChange={(e) => onPatch({ estadoRelacion: e.target.value })}>
+              <option value="">— sin definir —</option>{ESTADOS_RELACION.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select></div>
+          <div><label style={lbl}>Próximo seguimiento</label><input style={inp} type="date" defaultValue={prov.proximoSeguimiento} key={`ps-${prov.id}`} onBlur={(e) => { if (e.target.value !== prov.proximoSeguimiento) onPatch({ proximoSeguimiento: e.target.value }); }} /></div>
+        </div>
+        {T('Responsable de la relación (firma correos)', 'responsable', 'nombre real')}
+        <div style={{ fontSize: 11, color: '#888', marginTop: 3 }}>Último contacto: <strong>{ultContacto || 'nunca'}</strong>{prov.proximoSeguimiento && prov.proximoSeguimiento <= new Date().toISOString().slice(0, 10) ? ' · ⏰ seguimiento pendiente' : ''}</div>
+        {interacciones.length > 0 && (
+          <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: 4, borderTop: '1px solid #f0ead9' }}>
+            {interacciones.map((it) => (
+              <div key={it.id} style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #f5efdd' }}>
+                <span title={it.direccion} style={{ color: it.direccion === 'entrante' ? '#2e7a4d' : '#6b5320' }}>{it.direccion === 'entrante' ? '⬅' : '➡'}</span>
+                <input style={{ ...inp, width: 116, padding: '0.15rem 0.3rem' }} type="date" defaultValue={it.fecha} key={`itf-${it.id}`} onBlur={(e) => { if (e.target.value !== it.fecha) onPatchInt({ ...it, fecha: e.target.value }); }} />
+                <select style={{ ...inp, width: 96, padding: '0.15rem' }} value={it.tipo} onChange={(e) => onPatchInt({ ...it, tipo: e.target.value })}>
+                  {TIPOS_INTERACCION.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <input style={{ ...inp, flex: 1, padding: '0.15rem 0.3rem' }} placeholder="resumen" defaultValue={it.resumen} key={`itr-${it.id}`} onBlur={(e) => { if (e.target.value !== it.resumen) onPatchInt({ ...it, resumen: e.target.value }); }} />
+                <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onBorrarInt(it.id)}>×</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <button style={{ ...btnSm, marginTop: 5 }} onClick={onAddInt}>＋ Anotar interacción</button>
+      </details>
 
       {/* ==== CALIDAD / INCIDENCIAS ==== */}
       <details>

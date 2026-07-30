@@ -778,19 +778,75 @@ export async function correrOrganizadorRH(
 // score/riesgo), órdenes, contratos e incidencias, ayuda a decidir el abastecimiento y puede
 // ejecutar acciones reales (generar solicitud de compra, registrar incidencia).
 
-const SYSTEM_ABASTECIMIENTO = `Eres el CENTRO DE ABASTECIMIENTO INTELIGENTE del Business Planner. Con el catálogo de PRODUCTOS (inventario, consumo, plan de compra), los PROVEEDORES (precio por producto, score, riesgo), las ÓRDENES de compra, los CONTRATOS y las INCIDENCIAS (todo abajo, en el estado), ayudas a tomar decisiones de abastecimiento.
+const SYSTEM_ABASTECIMIENTO = `Eres el GESTOR DE COMPRAS Y RELACIONES CON PROVEEDORES del negocio: un profesional experto en abastecimiento y en relaciones comerciales. Trabajas con el catálogo de PRODUCTOS (inventario, consumo, plan de compra), los PROVEEDORES (precio por producto, score, riesgo, relación y último contacto), las ÓRDENES de compra, los CONTRATOS y las INCIDENCIAS (todo abajo, en el estado).
 
-QUÉ RESPONDES (con datos concretos del estado, priorizando):
-1) QUÉ COMPRAR esta semana y qué puede ESPERAR — usa el plan de cada producto (comprar-urgente/hoy/pronto/ok) y los días de cobertura.
-2) QUÉ PROVEEDOR conviene HOY por producto, ponderando precio vigente, score (calidad/tiempo/servicio) y riesgo/distancia. Explica el porqué.
-3) Qué se AGOTARÁ pronto, qué CONTRATOS vencen y qué insumos dependen de un PROVEEDOR ÚNICO sin plan B (riesgo).
-4) Qué compras CONSOLIDAR (mismo proveedor) para ahorrar envío; qué proveedor INCUMPLE (score bajo / muchas incidencias) y sus ALTERNATIVAS.
+TU TRABAJO:
+1) DECIDIR el abastecimiento: qué comprar esta semana y qué esperar (usa el plan de cada producto y los días de cobertura); qué proveedor conviene hoy (precio vigente + score + riesgo/distancia, con justificación); qué se agotará, qué contratos vencen, qué insumos dependen de un proveedor único sin plan B; qué compras consolidar y qué proveedor incumple.
+2) PROACTIVIDAD: revisa el estado y, si ves productos en "comprar-urgente/hoy" o cerca de agotarse, PROPÓN y —si el usuario lo aprueba o te lo pidió— pide cotizaciones o genera la solicitud tú mismo. No esperes a que te lo pidan todo.
+3) RELACIÓN CONTINUA CON CADA PROVEEDOR (compremos o no): mantén viva la relación. Mira "último contacto" y "próximo seguimiento" en el estado; a quien toca seguimiento, escríbele. Al pedir cotización, agenda el seguimiento. Cuida a los preferentes y reactiva a los inactivos.
 
-ACCIONES que puedes ejecutar: "solicitar_cotizaciones" (envía por correo una solicitud de cotización de un producto a uno o varios proveedores — si el envío no está configurado, la deja como borrador y registra la gestión), "generar_solicitud" (crea una solicitud de compra para un producto, con proveedor y cantidad sugeridos) y "registrar_incidencia" (levanta una incidencia de calidad a un proveedor). Cuando el usuario te pida pedir/solicitar cotizaciones a proveedores X, Y, Z, USA "solicitar_cotizaciones" con esos nombres. Antes de ejecutar VARIAS acciones, resume el plan y luego ejecútalas. No inventes datos que no estén en el estado; si falta información (p. ej. el correo de un proveedor), dilo.
+CÓMO ESCRIBES LOS CORREOS (MUY IMPORTANTE): escribes como una PERSONA REAL del equipo de compras, NO como un bot. Redacta tú el cuerpo completo (en el parámetro "cuerpo"), cálido y profesional, natural y variado —nunca con plantillas rígidas ni frases robóticas—. Usa el nombre de la persona de contacto si existe, saluda como humano, sé concreto y cordial, y firma con un nombre real (el "responsable" del proveedor si está, o un nombre propio verosímil). JAMÁS reveles ni insinúes que eres una IA ni menciones "sistema", "agente" o "automático". Suena como alguien que de verdad lleva la relación.
 
-Estilo: español, claro y accionable. Prioriza y justifica cada recomendación. Puedes encadenar acciones en un turno y cerrar con un resumen de lo que hiciste y lo que falta.`;
+ACCIONES (herramientas):
+- "enviar_correo" (proveedor, asunto, cuerpo, proximoSeguimientoDias?): manda un correo que TÚ redactas (cotización a medida, seguimiento, reactivación, propuesta de cita, atención). Registra la interacción y agenda el seguimiento.
+- "solicitar_cotizaciones" (producto, proveedores[], cantidad?, mensaje?): atajo para pedir cotización de un producto a varios proveedores a la vez (usa una plantilla; para algo más personal usa enviar_correo). Agenda seguimiento solo.
+- "registrar_respuesta" (proveedor, producto?, precio?, moneda?, tiempoEntrega?, cantidadMinima?, resumen): cuando el usuario te comparte/pega la respuesta de un proveedor, EXTRAE los datos y con esto LLENAS el vínculo producto↔proveedor (precio va al historial) y dejas la interacción en la bitácora.
+- "registrar_interaccion" (proveedor, tipo, resumen, canal?, proximoSeguimientoDias?, estadoRelacion?): anota llamadas, notas, citas y programa el próximo seguimiento o cambia el estado de la relación.
+- "generar_solicitud" (producto, cantidad?, proveedor?) y "registrar_incidencia" (proveedor, tipo, gravedad, descripcion).
+
+Antes de ejecutar VARIAS acciones, resume el plan y ejecútalas. No inventes datos que no estén en el estado; si falta el correo de un proveedor, dilo. Español, claro y accionable; cierra con un resumen de lo hecho y lo que sigue.`;
 
 const TOOLS_ABASTECIMIENTO: Anthropic.Tool[] = [
+  {
+    name: 'enviar_correo',
+    description: 'Envía a un proveedor un correo que TÚ redactas (cotización a medida, seguimiento, reactivación, propuesta de cita, atención al proveedor). Escribe el cuerpo completo, natural y humano, con el nombre del contacto y firma real. Registra la interacción en la bitácora y, si indicas proximoSeguimientoDias, agenda el próximo contacto. Si el envío no está configurado, queda como borrador.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        proveedor: { type: 'string', description: 'Nombre del proveedor.' },
+        asunto: { type: 'string' },
+        cuerpo: { type: 'string', description: 'Cuerpo completo del correo, redactado por ti, natural y humano.' },
+        proximoSeguimientoDias: { type: 'number', description: 'En cuántos días volver a dar seguimiento (opcional).' },
+      },
+      required: ['proveedor', 'asunto', 'cuerpo'],
+    },
+  },
+  {
+    name: 'registrar_respuesta',
+    description: 'Registra la RESPUESTA de un proveedor (que el usuario te comparte/pega) y LLENA los datos: actualiza el vínculo producto↔proveedor con precio (va al historial), moneda, tiempo de entrega y cantidad mínima, y anota la interacción en la bitácora.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        proveedor: { type: 'string' },
+        producto: { type: 'string', description: 'Producto cotizado (opcional; para actualizar su vínculo).' },
+        precio: { type: 'string' },
+        moneda: { type: 'string' },
+        tiempoEntrega: { type: 'string' },
+        cantidadMinima: { type: 'string' },
+        resumen: { type: 'string', description: 'Resumen de lo que respondió.' },
+      },
+      required: ['proveedor', 'resumen'],
+    },
+  },
+  {
+    name: 'registrar_interaccion',
+    description: 'Anota una interacción con un proveedor (llamada, cita, nota, whatsapp…) en la bitácora, y opcionalmente programa el próximo seguimiento o cambia el estado de la relación (prospecto/activo/preferente/inactivo).',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        proveedor: { type: 'string' },
+        tipo: { type: 'string', description: 'llamada / cita / nota / whatsapp / respuesta…' },
+        resumen: { type: 'string' },
+        canal: { type: 'string' },
+        proximoSeguimientoDias: { type: 'number' },
+        estadoRelacion: { type: 'string', enum: ['prospecto', 'activo', 'preferente', 'inactivo'] },
+      },
+      required: ['proveedor', 'tipo', 'resumen'],
+    },
+  },
   {
     name: 'solicitar_cotizaciones',
     description: 'Envía por correo una SOLICITUD DE COTIZACIÓN (RFQ) de un producto a uno o varios proveedores (por nombre). Redacta el correo, lo envía a cada proveedor con correo registrado, y deja constancia (una orden en etapa Cotización por proveedor). Si el envío de correo no está configurado, entrega los correos como BORRADOR y lo informa.',

@@ -5,11 +5,12 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
-import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato, normalizarIncidencia } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato, Incidencia } from '@/domain/recursos';
+import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato, normalizarIncidencia, normalizarInteraccion } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato, Incidencia, Interaccion } from '@/domain/recursos';
 import {
   planearCompra, precioVigente, proveedorMasBarato, vinculosDeProducto, estadoContrato, scoreProveedor,
   solicitudDesdeProducto, incidenciaVacia, ordenVacia, redactarSolicitudCotizacion,
+  interaccionVacia, vinculoVacio, registrarCambioPrecio, seguimientosPendientes, ultimoContacto,
 } from '@/domain/recursos';
 import { enviarCorreo } from '@/adapters/email/enviar';
 import { correrCentroAbastecimiento } from '@/adapters/ai/arquitecto-agent';
@@ -142,19 +143,42 @@ export async function eliminarIncidencia(proyectoId: string, id: string): Promis
   await guardarLista(proyectoId, 'incidencias', (await listarIncidencias(proyectoId)).filter((x) => x.id !== id));
 }
 
+// --- Bitácora de interacciones con proveedores (CRM / relación comercial) ---
+export async function listarInteracciones(proyectoId: string): Promise<Interaccion[]> { return listar(proyectoId, 'interacciones_prov', normalizarInteraccion); }
+export async function guardarInteraccion(proyectoId: string, inc: Interaccion): Promise<Interaccion> {
+  const lista = await listarInteracciones(proyectoId);
+  const id = inc.id?.trim() || nid('INT');
+  const norm = normalizarInteraccion({ ...inc, id });
+  const i = lista.findIndex((x) => x.id === id);
+  if (i >= 0) lista[i] = norm; else lista.push(norm);
+  await guardarLista(proyectoId, 'interacciones_prov', lista);
+  return norm;
+}
+export async function eliminarInteraccion(proyectoId: string, id: string): Promise<void> {
+  await guardarLista(proyectoId, 'interacciones_prov', (await listarInteracciones(proyectoId)).filter((x) => x.id !== id));
+}
+
 // =================== CENTRO DE ABASTECIMIENTO INTELIGENTE (IA) ===================
+function sumarDias(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (isNaN(d.getTime())) return iso;
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
 // Snapshot que ve la IA cada turno: productos con plan de compra, proveedores con score/riesgo,
 // órdenes abiertas y contratos con estado. Es la base sobre la que razona y actúa.
 async function snapshotAbastecimiento(proyectoId: string): Promise<string> {
-  const [prods, vinc, provs, ocs, ctrs, incs] = await Promise.all([
+  const [prods, vinc, provs, ocs, ctrs, incs, ints] = await Promise.all([
     listarProductos(proyectoId), listarVinculos(proyectoId), listarProveedores(proyectoId),
-    listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId),
+    listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId),
   ]);
   const hoy = new Date().toISOString().slice(0, 10);
   const provById = new Map(provs.map((p) => [p.id, p]));
   const nom = (id: string) => provById.get(id)?.nombre ?? '?';
   const L: string[] = [];
   L.push(`# Estado de abastecimiento — se actualiza cada turno. Hoy: ${hoy}`);
+  const pend = seguimientosPendientes(provs, hoy);
+  if (pend.length) L.push(`⏰ SEGUIMIENTOS PENDIENTES HOY (${pend.length}): ${pend.map((p) => `${p.nombre} (desde ${p.proximoSeguimiento})`).join(' · ')}`);
   L.push(`Productos (${prods.length}):`);
   for (const p of prods) {
     const plan = planearCompra(p, hoy);
@@ -166,7 +190,9 @@ async function snapshotAbastecimiento(proyectoId: string): Promise<string> {
   L.push(`Proveedores (${provs.length}):`);
   for (const p of provs) {
     const sc = scoreProveedor(p, incs);
-    L.push(`  · "${p.nombre}" — score ${sc.score ?? 's/e'} (${sc.nivel})${p.proveedorUnico ? ' · ÚNICO' : ''}${p.planB ? ` · planB: ${p.planB}` : (p.proveedorUnico ? ' · SIN plan B' : '')}${p.riesgos.length ? ` · riesgos: ${p.riesgos.join(', ')}` : ''} · ${sc.incidencias} incidencia(s) · ${[p.ciudad, p.pais].filter(Boolean).join(', ') || 's/ubicación'} · categorías: ${p.categorias.join(', ') || '—'}`);
+    const uc = ultimoContacto(p.id, ints);
+    const rel = `relación ${p.estadoRelacion || 's/def'}${uc ? ` · últ. contacto ${uc}` : ' · sin contacto'}${p.proximoSeguimiento ? ` · próx. seguimiento ${p.proximoSeguimiento}` : ''}`;
+    L.push(`  · "${p.nombre}"${p.contacto ? ` (contacto: ${p.contacto})` : ''}${p.email ? ` <${p.email}>` : ' [SIN correo]'} — score ${sc.score ?? 's/e'} (${sc.nivel})${p.proveedorUnico ? ' · ÚNICO' : ''}${p.planB ? ` · planB: ${p.planB}` : (p.proveedorUnico ? ' · SIN plan B' : '')} · ${sc.incidencias} incidencia(s) · ${rel} · categorías: ${p.categorias.join(', ') || '—'}`);
   }
   const abiertas = ocs.filter((o) => o.etapa !== 'cerrada');
   L.push(`Órdenes de compra abiertas (${abiertas.length} de ${ocs.length}):`);
@@ -189,8 +215,66 @@ export async function conversarCentroAbastecimiento(
   };
   const hoy = new Date().toISOString().slice(0, 10);
 
+  const bitacora = async (proveedorId: string, tipo: string, resumen: string, direccion: 'saliente' | 'entrante', canal: string, ordenId = '') => {
+    await guardarInteraccion(proyectoId, { ...interaccionVacia('', proveedorId), tipo, resumen, direccion, canal, fecha: hoy, ordenId });
+  };
+
   const ejecutar: EjecutorHerramienta = async (nombre, input) => {
     try {
+      if (nombre === 'enviar_correo') {
+        const provs = await listarProveedores(proyectoId);
+        const prov = porNombre(provs, String(input.proveedor ?? ''));
+        if (!prov) return `No encontré el proveedor "${String(input.proveedor ?? '')}".`;
+        const asunto = String(input.asunto ?? '').trim();
+        const cuerpo = String(input.cuerpo ?? '').trim();
+        if (!asunto || !cuerpo) return 'Faltan asunto o cuerpo del correo.';
+        const dias = typeof input.proximoSeguimientoDias === 'number' ? input.proximoSeguimientoDias : null;
+        if (dias !== null) await guardarProveedor(proyectoId, { ...prov, proximoSeguimiento: sumarDias(hoy, dias) });
+        if (!prov.email) { await bitacora(prov.id, 'correo enviado', `(SIN correo) ${asunto}`, 'saliente', 'correo'); return `⚠ ${prov.nombre} no tiene correo registrado. Redacté el correo pero no se envió; registré la gestión y ${dias !== null ? `programé seguimiento en ${dias}d` : 'sin seguimiento'}.`; }
+        const r = await enviarCorreo(prov.email, asunto, cuerpo);
+        await bitacora(prov.id, 'correo enviado', `${r.enviado ? '[enviado]' : '[borrador]'} ${asunto}`, 'saliente', 'correo');
+        return `${prov.nombre} (${prov.email}): ${r.enviado ? '✅ correo enviado' : `📝 borrador (${r.motivo})`}${dias !== null ? ` · seguimiento en ${dias}d` : ''}.`;
+      }
+
+      if (nombre === 'registrar_respuesta') {
+        const [provs, prods, vincs] = await Promise.all([listarProveedores(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId)]);
+        const prov = porNombre(provs, String(input.proveedor ?? ''));
+        if (!prov) return `No encontré el proveedor "${String(input.proveedor ?? '')}".`;
+        const resumen = String(input.resumen ?? 'Respuesta del proveedor');
+        await bitacora(prov.id, 'respuesta', resumen, 'entrante', 'correo');
+        let detalle = '';
+        const precio = String(input.precio ?? '').trim();
+        const prod = input.producto ? porNombre(prods, String(input.producto)) : undefined;
+        if (prod) {
+          let v = vincs.find((x) => x.productoId === prod.id && x.proveedorId === prov.id);
+          if (!v) v = await guardarVinculo(proyectoId, { ...vinculoVacio('', prod.id, prov.id) });
+          const patch = { ...v,
+            ...(input.moneda ? { moneda: String(input.moneda) } : {}),
+            ...(input.tiempoEntrega ? { tiempoEntrega: String(input.tiempoEntrega) } : {}),
+            ...(input.cantidadMinima ? { cantidadMinima: String(input.cantidadMinima) } : {}),
+          };
+          const conPrecio = precio ? registrarCambioPrecio(patch, { fecha: hoy, precio, moneda: String(input.moneda ?? patch.moneda), quien: 'proveedor', motivo: 'cotización recibida', documento: '' }) : patch;
+          await guardarVinculo(proyectoId, conPrecio);
+          detalle = ` Actualicé el vínculo de "${prod.nombre}"${precio ? ` (precio ${precio}, al historial)` : ''}.`;
+        }
+        return `Registré la respuesta de ${prov.nombre}.${detalle}`;
+      }
+
+      if (nombre === 'registrar_interaccion') {
+        const provs = await listarProveedores(proyectoId);
+        const prov = porNombre(provs, String(input.proveedor ?? ''));
+        if (!prov) return `No encontré el proveedor "${String(input.proveedor ?? '')}".`;
+        const tipo = String(input.tipo ?? 'nota');
+        const dir = tipo === 'respuesta' ? 'entrante' : 'saliente';
+        await bitacora(prov.id, tipo, String(input.resumen ?? ''), dir, String(input.canal ?? ''));
+        const dias = typeof input.proximoSeguimientoDias === 'number' ? input.proximoSeguimientoDias : null;
+        const estado = input.estadoRelacion ? String(input.estadoRelacion) : '';
+        if (dias !== null || estado) {
+          await guardarProveedor(proyectoId, { ...prov, ...(dias !== null ? { proximoSeguimiento: sumarDias(hoy, dias) } : {}), ...(estado ? { estadoRelacion: estado } : {}) });
+        }
+        return `Anoté "${tipo}" en la bitácora de ${prov.nombre}${dias !== null ? ` · próximo seguimiento en ${dias}d` : ''}${estado ? ` · relación: ${estado}` : ''}.`;
+      }
+
       if (nombre === 'solicitar_cotizaciones') {
         const [prods, provs] = await Promise.all([listarProductos(proyectoId), listarProveedores(proyectoId)]);
         const prod = porNombre(prods, String(input.producto ?? ''));
@@ -206,7 +290,10 @@ export async function conversarCentroAbastecimiento(
           const { asunto, cuerpo } = redactarSolicitudCotizacion(prod, prov.nombre, cantidad, '', extra);
           // Deja constancia: una orden en etapa "cotizacion" por proveedor (proceso de compra).
           await guardarOrden(proyectoId, { ...ordenVacia(''), etapa: 'cotizacion', productoId: prod.id, proveedorId: prov.id, descripcion: prod.nombre, cantidad: cantidad !== null ? String(cantidad) : '', unidad: prod.unidad, fechaSolicitud: hoy, notas: `RFQ enviada a ${prov.email || 'sin correo'}: ${asunto}` });
-          if (!prov.email) { lineas.push(`• ${prov.nombre}: ⚠ sin correo registrado (no se pudo enviar; captura su correo).`); continue; }
+          // Relación: bitácora + seguimiento automático a 3 días (por si no responden).
+          await bitacora(prov.id, 'cotización', `RFQ de "${prod.nombre}": ${asunto}`, 'saliente', 'correo');
+          await guardarProveedor(proyectoId, { ...prov, proximoSeguimiento: sumarDias(hoy, 3) });
+          if (!prov.email) { lineas.push(`• ${prov.nombre}: ⚠ sin correo registrado (RFQ redactada, no enviada; captura su correo).`); continue; }
           const r = await enviarCorreo(prov.email, asunto, cuerpo);
           lineas.push(`• ${prov.nombre} (${prov.email}): ${r.enviado ? '✅ correo enviado' : `📝 borrador (${r.motivo})`}.`);
         }
