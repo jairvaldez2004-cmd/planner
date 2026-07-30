@@ -5,13 +5,14 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
-import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato, normalizarIncidencia, normalizarInteraccion, normalizarEmbarque } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato, Incidencia, Interaccion, Embarque } from '@/domain/recursos';
+import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato, normalizarIncidencia, normalizarInteraccion, normalizarEmbarque, normalizarTransportista } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato, Incidencia, Interaccion, Embarque, Transportista } from '@/domain/recursos';
 import {
   planearCompra, precioVigente, proveedorMasBarato, vinculosDeProducto, estadoContrato, scoreProveedor,
   solicitudDesdeProducto, incidenciaVacia, ordenVacia, redactarSolicitudCotizacion,
   interaccionVacia, vinculoVacio, registrarCambioPrecio, seguimientosPendientes, ultimoContacto,
   embarqueVacio, landedCostEmbarque, embarqueRetrasado, estadoEmbarqueInfo, modalidadEnvioInfo,
+  cotizarFlete, mejorTransportista,
 } from '@/domain/recursos';
 import { enviarCorreo } from '@/adapters/email/enviar';
 import { correrCentroAbastecimiento } from '@/adapters/ai/arquitecto-agent';
@@ -159,6 +160,21 @@ export async function eliminarEmbarque(proyectoId: string, id: string): Promise<
   await guardarLista(proyectoId, 'embarques', (await listarEmbarques(proyectoId)).filter((x) => x.id !== id));
 }
 
+// --- Transportistas (directorio de fletes + tarifas) ---
+export async function listarTransportistas(proyectoId: string): Promise<Transportista[]> { return listar(proyectoId, 'transportistas', normalizarTransportista); }
+export async function guardarTransportista(proyectoId: string, t: Transportista): Promise<Transportista> {
+  const lista = await listarTransportistas(proyectoId);
+  const id = t.id?.trim() || nid('TRP');
+  const norm = normalizarTransportista({ ...t, id });
+  const i = lista.findIndex((x) => x.id === id);
+  if (i >= 0) lista[i] = norm; else lista.push(norm);
+  await guardarLista(proyectoId, 'transportistas', lista);
+  return norm;
+}
+export async function eliminarTransportista(proyectoId: string, id: string): Promise<void> {
+  await guardarLista(proyectoId, 'transportistas', (await listarTransportistas(proyectoId)).filter((x) => x.id !== id));
+}
+
 // --- Bitácora de interacciones con proveedores (CRM / relación comercial) ---
 export async function listarInteracciones(proyectoId: string): Promise<Interaccion[]> { return listar(proyectoId, 'interacciones_prov', normalizarInteraccion); }
 export async function guardarInteraccion(proyectoId: string, inc: Interaccion): Promise<Interaccion> {
@@ -184,9 +200,9 @@ function sumarDias(iso: string, n: number): string {
 // Snapshot que ve la IA cada turno: productos con plan de compra, proveedores con score/riesgo,
 // órdenes abiertas y contratos con estado. Es la base sobre la que razona y actúa.
 async function snapshotAbastecimiento(proyectoId: string): Promise<string> {
-  const [prods, vinc, provs, ocs, ctrs, incs, ints, embs] = await Promise.all([
+  const [prods, vinc, provs, ocs, ctrs, incs, ints, embs, trps] = await Promise.all([
     listarProductos(proyectoId), listarVinculos(proyectoId), listarProveedores(proyectoId),
-    listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId), listarEmbarques(proyectoId),
+    listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId), listarEmbarques(proyectoId), listarTransportistas(proyectoId),
   ]);
   const hoy = new Date().toISOString().slice(0, 10);
   const provById = new Map(provs.map((p) => [p.id, p]));
@@ -223,6 +239,11 @@ async function snapshotAbastecimiento(proyectoId: string): Promise<string> {
   for (const e of embs) {
     const lc = landedCostEmbarque(e, ocs);
     L.push(`  · "${e.folio || e.destino || 'embarque'}" — ${modalidadEnvioInfo(e.modalidad).label} · ${estadoEmbarqueInfo(e.estado).label}${e.transportista ? ` · ${e.transportista}` : ''}${e.tracking ? ` · guía ${e.tracking}` : ''}${e.fechaEstimada ? ` · ETA ${e.fechaEstimada}${embarqueRetrasado(e, hoy) ? ' ⚠RETRASADO' : ''}` : ''} · ${e.ordenIds.length} orden(es) · landed ${lc.total.toFixed(2)} (log ${lc.logistica.toFixed(2)}, ×${lc.factor.toFixed(2)})`);
+  }
+  L.push(`Transportistas (${trps.length}):`);
+  for (const t of trps) {
+    const tar = t.tarifas.map((x) => `${x.modalidad}${x.zona ? `/${x.zona}` : ''}: ${x.modalidad === 'carga' ? `$${x.porViaje || '?'}/viaje` : `$${x.base || '0'}+$${x.porKg || '0'}/kg`}${x.tiempoDias ? ` (${x.tiempoDias}d)` : ''}`).join(' · ');
+    L.push(`  · "${t.nombre}" [${t.modalidades.join(', ') || '?'}]${t.zonas.length ? ` zonas: ${t.zonas.join(', ')}` : ''}${tar ? ` — tarifas: ${tar}` : ' — sin tarifa'}`);
   }
   return L.join('\n');
 }
@@ -334,6 +355,24 @@ export async function conversarCentroAbastecimiento(
         const oc = await guardarOrden(proyectoId, solicitudDesdeProducto('', prod, cantidad, proveedorId, hoy));
         return `Solicitud creada para "${prod.nombre}"${cantidad !== null ? ` (${cantidad} ${prod.unidad})` : ''}${proveedorId ? ` con proveedor sugerido` : ' (sin proveedor)'} — etapa Solicitud, folio interno ${oc.id}.`;
       }
+      if (nombre === 'cotizar_flete') {
+        const ts = await listarTransportistas(proyectoId);
+        if (!ts.length) return 'No hay transportistas dados de alta. Captúralos en 🚚 Logística → Transportistas.';
+        const modalidad = String(input.modalidad ?? 'paqueteria');
+        const zona = String(input.zona ?? '');
+        const peso = typeof input.peso === 'number' ? input.peso : null;
+        if (input.transportista) {
+          const t = porNombre(ts, String(input.transportista));
+          if (!t) return `No encontré el transportista "${String(input.transportista)}".`;
+          const c = cotizarFlete(t, modalidad, zona, peso);
+          return c === null ? `${t.nombre} no tiene tarifa para ${modalidad}${zona ? ` en ${zona}` : ''}.` : `${t.nombre}: ~$${c.toFixed(2)} (${modalidad}${zona ? `, ${zona}` : ''}${peso !== null ? `, ${peso}kg` : ''}).`;
+        }
+        const lineas = ts.map((t) => { const c = cotizarFlete(t, modalidad, zona, peso); return c === null ? null : `${t.nombre}: $${c.toFixed(2)}`; }).filter(Boolean);
+        const best = mejorTransportista(ts, modalidad, zona, peso);
+        if (!lineas.length) return `Ningún transportista tiene tarifa para ${modalidad}${zona ? ` en ${zona}` : ''}.`;
+        return `Cotización de flete (${modalidad}${zona ? `, ${zona}` : ''}${peso !== null ? `, ${peso}kg` : ''}):\n${lineas.join('\n')}\n→ Más conveniente: ${best ? `${best.t.nombre} ($${best.costo.toFixed(2)})` : '—'}.`;
+      }
+
       if (nombre === 'crear_embarque') {
         const ocs = await listarOrdenes(proyectoId);
         const refs = Array.isArray(input.ordenes) ? input.ordenes.map((x) => String(x).trim().toLowerCase()) : [];

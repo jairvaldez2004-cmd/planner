@@ -20,22 +20,23 @@ import {
   listarIncidencias, guardarIncidencia, eliminarIncidencia,
   listarInteracciones, guardarInteraccion, eliminarInteraccion,
   listarEmbarques, guardarEmbarque, eliminarEmbarque,
+  listarTransportistas, guardarTransportista, eliminarTransportista,
   conversarCentroAbastecimiento, cargarChatAbastecimiento,
 } from '@/app/actions/recursos.actions';
 import { ChatArquitecto } from './chat-arquitecto';
 import {
   CATEGORIAS_RECURSO, categoriaRecurso, TIPOS_PROVEEDOR, CATEGORIAS_PROVEEDOR,
   recursoVacio, proveedorVacio, productoVacio, vinculoVacio, ordenVacia, contratoVacio,
-  subtotalRecurso, formatoMoneda, precioVigente, registrarCambioPrecio, vinculosDeProducto, proveedorMasBarato,
+  subtotalRecurso, formatoMoneda, numero, precioVigente, registrarCambioPrecio, vinculosDeProducto, proveedorMasBarato,
   planearCompra, ACCIONES_COMPRA,
   ETAPAS_COMPRA_INFO, etapaCompraInfo, siguienteEtapaCompra, totalOrden,
   estadoContrato, ESTADOS_CONTRATO, solicitudDesdeProducto,
   CRITERIOS_EVAL, RIESGOS, DEPENDENCIAS, TIPOS_INCIDENCIA, incidenciaVacia, scoreProveedor, NIVELES_SCORE,
   ESTADOS_RELACION, TIPOS_INTERACCION, interaccionesDeProveedor, ultimoContacto, seguimientosPendientes,
   ESTADOS_EMBARQUE, estadoEmbarqueInfo, siguienteEstadoEmbarque, embarqueVacio, costoLogisticoEmbarque, landedCostEmbarque, prorrateoLanded, embarqueRetrasado,
-  MODALIDADES_ENVIO, modalidadEnvioInfo,
+  MODALIDADES_ENVIO, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista,
 } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia, Interaccion, Embarque } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia, Interaccion, Embarque, Transportista, Tarifa } from '@/domain/recursos';
 import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -59,6 +60,9 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   const [ints, setInts] = useState<Interaccion[]>([]);
   const [embs, setEmbs] = useState<Embarque[]>([]);
   const [selEmb, setSelEmb] = useState<string | null>(null);
+  const [trps, setTrps] = useState<Transportista[]>([]);
+  const [selTrp, setSelTrp] = useState<string | null>(null);
+  const [logiSub, setLogiSub] = useState<'embarques' | 'transportistas'>('embarques');
   const [selOC, setSelOC] = useState<string | null>(null);
   const [selCtr, setSelCtr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('recursos');
@@ -73,8 +77,8 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
 
   const cargar = () => {
     setLoading(true);
-    Promise.all([listarRecursos(proyectoId), listarProveedores(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId), listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId), listarEmbarques(proyectoId)])
-      .then(([r, p, pr, v, o, c, inc, itx, emb]) => { setRecs(r); setProvs(p); setProds(pr); setVinc(v); setOcs(o); setCtrs(c); setIncs(inc); setInts(itx); setEmbs(emb); }).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([listarRecursos(proyectoId), listarProveedores(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId), listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId), listarEmbarques(proyectoId), listarTransportistas(proyectoId)])
+      .then(([r, p, pr, v, o, c, inc, itx, emb, trp]) => { setRecs(r); setProvs(p); setProds(pr); setVinc(v); setOcs(o); setCtrs(c); setIncs(inc); setInts(itx); setEmbs(emb); setTrps(trp); }).catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
 
@@ -133,6 +137,10 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   async function nuevoEmb() { const n = await guardarEmbarque(proyectoId, { ...embarqueVacio(''), fechaRecoleccion: hoy }); setEmbs((l) => [...l, n]); setSelEmb(n.id); }
   async function patchEmb(e: Embarque) { setEmbs((l) => l.map((x) => x.id === e.id ? e : x)); await guardarEmbarque(proyectoId, e); }
   async function borrarEmb(id: string) { if (!window.confirm('¿Eliminar este embarque?')) return; setEmbs((l) => l.filter((x) => x.id !== id)); setSelEmb(null); await eliminarEmbarque(proyectoId, id); }
+  // Transportistas
+  async function nuevoTrp() { const n = await guardarTransportista(proyectoId, { ...transportistaVacio(''), nombre: 'Nuevo transportista' }); setTrps((l) => [...l, n]); setSelTrp(n.id); }
+  async function patchTrp(t: Transportista) { setTrps((l) => l.map((x) => x.id === t.id ? t : x)); await guardarTransportista(proyectoId, t); }
+  async function borrarTrp(id: string) { if (!window.confirm('¿Eliminar este transportista?')) return; setTrps((l) => l.filter((x) => x.id !== id)); setSelTrp(null); await eliminarTransportista(proyectoId, id); }
 
   // Agrupación libre de recursos + subtotales
   const claveGrupo = (r: Recurso) => agrupar === 'categoria' ? categoriaRecurso(r.categoria).label : agrupar === 'grupo' ? (r.grupo || '(sin grupo)') : agrupar === 'proveedor' ? (r.proveedor || '(sin proveedor)') : 'Todos';
@@ -154,7 +162,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
         {tab === 'productos' && <button style={btn} onClick={() => void nuevoProd()}>＋ Producto</button>}
         {tab === 'compras' && <button style={btn} onClick={() => void nuevaOC()}>＋ Orden de compra</button>}
         {tab === 'contratos' && <button style={btn} onClick={() => void nuevoCtr()}>＋ Contrato</button>}
-        {tab === 'logistica' && <button style={btn} onClick={() => void nuevoEmb()}>＋ Embarque</button>}
+        {tab === 'logistica' && (logiSub === 'embarques' ? <button style={btn} onClick={() => void nuevoEmb()}>＋ Embarque</button> : <button style={btn} onClick={() => void nuevoTrp()}>＋ Transportista</button>)}
       </div>
 
       <div style={{ display: 'flex', gap: '0.4rem', margin: '0.5rem 0 0.4rem', flexWrap: 'wrap' }}>
@@ -361,9 +369,19 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
           provs={provs} prods={prods} onPatch={patchOC} onDelete={borrarOC} movil={movil} />
       )}
 
-      {/* ======= LOGÍSTICA (embarques + landed cost) ======= */}
+      {/* ======= LOGÍSTICA (embarques + transportistas) ======= */}
       {tab === 'logistica' && (
-        <EmbarquesLista embs={embs} ocs={ocs} sel={selEmb} onSel={setSelEmb} hoy={hoy} onPatch={patchEmb} onDelete={borrarEmb} movil={movil} />
+        <>
+          <div style={{ display: 'flex', gap: '0.4rem', margin: '0 0 0.6rem' }}>
+            {([['embarques', '📦 Embarques'], ['transportistas', '🚛 Transportistas']] as const).map(([id, label]) => (
+              <button key={id} onClick={() => { setLogiSub(id); setSelEmb(null); setSelTrp(null); }}
+                style={{ ...btnSm, background: logiSub === id ? '#3b9ec9' : '#fff', color: logiSub === id ? '#fff' : '#2b7a93', borderColor: logiSub === id ? '#3b9ec9' : '#bcd8e6', fontWeight: 'bold' }}>{label}</button>
+            ))}
+          </div>
+          {logiSub === 'embarques'
+            ? <EmbarquesLista embs={embs} ocs={ocs} trps={trps} sel={selEmb} onSel={setSelEmb} hoy={hoy} onPatch={patchEmb} onDelete={borrarEmb} movil={movil} />
+            : <TransportistasLista trps={trps} sel={selTrp} onSel={setSelTrp} onPatch={patchTrp} onDelete={borrarTrp} movil={movil} />}
+        </>
       )}
 
       {/* ======= CONTRATOS ======= */}
@@ -519,8 +537,8 @@ function OrdenEditor({ o, provs, prods, onPatch, onClose, onDelete }: {
 }
 
 // ===== LOGÍSTICA: embarques (consolidación + landed cost) =====
-function EmbarquesLista({ embs, ocs, sel, onSel, hoy, onPatch, onDelete, movil }: {
-  embs: Embarque[]; ocs: OrdenCompra[]; sel: string | null; onSel: (id: string | null) => void; hoy: string;
+function EmbarquesLista({ embs, ocs, trps, sel, onSel, hoy, onPatch, onDelete, movil }: {
+  embs: Embarque[]; ocs: OrdenCompra[]; trps: Transportista[]; sel: string | null; onSel: (id: string | null) => void; hoy: string;
   onPatch: (e: Embarque) => void; onDelete: (id: string) => void; movil: boolean;
 }) {
   const eSel = embs.find((e) => e.id === sel) ?? null;
@@ -554,16 +572,23 @@ function EmbarquesLista({ embs, ocs, sel, onSel, hoy, onPatch, onDelete, movil }
             );
           })}
         </div>
-        {eSel && <EmbarqueEditor e={eSel} ocs={ocs} onPatch={onPatch} onClose={() => onSel(null)} onDelete={onDelete} />}
+        {eSel && <EmbarqueEditor e={eSel} ocs={ocs} trps={trps} onPatch={onPatch} onClose={() => onSel(null)} onDelete={onDelete} />}
       </div>
     </>
   );
 }
 
-function EmbarqueEditor({ e, ocs, onPatch, onClose, onDelete }: {
-  e: Embarque; ocs: OrdenCompra[]; onPatch: (e: Embarque) => void; onClose: () => void; onDelete: (id: string) => void;
+function EmbarqueEditor({ e, ocs, trps, onPatch, onClose, onDelete }: {
+  e: Embarque; ocs: OrdenCompra[]; trps: Transportista[]; onPatch: (e: Embarque) => void; onClose: () => void; onDelete: (id: string) => void;
 }) {
   const set = (k: keyof Embarque, val: string | string[]) => onPatch({ ...e, [k]: val });
+  const estimarFlete = () => {
+    const t = trps.find((x) => x.nombre.trim().toLowerCase() === e.transportista.trim().toLowerCase());
+    if (!t) { window.alert('Escribe un transportista que exista en el directorio (🚛 Transportistas) para estimar el flete.'); return; }
+    const c = cotizarFlete(t, e.modalidad, e.destino || e.origen, numero(e.peso));
+    if (c === null) { window.alert(`${t.nombre} no tiene tarifa para ${e.modalidad}${e.destino ? ` en ${e.destino}` : ''}.`); return; }
+    set('flete', String(Math.round(c * 100) / 100));
+  };
   const F = (label: string, k: keyof Embarque, ph = '', type = 'text') => (
     <div><label style={lbl}>{label}</label><input style={inp} type={type} defaultValue={String(e[k] ?? '')} key={`${String(k)}-${e.id}`} placeholder={ph} onBlur={(ev) => { if (ev.target.value !== e[k]) set(k, ev.target.value); }} /></div>
   );
@@ -617,7 +642,10 @@ function EmbarqueEditor({ e, ocs, onPatch, onClose, onDelete }: {
       </div>
 
       {/* Costos logísticos */}
-      <label style={lbl}>Costos logísticos</label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: '0.5rem' }}>
+        <label style={{ ...lbl, margin: 0, flex: 1 }}>Costos logísticos</label>
+        {trps.length > 0 && <button style={{ ...btnSm, fontSize: 11 }} onClick={estimarFlete} title="Estima el flete con la tarifa del transportista, la modalidad, el destino y el peso">💡 Estimar flete</button>}
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
         {F('Flete', 'flete')}{F('Seguro', 'seguro')}{F('Aduana', 'aduana')}
         {F('Maniobras', 'maniobras')}{F('Otros', 'otros')}
@@ -643,6 +671,98 @@ function EmbarqueEditor({ e, ocs, onPatch, onClose, onDelete }: {
       <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={e.notas} key={`eno-${e.id}`} onBlur={(ev) => { if (ev.target.value !== e.notas) set('notas', ev.target.value); }} />
       <div style={{ borderTop: '1px solid #e0d3b0', marginTop: '0.6rem', paddingTop: '0.5rem' }}>
         <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => onDelete(e.id)}>🗑 Eliminar</button>
+      </div>
+    </div>
+  );
+}
+
+// ===== TRANSPORTISTAS: directorio de fletes + tarifas =====
+function TransportistasLista({ trps, sel, onSel, onPatch, onDelete, movil }: {
+  trps: Transportista[]; sel: string | null; onSel: (id: string | null) => void; onPatch: (t: Transportista) => void; onDelete: (id: string) => void; movil: boolean;
+}) {
+  const tSel = trps.find((t) => t.id === sel) ?? null;
+  return (
+    <>
+      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.5rem' }}>Directorio de fletes. La <strong>paquetería</strong> cobra por <strong>base + $/kg</strong> por zona; la <strong>carga</strong> por <strong>$/viaje</strong>. El Centro IA y el botón “Estimar flete” usan estas tarifas.</p>
+      {trps.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay transportistas. Pulsa <strong>＋ Transportista</strong> (Estafeta, DHL, un flete local…).</p>}
+      <div style={{ display: 'grid', gridTemplateColumns: movil || !tSel ? '1fr' : 'minmax(0, 1fr) 400px', gap: '0.75rem', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
+          {trps.map((t) => (
+            <div key={t.id} onClick={() => onSel(t.id)}
+              style={{ border: `1px solid ${sel === t.id ? '#a9720f' : '#e0d3b0'}`, borderLeft: '4px solid #3bb0c9', borderRadius: 9, padding: '0.5rem 0.6rem', background: sel === t.id ? '#fdf6e3' : '#fff', cursor: 'pointer' }}>
+              <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>🚛 {t.nombre || '(sin nombre)'}</div>
+              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{t.modalidades.map((m) => modalidadEnvioInfo(m).emoji).join(' ')} {t.modalidades.join(', ') || 'sin modalidad'}{t.tarifas.length ? ` · ${t.tarifas.length} tarifa(s)` : ''}</div>
+              {t.zonas.length > 0 && <div style={{ fontSize: 10.5, color: '#999', marginTop: 1 }}>{t.zonas.join(' · ')}</div>}
+            </div>
+          ))}
+        </div>
+        {tSel && <TransportistaEditor t={tSel} onPatch={onPatch} onClose={() => onSel(null)} onDelete={onDelete} />}
+      </div>
+    </>
+  );
+}
+
+function TransportistaEditor({ t, onPatch, onClose, onDelete }: {
+  t: Transportista; onPatch: (t: Transportista) => void; onClose: () => void; onDelete: (id: string) => void;
+}) {
+  const set = (k: keyof Transportista, val: string | string[] | Tarifa[]) => onPatch({ ...t, [k]: val });
+  const T = (label: string, k: keyof Transportista, ph = '') => (
+    <div><label style={lbl}>{label}</label><input style={inp} defaultValue={String(t[k] ?? '')} key={`${String(k)}-${t.id}`} placeholder={ph} onBlur={(e) => { if (e.target.value !== t[k]) set(k, e.target.value); }} /></div>
+  );
+  const setTarifa = (i: number, patch: Partial<Tarifa>) => set('tarifas', t.tarifas.map((x, j) => j === i ? { ...x, ...patch } : x));
+  const addTarifa = () => set('tarifas', [...t.tarifas, { modalidad: t.modalidades[0] || 'paqueteria', zona: '', base: '', porKg: '', porViaje: '', tiempoDias: '', notas: '' }]);
+  const delTarifa = (i: number) => set('tarifas', t.tarifas.filter((_, j) => j !== i));
+  const toggleMod = (m: string) => set('modalidades', t.modalidades.includes(m) ? t.modalidades.filter((x) => x !== m) : [...t.modalidades, m]);
+  return (
+    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <strong style={{ fontSize: 14 }}>🚛 Transportista</strong>
+        <button style={btnSm} onClick={onClose}>✕</button>
+      </div>
+      <label style={lbl}>Nombre</label>
+      <input style={inp} defaultValue={t.nombre} key={`tn-${t.id}`} onBlur={(e) => { if (e.target.value !== t.nombre) set('nombre', e.target.value); }} />
+      <label style={lbl}>Modalidades que maneja</label>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
+        {MODALIDADES_ENVIO.filter((m) => m.id !== 'digital').map((m) => (
+          <label key={m.id} style={{ fontSize: 12, color: '#555', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={t.modalidades.includes(m.id)} onChange={() => toggleMod(m.id)} /> {m.emoji} {m.label.split(' ')[0]}
+          </label>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+        {T('Contacto', 'contacto')}{T('Teléfono', 'telefono')}
+        {T('Correo', 'email')}{T('Sitio web', 'sitioWeb', 'https://')}
+      </div>
+      <Chips label="Zonas que cubre" valores={t.zonas} onChange={(v) => set('zonas', v)} placeholder="Local, Bajío, Nacional…" />
+
+      {/* Tarifas */}
+      <div style={{ borderTop: '1px solid #e8dcc0', marginTop: '0.6rem', paddingTop: '0.4rem' }}>
+        <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#6b5320' }}>💲 Tarifas ({t.tarifas.length})</div>
+        {t.tarifas.map((x, i) => (
+          <div key={i} style={{ border: '1px solid #e8dcc0', borderRadius: 7, padding: '0.35rem 0.45rem', marginTop: 4, background: '#fff' }}>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <select style={{ ...inp, width: 110, padding: '0.2rem' }} value={x.modalidad} onChange={(e) => setTarifa(i, { modalidad: e.target.value })}>
+                <option value="paqueteria">📮 Paquetería</option><option value="carga">🚚 Carga</option><option value="mensajeria">🛵 Mensajería</option>
+              </select>
+              <input style={{ ...inp, flex: 1, padding: '0.2rem 0.35rem' }} placeholder="zona" defaultValue={x.zona} key={`z-${t.id}-${i}`} onBlur={(e) => { if (e.target.value !== x.zona) setTarifa(i, { zona: e.target.value }); }} />
+              <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => delTarifa(i)}>×</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: x.modalidad === 'carga' ? '1fr 1fr' : '1fr 1fr 1fr', gap: 4, marginTop: 4 }}>
+              <input style={{ ...inp, padding: '0.2rem 0.35rem' }} placeholder="base $" defaultValue={x.base} key={`b-${t.id}-${i}`} onBlur={(e) => { if (e.target.value !== x.base) setTarifa(i, { base: e.target.value }); }} />
+              {x.modalidad === 'carga'
+                ? <input style={{ ...inp, padding: '0.2rem 0.35rem' }} placeholder="$/viaje" defaultValue={x.porViaje} key={`v-${t.id}-${i}`} onBlur={(e) => { if (e.target.value !== x.porViaje) setTarifa(i, { porViaje: e.target.value }); }} />
+                : <input style={{ ...inp, padding: '0.2rem 0.35rem' }} placeholder="$/kg" defaultValue={x.porKg} key={`k-${t.id}-${i}`} onBlur={(e) => { if (e.target.value !== x.porKg) setTarifa(i, { porKg: e.target.value }); }} />}
+              <input style={{ ...inp, padding: '0.2rem 0.35rem' }} placeholder="días" defaultValue={x.tiempoDias} key={`d-${t.id}-${i}`} onBlur={(e) => { if (e.target.value !== x.tiempoDias) setTarifa(i, { tiempoDias: e.target.value }); }} />
+            </div>
+          </div>
+        ))}
+        <button style={{ ...btnSm, marginTop: 5 }} onClick={addTarifa}>＋ Agregar tarifa</button>
+      </div>
+
+      <label style={lbl}>Notas</label>
+      <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={t.notas} key={`tno-${t.id}`} onBlur={(e) => { if (e.target.value !== t.notas) set('notas', e.target.value); }} />
+      <div style={{ borderTop: '1px solid #e0d3b0', marginTop: '0.6rem', paddingTop: '0.5rem' }}>
+        <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => onDelete(t.id)}>🗑 Eliminar</button>
       </div>
     </div>
   );

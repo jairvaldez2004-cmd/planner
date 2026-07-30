@@ -24,7 +24,8 @@ import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProvee
 import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from '@/domain/recursos';
 import { indiceRecursos, costearProceso, indiceCosto } from '@/domain/costeo';
 import { costosDeProductos, costosDeEmbarques } from '@/domain/proyeccion';
-import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque, normalizarEmbarque, modalidadEnvioInfo } from '@/domain/recursos';
+import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque, normalizarEmbarque, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista } from '@/domain/recursos';
+import type { Transportista } from '@/domain/recursos';
 import type { Embarque } from '@/domain/recursos';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
@@ -536,6 +537,23 @@ check('embarqueVacio nace como paquetería (courier)', embarqueVacio('Ex').modal
 check('normalizarEmbarque respeta modalidad carga', normalizarEmbarque({ id: 'E2', modalidad: 'carga' }).modalidad === 'carga');
 check('normalizarEmbarque cae a paquetería si la modalidad es inválida', normalizarEmbarque({ id: 'E3', modalidad: 'avión-privado' }).modalidad === 'paqueteria');
 check('modalidadEnvioInfo da etiqueta legible', modalidadEnvioInfo('paqueteria').label.includes('Paquetería'));
+
+// ============================================================
+// 22) TRANSPORTISTAS: cotización de fletes (paquetería por kg vs carga por viaje)
+// ============================================================
+h('22) Cotizar flete según modalidad y elegir el más conveniente');
+const estafeta: Transportista = { ...transportistaVacio('T1'), nombre: 'Estafeta', modalidades: ['paqueteria'], tarifas: [{ modalidad: 'paqueteria', zona: 'Nacional', base: '80', porKg: '25', porViaje: '', tiempoDias: '3', notas: '' }] };
+const dhl: Transportista = { ...transportistaVacio('T2'), nombre: 'DHL', modalidades: ['paqueteria'], tarifas: [{ modalidad: 'paqueteria', zona: 'Nacional', base: '120', porKg: '18', porViaje: '', tiempoDias: '2', notas: '' }] };
+const fletes: Transportista = { ...transportistaVacio('T3'), nombre: 'Fletes del Centro', modalidades: ['carga'], tarifas: [{ modalidad: 'carga', zona: 'Bajío', base: '500', porKg: '', porViaje: '1500', tiempoDias: '2', notas: '' }] };
+// Paquetería: base + $/kg × peso. Estafeta 6kg = 80 + 25×6 = 230.
+check('Estafeta 6kg = 80 + 25×6 = 230', cotizarFlete(estafeta, 'paqueteria', 'Nacional', 6) === 230);
+check('DHL 6kg = 120 + 18×6 = 228', cotizarFlete(dhl, 'paqueteria', 'Nacional', 6) === 228);
+// A 6 kg DHL es más barato (228 < 230); a 1 kg Estafeta gana (105 < 138).
+check('Mejor a 6kg = DHL', mejorTransportista([estafeta, dhl], 'paqueteria', 'Nacional', 6)?.t.nombre === 'DHL');
+check('Mejor a 1kg = Estafeta', mejorTransportista([estafeta, dhl], 'paqueteria', 'Nacional', 1)?.t.nombre === 'Estafeta');
+// Carga: base + $/viaje (no depende del peso). 500 + 1500 = 2000.
+check('Carga = base + por viaje = 2000', cotizarFlete(fletes, 'carga', 'Bajío', 999) === 2000);
+check('Un transportista de carga NO cotiza paquetería', cotizarFlete(fletes, 'paqueteria', 'Bajío', 5) === null);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

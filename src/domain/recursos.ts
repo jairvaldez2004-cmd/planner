@@ -716,6 +716,65 @@ export function embarqueRetrasado(e: Embarque, hoyISO: string): boolean {
   return !!e.fechaEstimada && e.estado !== 'entregado' && e.fechaEstimada < hoyISO;
 }
 
+// ---------- Transportistas + tarifas (F2) ----------
+// Una TARIFA cotiza según la modalidad: paquetería/mensajería = base + por kg; carga = por viaje.
+export interface Tarifa {
+  modalidad: string;   // paqueteria / carga / mensajeria
+  zona: string;        // "Local", "Bajío", "Nacional", "CDMX"…
+  base: string;        // costo fijo
+  porKg: string;       // costo por kg (paquetería/mensajería)
+  porViaje: string;    // costo por viaje (carga)
+  tiempoDias: string;  // días estimados de entrega
+  notas: string;
+}
+export interface Transportista {
+  id: string;
+  nombre: string;
+  modalidades: string[];  // qué modos maneja (paqueteria/carga/mensajeria/recoleccion)
+  contacto: string;
+  telefono: string;
+  email: string;
+  sitioWeb: string;
+  zonas: string[];
+  tarifas: Tarifa[];
+  notas: string;
+}
+export function transportistaVacio(id: string): Transportista {
+  return { id, nombre: '', modalidades: ['paqueteria'], contacto: '', telefono: '', email: '', sitioWeb: '', zonas: [], tarifas: [], notas: '' };
+}
+function normTarifa(v: unknown): Tarifa {
+  const d = (v && typeof v === 'object') ? v as Record<string, unknown> : {};
+  return {
+    modalidad: (['paqueteria', 'carga', 'mensajeria'].includes(s(d.modalidad)) ? s(d.modalidad) : 'paqueteria'),
+    zona: s(d.zona), base: s(d.base), porKg: s(d.porKg), porViaje: s(d.porViaje), tiempoDias: s(d.tiempoDias), notas: s(d.notas),
+  };
+}
+export function normalizarTransportista(v: unknown): Transportista {
+  const d = (v && typeof v === 'object') ? v as Record<string, unknown> : {};
+  return {
+    id: s(d.id) || `TRP-${Math.random().toString(36).slice(2, 8)}`, nombre: s(d.nombre), modalidades: sa(d.modalidades),
+    contacto: s(d.contacto), telefono: s(d.telefono), email: s(d.email), sitioWeb: s(d.sitioWeb), zonas: sa(d.zonas),
+    tarifas: Array.isArray(d.tarifas) ? d.tarifas.map(normTarifa) : [], notas: s(d.notas),
+  };
+}
+// Cotiza el flete de un transportista para una modalidad/zona/peso. null si no hay tarifa.
+export function cotizarFlete(t: Transportista, modalidad: string, zona: string, pesoKg: number | null): number | null {
+  const cands = t.tarifas.filter((x) => x.modalidad === modalidad);
+  if (!cands.length) return null;
+  const z = zona.trim().toLowerCase();
+  const tar = cands.find((x) => x.zona.trim().toLowerCase() === z) ?? cands[0]!;
+  const base = numero(tar.base) ?? 0;
+  if (modalidad === 'carga') return base + (numero(tar.porViaje) ?? 0);
+  return base + (numero(tar.porKg) ?? 0) * (pesoKg ?? 1);
+}
+// Mejor (más barato) transportista para una modalidad/zona/peso.
+export function mejorTransportista(ts: Transportista[], modalidad: string, zona: string, pesoKg: number | null): { t: Transportista; costo: number } | null {
+  const cot = ts.map((t) => ({ t, costo: cotizarFlete(t, modalidad, zona, pesoKg) }))
+    .filter((x): x is { t: Transportista; costo: number } => x.costo !== null);
+  if (!cot.length) return null;
+  return cot.reduce((min, x) => x.costo < min.costo ? x : min);
+}
+
 // ---------- Calidad (Sección 8): incidencias del proveedor ----------
 export type GravedadIncidencia = 'leve' | 'media' | 'grave';
 export interface Incidencia {

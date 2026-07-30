@@ -376,6 +376,13 @@ async function main() {
     // Carga/flete: porcelanato y material de obra en tráiler (consolidado, entregado).
     { id: 'emb-obra', folio: 'EMB-0003', modalidad: 'carga', ordenIds: [], transportista: 'Fletes del Centro', origen: 'León', destino: 'Girly Zone', incoterm: 'DAP', estado: 'entregado', fechaRecoleccion: d(-30), fechaEstimada: d(-27), fechaEntrega: d(-27), tracking: 'CP-1102', peso: '850', bultos: '12', flete: '1800', seguro: '200', aduana: '', maniobras: '300', otros: '', notas: 'Tráiler con material de obra en tarima.' },
   ];
+  const TRANSPORTISTAS = [
+    { id: 'trp-estafeta', nombre: 'Estafeta', modalidades: ['paqueteria'], contacto: 'Sucursal Qro', telefono: '442-100-2000', email: '', sitioWeb: 'https://estafeta.com', zonas: ['Local', 'Bajío', 'Nacional'], tarifas: [{ modalidad: 'paqueteria', zona: 'Bajío', base: '80', porKg: '22', porViaje: '', tiempoDias: '2', notas: '' }, { modalidad: 'paqueteria', zona: 'Nacional', base: '95', porKg: '28', porViaje: '', tiempoDias: '3', notas: '' }], notas: 'Paquetería principal.' },
+    { id: 'trp-dhl', nombre: 'DHL', modalidades: ['paqueteria'], contacto: '', telefono: '', email: '', sitioWeb: 'https://dhl.com', zonas: ['Nacional', 'Internacional'], tarifas: [{ modalidad: 'paqueteria', zona: 'Nacional', base: '130', porKg: '20', porViaje: '', tiempoDias: '2', notas: 'Más caro base, mejor por kg.' }], notas: 'Para envíos urgentes o pesados.' },
+    { id: 'trp-paquetex', nombre: 'Paquetexpress', modalidades: ['paqueteria'], contacto: '', telefono: '', email: '', sitioWeb: '', zonas: ['Nacional'], tarifas: [{ modalidad: 'paqueteria', zona: 'Nacional', base: '85', porKg: '24', porViaje: '', tiempoDias: '4', notas: '' }], notas: '' },
+    { id: 'trp-fletes', nombre: 'Fletes del Centro', modalidades: ['carga'], contacto: 'Logística', telefono: '477-200-3000', email: '', sitioWeb: '', zonas: ['Bajío'], tarifas: [{ modalidad: 'carga', zona: 'Bajío', base: '600', porKg: '', porViaje: '1800', tiempoDias: '3', notas: 'Tarima/tráiler.' }], notas: 'Para obra y volumen.' },
+    { id: 'trp-moto', nombre: 'Mensajería Rápida QRO', modalidades: ['mensajeria'], contacto: '', telefono: '442-300-4000', email: '', sitioWeb: '', zonas: ['Local'], tarifas: [{ modalidad: 'mensajeria', zona: 'Local', base: '60', porKg: '5', porViaje: '', tiempoDias: '1', notas: 'Mismo día en la ciudad.' }], notas: '' },
+  ];
   const INCIDENCIAS = [
     { id: 'inc-1', proveedorId: 'prv-insumos', tipo: 'retraso', gravedad: 'media', fecha: d(-25), descripcion: 'Entrega de guantes llegó 4 días tarde.', ordenId: '', evidencia: '' },
     { id: 'inc-2', proveedorId: 'prv-tattoo', tipo: 'defecto', gravedad: 'leve', fecha: d(-50), descripcion: 'Un bote de tinta llegó mal sellado.', ordenId: 'oc-tinta-cerrada', evidencia: '' },
@@ -396,7 +403,8 @@ async function main() {
   await up('incidencias', INCIDENCIAS);
   await up('interacciones_prov', INTERACCIONES);
   await up('embarques', EMBARQUES);
-  console.log(`✅ Abastecimiento: ${PRODUCTOS.length} productos, ${VINCULOS.length} vínculos, ${ORDENES.length} órdenes, ${CONTRATOS.length} contratos, ${INCIDENCIAS.length} incidencias, ${INTERACCIONES.length} interacciones, ${EMBARQUES.length} embarques.`);
+  await up('transportistas', TRANSPORTISTAS);
+  console.log(`✅ Abastecimiento: ${PRODUCTOS.length} productos, ${VINCULOS.length} vínculos, ${ORDENES.length} órdenes, ${CONTRATOS.length} contratos, ${INCIDENCIAS.length} incidencias, ${INTERACCIONES.length} interacciones, ${EMBARQUES.length} embarques, ${TRANSPORTISTAS.length} transportistas.`);
 
   // 7c) RH: marca algunos procesos como AUTOMATIZADOS → alimentan los planos IA y Tecnológico.
   const procesosTodos = await prisma.proceso.findMany({ where: { proyectoId: PID } });
