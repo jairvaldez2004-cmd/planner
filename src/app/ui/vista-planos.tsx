@@ -5,8 +5,9 @@
 
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { obtenerGrafoPlanos } from '@/app/actions/especialista.actions';
-import type { GrafoPlanos, NodoPlano } from '@/app/actions/especialista.actions';
+import { obtenerGrafoPlanos, generarPaqueteEntregables } from '@/app/actions/especialista.actions';
+import type { GrafoPlanos, NodoPlano, DocumentoPaquete } from '@/app/actions/especialista.actions';
+import { PAQUETES } from '@/domain/entregables';
 import { COLOR_ESTADO, LABEL_ESTADO } from '@/app/readiness/readiness-engine';
 import type { EstadoPlano } from '@/app/readiness/readiness-engine';
 import { etapaInfo, objetivoDe, esFoco } from '@/domain/etapas';
@@ -22,11 +23,13 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
   const movil = useEsMovil();
   const [hover, setHover] = useState<string | null>(null);
   const [planoAbierto, setPlanoAbierto] = useState<string | null>(null);
+  const [verEntregables, setVerEntregables] = useState(false);
 
   const cargar = () => { setLoading(true); obtenerGrafoPlanos(proyectoId).then(setGrafo).catch(() => {}).finally(() => setLoading(false)); };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
 
   if (planoAbierto) return <VistaPlano proyectoId={proyectoId} planoId={planoAbierto} onVolver={() => { setPlanoAbierto(null); cargar(); }} />;
+  if (verEntregables) return <PanelEntregables proyectoId={proyectoId} onVolver={() => setVerEntregables(false)} />;
 
   const nodos = grafo?.nodos ?? [];
   const seleccionados = nodos.filter((n) => n.seleccionado);
@@ -48,7 +51,10 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h2 style={{ margin: 0 }}>Administración · Planos <span style={{ fontSize: 13, color: '#888' }}>· Coordinador + grafo</span></h2>
-        <button style={btn} onClick={onVolver}>← Proyecto</button>
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+          <button style={{ ...btn, borderColor: '#8a4fbf', color: '#6a3aa0', fontWeight: 'bold' }} onClick={() => setVerEntregables(true)}>📦 Generar entregables</button>
+          <button style={btn} onClick={onVolver}>← Proyecto</button>
+        </div>
       </div>
 
       {loading && <p style={{ color: '#666' }}>Cargando planos…</p>}
@@ -121,6 +127,60 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
             </svg>
             <p style={{ fontSize: 12, color: '#888', padding: '0 0.75rem 0.5rem' }}>Nodos = 13 planos (atenuados = no seleccionados). Color = estado. Clic para entrar.</p>
           </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ===== GENERACIÓN DE ENTREGABLES: empaqueta los documentos de los planos =====
+function PanelEntregables({ proyectoId, onVolver }: { proyectoId: string; onVolver: () => void }) {
+  const [gen, setGen] = useState<string | null>(null);
+  const [doc, setDoc] = useState<DocumentoPaquete | null>(null);
+
+  async function generar(id: string) {
+    setGen(id); setDoc(null);
+    try { setDoc(await generarPaqueteEntregables(proyectoId, id)); } catch { setDoc(null); } finally { setGen(null); }
+  }
+  function descargar() {
+    if (!doc) return;
+    const blob = new Blob([doc.markup], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `${doc.paqueteId}.md`; a.click(); URL.revokeObjectURL(url);
+  }
+
+  return (
+    <section>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <h2 style={{ margin: 0 }}>📦 Generación de entregables <span style={{ fontSize: 13, color: '#888' }}>· empaqueta los documentos de los planos</span></h2>
+        <button style={btn} onClick={onVolver}>← Planos</button>
+      </div>
+      <p style={{ fontSize: 12, color: '#777', margin: '0.3rem 0 0.7rem' }}>
+        Cada paquete junta los documentos de un grupo de planos en un solo archivo (la <strong>configuración inicial</strong> de la empresa por audiencia). Hereda los <strong>⚠ PENDIENTE</strong>; no inventa.
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.6rem', marginBottom: '0.8rem' }}>
+        {PAQUETES.map((p) => (
+          <div key={p.id} style={{ border: '1px solid #ddcdef', borderLeft: '4px solid #8a4fbf', borderRadius: 9, padding: '0.6rem 0.7rem', background: doc?.paqueteId === p.id ? '#faf7ff' : '#fff' }}>
+            <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{p.icono} {p.nombre}</div>
+            <div style={{ fontSize: 11.5, color: '#777', margin: '2px 0 6px' }}>{p.descripcion}</div>
+            <div style={{ fontSize: 11, color: '#999', marginBottom: 6 }}>{p.planos.length} plano(s)</div>
+            <button style={{ ...btn, fontSize: 13, background: '#8a4fbf', color: '#fff', borderColor: '#8a4fbf' }} disabled={gen === p.id} onClick={() => void generar(p.id)}>{gen === p.id ? 'Generando…' : 'Generar'}</button>
+          </div>
+        ))}
+      </div>
+
+      {doc && (
+        <div style={{ border: '1px solid #8a4fbf', borderRadius: 10, background: '#fff', padding: '0.7rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
+            <strong style={{ fontSize: 14 }}>{doc.titulo} <span style={{ color: doc.pendientes ? '#c60' : '#2e9e63', fontWeight: 'normal' }}>({doc.pendientes} pendientes / {doc.totalRequerido} · {doc.totalRequerido ? Math.round((1 - doc.pendientes / doc.totalRequerido) * 100) : 100}% listo)</span></strong>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <button style={btn} onClick={() => void navigator.clipboard?.writeText(doc.markup)}>Copiar</button>
+              <button style={btn} onClick={descargar}>⬇ Descargar .md</button>
+              <button style={btn} onClick={() => setDoc(null)}>Cerrar</button>
+            </div>
+          </div>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, maxHeight: 480, overflow: 'auto', background: '#fafafa', padding: '0.6rem', borderRadius: 6, marginTop: '0.5rem', lineHeight: 1.5 }}>{doc.markup}</pre>
         </div>
       )}
     </section>

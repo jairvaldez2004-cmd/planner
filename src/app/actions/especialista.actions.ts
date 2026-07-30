@@ -12,6 +12,7 @@ import {
 } from '@/domain/especialistas';
 import type { EspecialistaConfig } from '@/domain/especialistas';
 import { ORDEN_PLANOS, PLANOS_MAESTROS } from '@/domain/diagnostico';
+import { PAQUETES, paquete } from '@/domain/entregables';
 import { TABLAS_BASE } from '@/domain/tablas';
 import type { Columna } from '@/domain/tablas';
 import { calcularReadiness } from '@/app/readiness/readiness-engine';
@@ -286,6 +287,45 @@ export async function generarDocumentoDePlano(proyectoId: string, planoId: strin
     tablas[ref] = fusionarProyeccion(proj[ref] ?? [], manuales, ref);
   }
   return generarDocumentoPlano(cfg, det.blueprint.profundidadProyecto, { campos, tablas });
+}
+
+// --- GENERACIÓN DE ENTREGABLES: empaqueta los documentos de un grupo de planos ---
+// Concatena los documentos (generarDocumentoDePlano) de los planos de un paquete en un solo
+// Markdown con portada y resumen de completitud. Es el "payoff": la configuración inicial
+// empaquetada por audiencia (ver manual PARTE II.6). No inventa: hereda los ⚠ PENDIENTE.
+export interface DocumentoPaquete {
+  paqueteId: string;
+  titulo: string;
+  markup: string;
+  pendientes: number;
+  totalRequerido: number;
+  planos: { planoId: string; nombre: string; pendientes: number; total: number }[];
+}
+export async function generarPaqueteEntregables(proyectoId: string, paqueteId: string): Promise<DocumentoPaquete | null> {
+  const pq = paquete(paqueteId);
+  const det = await obtenerProyecto(proyectoId);
+  if (!pq || !det) return null;
+  const partes: string[] = [];
+  const planos: DocumentoPaquete['planos'] = [];
+  let pendientes = 0, totalRequerido = 0;
+  for (const planoId of pq.planos) {
+    if (!especialista(planoId)) continue;
+    const doc = await generarDocumentoDePlano(proyectoId, planoId);
+    if (!doc) continue;
+    planos.push({ planoId, nombre: PLANOS_MAESTROS[planoId] ?? planoId, pendientes: doc.pendientes, total: doc.totalRequerido });
+    pendientes += doc.pendientes; totalRequerido += doc.totalRequerido;
+    partes.push(`\n\n---\n\n${doc.markup}`);
+  }
+  const listo = totalRequerido > 0 ? Math.round((1 - pendientes / totalRequerido) * 100) : 100;
+  const portada = [
+    `# ${pq.icono} ${pq.nombre}`,
+    `**Empresa:** ${det.nombre}`,
+    `**Paquete:** ${pq.descripcion}`,
+    `**Planos incluidos (${planos.length}):** ${planos.map((p) => p.nombre).join(' · ')}`,
+    `**Completitud:** ${listo}% · **${pendientes}** pendientes de **${totalRequerido}** requeridos.`,
+    planos.length ? `\n| Plano | Pendientes | Requeridos |\n|---|---|---|\n${planos.map((p) => `| ${p.nombre} | ${p.pendientes} | ${p.total} |`).join('\n')}` : '',
+  ].join('\n\n');
+  return { paqueteId, titulo: pq.nombre, markup: portada + partes.join(''), pendientes, totalRequerido, planos };
 }
 
 // --- edición manual de un campo ---

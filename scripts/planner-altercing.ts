@@ -16,6 +16,7 @@ import type { ProcesoNodo } from '@/domain/mapa';
 import { procesosDeNivel, contarSubprocesos, subprocesosDe } from '@/domain/mapa';
 import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, superficiesDePlano, puestosDeEmpleados } from '@/domain/proyeccion';
 import type { EspacioSrc, ProcesoSrc } from '@/domain/proyeccion';
+import { PAQUETES } from '@/domain/entregables';
 import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
 import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
@@ -655,6 +656,17 @@ check('rondasDeRuta(expandir): 2 tramos (arrancar + expandir)', rondasExp.length
 check('Cada tramo desbloquea el siguiente; el último es objetivo', String(rondasExp[0]!.hito).includes('Expandir') && rondasExp[1]!.hito === 'Objetivo alcanzado');
 check('rondasDeRuta(vender): la ruta completa (5 tramos)', rondasDeRuta('vender').length === 5);
 check('Sin etapa objetivo → al menos el primer tramo', rondasDeRuta(undefined).length === 1);
+
+// ============================================================
+// 28) GENERACIÓN DE ENTREGABLES: paquetes por audiencia
+// ============================================================
+h('28) Config de paquetes de entregables (empaquetan documentos de planos)');
+const maestro = PAQUETES.find((p) => p.id === 'maestro')!;
+check('El Documento Maestro incluye los 18 planos', maestro.planos.length === 18);
+check('Todos los planos de los paquetes existen en PLANOS_MAESTROS', PAQUETES.every((p) => p.planos.every((id) => !!PLANOS_MAESTROS[id])));
+check('Ningún paquete está vacío', PAQUETES.every((p) => p.planos.length > 0));
+check('Hay paquetes por audiencia (inversionistas, arquitectos, operaciones, RH, marketing)', ['inversionistas', 'arquitectos', 'operaciones', 'rh', 'marketing'].every((id) => PAQUETES.some((p) => p.id === id)));
+check('El paquete de arquitectos entrega ARQ', PAQUETES.find((p) => p.id === 'arquitectos')!.planos.includes('ARQ'));
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado
