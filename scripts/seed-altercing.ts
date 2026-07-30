@@ -13,6 +13,52 @@ const J = (v: unknown) => v as never;
 
 // ---------- Campos narrativos por plano (los IDs coinciden con especialistas.ts) ----------
 const CAMPOS: Record<string, Record<string, string>> = {
+  META: {
+    mision: 'Que perforarse y tatuarse sea seguro, higiénico y estético —sin el miedo a "que se infecte"— con material estéril de un solo uso y acompañamiento post-servicio.',
+    proposito: 'Elevar el estándar de higiene del body art urbano y dar a cada cliente una pieza bien colocada que cicatrice bien.',
+    tesis: 'La confianza (higiene visible + honestidad) convierte un servicio de impulso en recompra y comunidad; el diferenciador no es el precio, es la seguridad.',
+    valor: 'Higiene de hospital con trato de amigo: material estéril a la vista, asesoría honesta y seguimiento por WhatsApp.',
+    mercado: 'Público urbano 16–35 de cultura alternativa; el body art como identidad. Zona Girly Zone. Recompra alta en joyería y downsizing.',
+    org: 'Girly Zone (desarrollo) → Altercing Studio (negocio) → 4 UC: Piercings, Tatuajes, Uñas, Joyería. Una sede, 3 personas + contabilidad tercerizada.',
+    modelo: 'Servicios (piercing/tatuaje/uñas) + venta de joyería (mayor margen y motor de recompra). Reparto dueña/perforador por comisión sobre servicio.',
+  },
+  EST: {
+    vision: 'En 5 años: 2ª cabina ocupada, marca de referencia en higiene, catálogo de joyería premium y protocolo estandarizado para replicar/franquiciar.',
+    tesis: 'Crecer por ticket (joyería) y ocupación (2ª cabina) antes que por descuento; la reputación de higiene es el activo difícil de copiar.',
+    objetivos: 'Arrancar operando con demanda validada · subir ticket promedio con joyería · >60% de ocupación de la 1ª cabina · reseñas ≥4.7.',
+    exclusiones: 'No competir por precio, no servicios sin higiene certificable, no menores sin tutor, no reutilizar material.',
+    decision: 'Ante duda de seguridad, no se hace el servicio. Precios y protocolo los define Dirección; la operación no los cambia.',
+    entidades: 'Altercing dentro de Girly Zone; contabilidad y arrendamiento tercerizados hacia arriba (Girly Zone).',
+    recursos: 'Equipo pequeño (3 personas), 1 sede rentada ~32 m², autoclave y 2 cabinas; capital semilla propio.',
+    riesgos: 'Servicio a menores, mala praxis/infección, manejo indebido de RPBI, proveedor único de titanio. Mitigación: consentimiento+ID, protocolo documentado, gestor de RPBI, proveedor alterno de titanio.',
+    cierre: 'Etapa objetivo: arrancar→expandir. Pasar a expandir cuando la 1ª cabina esté >60% ocupada y el ticket con joyería estabilizado.',
+  },
+  OPE: {
+    ciclo: 'Antes: preparar cabina, cargar catálogo/agenda, verificar edad+consentimiento. Durante: asesoría → asepsia → perforación/tatuaje → colocar joyería → cobro. Después: limpieza y esterilización, indicaciones de cuidado, seguimiento por WhatsApp, corte de caja.',
+    handoffs: 'Recepción entrega el cliente asesorado al Perforador (disparador: consentimiento firmado); el Perforador lo entrega a Recepción para cobro (disparador: servicio terminado); Recepción hace el seguimiento post-servicio.',
+    estados: 'Cita: agendada → confirmada → en servicio → cobrada → en seguimiento → cerrada. Instrumental: sucio → prelavado → esterilizado → listo.',
+  },
+  TEC: {
+    capacidades: 'POS + facturación (CFDI), agenda de citas con recordatorios, catálogo/inventario de joyería, registro de ciclos de autoclave, redes (IG/TikTok/WhatsApp).',
+    datos: 'Fuente de verdad: agenda (citas), POS (ventas/corte), inventario (joyería/insumos), roster (personas). Aislamiento por negocio dentro de Girly Zone.',
+    seguridad: 'Acceso por rol (Dirección/Recepción/Perforador); datos de clientes y consentimientos con aviso de privacidad; respaldo diario del corte.',
+  },
+  IA: {
+    principio: 'Agentes de apoyo que NO reemplazan el criterio clínico: recordatorios de cita, publicación de catálogo, seguimiento post-servicio y sugerencias de compra. Todo apagable y supervisado.',
+    autonomia: 'Modo asistente por defecto (propone, el humano confirma) para cotizaciones y compras; recordatorios en automático (n8n).',
+    memoria: 'Recuerda historial del cliente (servicios, joyería, cuidados) y del proveedor (precios, tiempos); memoria gobernada, borrable a solicitud.',
+  },
+  IMP: {
+    fases: 'Fase 0 acondicionar local y licencias · Fase 1 abrir y operar 1ª cabina · Fase 2 habilitar 2ª cabina + joyería premium · Fase 3 estandarizar protocolo para replicar.',
+    dependencias: 'Abrir depende de: obra terminada (ARQ/Constructora), licencia sanitaria y RPBI (JUR), autoclave y material estéril (Compras), personal capacitado (RH).',
+    recursos: 'Capital semilla propio, 3 personas, proveedores de insumos/titanio, gestor de RPBI, contador (Girly Zone).',
+  },
+  ESC: {
+    unidad: 'La unidad replicable = una cabina estéril con su protocolo (asepsia→servicio→esterilización) + recepción/agenda + surtido de joyería.',
+    criterios: 'Replicar/2ª cabina cuando la 1ª supere ~60% de ocupación y el protocolo esté documentado y estable.',
+    limites: 'Límite por sede: espacio (~32 m²), un autoclave y la capacidad del/los perforador(es). Más allá = nueva cabina o nueva sede.',
+    antifragil: 'El protocolo de higiene y las reseñas hacen que los incidentes del gremio (lugares informales) jueguen a favor: entre más se habla de riesgos, más valen la seguridad y la marca.',
+  },
   COM: {
     oferta: 'Perforaciones profesionales con joyería de titanio grado implante, tatuajes, uñas y venta de joyería corporal. Se compra por higiene certificada, asesoría honesta y resultados que cicatrizan bien; el diferenciador es la seguridad (material estéril de un solo uso) y el acompañamiento post-servicio.',
   },
@@ -46,6 +92,9 @@ const CAMPOS: Record<string, Record<string, string>> = {
     restricciones: 'Local en segunda planta ~32 m². Necesita: buena luz sobre la camilla, lavabo con agua corriente en/junto a cada cabina, tomas para autoclave y minisplit, pisos y muros lavables (no porosos), y un punto de acopio de RPBI separado.',
   },
   RH: {
+    manual: 'Manual del empleado: protocolo de asepsia y RPBI innegociable, trato honesto (recomendar lo correcto aunque venda menos), higiene visible siempre, no atender menores sin tutor/ID, seguimiento post-servicio por WhatsApp.',
+    capacitacion: 'Capacitación continua: técnica de perforación/tatuaje, anatomía, asepsia y manejo de RPBI, atención al cliente y uso del POS/agenda; 10 servicios supervisados antes de operar solo.',
+    carrera: 'Camino: asistente → perforador junior → perforador senior → dirección de cabina. Bonos por reseñas y reincidencia; posible sociedad por comisión al crecer.',
     reclutamiento: 'Se recluta por portafolio + prueba práctica supervisada. Filtros: manejo de asepsia, trato al cliente, conocimiento de anatomía de la perforación. Referencias de otros estudios.',
     onboarding: 'Primeros 30 días: acompañamiento en cabina, memorizar el protocolo de asepsia y RPBI, dominar la agenda/POS, y hacer 10 servicios supervisados antes de trabajar solo.',
     evaluacion: 'Se evalúa por reseñas (≥4.7★), tasa de cicatrización sin incidentes, puntualidad y ticket promedio. Bono trimestral atado a reseñas y reincidencia de clientes.',
@@ -146,6 +195,33 @@ const TABLAS: Record<string, Record<string, string>[]> = {
     { kpi: 'Reseñas (★)', dueno: 'Dirección', frecuencia: 'Semanal', fuente: 'Google/IG', meta: '≥ 4.7' },
     { kpi: 'Recompra de joyería', dueno: 'Marketing', frecuencia: 'Mensual', fuente: 'POS', meta: 'PENDIENTE' },
     { kpi: 'Incidencias de cicatrización', dueno: 'Dirección', frecuencia: 'Mensual', fuente: 'Seguimiento', meta: '< 2%' },
+  ],
+  clientes: [
+    { nombre: 'Regina (avatar)', segmento: 'Universitaria 18–24, primer piercing seguro', contacto: 'Instagram/DM' },
+    { nombre: 'Mamá + hija menor', segmento: 'Tutor que valora seguridad (lóbulo a hija de 16)', contacto: 'WhatsApp' },
+    { nombre: 'Coleccionista de piercings', segmento: 'Recompra joyería y nuevos piercings', contacto: 'IG/WhatsApp' },
+    { nombre: 'Primer tatuaje', segmento: 'Busca higiene y buen diseño', contacto: 'Instagram' },
+  ],
+  canales: [
+    { canal: 'Instagram', tipo: 'Orgánico + pauta ligera (portafolio)', prioridad: 'alta' },
+    { canal: 'TikTok', tipo: 'Orgánico (reels de higiene)', prioridad: 'alta' },
+    { canal: 'WhatsApp', tipo: 'Agenda y seguimiento', prioridad: 'alta' },
+    { canal: 'Google / Reseñas', tipo: 'Reputación', prioridad: 'media' },
+    { canal: 'Boca a boca', tipo: 'Referidos', prioridad: 'media' },
+  ],
+  pasos: [
+    { proceso: 'Perforación', paso: 'Asesoría y elección de joyería', ejecutor: 'Perforador', decision: 'Viabilidad anatómica', tiempo: '5 min' },
+    { proceso: 'Perforación', paso: 'Verificar edad y firmar consentimiento', ejecutor: 'Recepción', decision: '¿Mayor de edad / con tutor?', tiempo: '3 min' },
+    { proceso: 'Perforación', paso: 'Asepsia de la zona', ejecutor: 'Perforador', decision: '', tiempo: '3 min' },
+    { proceso: 'Perforación', paso: 'Perforar con aguja estéril de un solo uso', ejecutor: 'Perforador', decision: '', tiempo: '10 min' },
+    { proceso: 'Perforación', paso: 'Colocar joyería e indicaciones de cuidado', ejecutor: 'Perforador', decision: '', tiempo: '4 min' },
+    { proceso: 'Perforación', paso: 'Cobro y seguimiento post-servicio', ejecutor: 'Recepción', decision: '', tiempo: '3 min' },
+  ],
+  hitos: [
+    { fase: 'Fase 0 · Preparar', hito: 'Local acondicionado + licencia sanitaria + RPBI', criterioSalida: 'Local listo y permisos obtenidos/en trámite' },
+    { fase: 'Fase 1 · Arrancar', hito: 'Estudio abierto operando la 1ª cabina', criterioSalida: 'Servicios diarios estables + reseñas ≥4.7' },
+    { fase: 'Fase 2 · Expandir', hito: '2ª cabina + joyería premium', criterioSalida: 'Ocupación de la 1ª cabina >60%' },
+    { fase: 'Fase 3 · Replicar', hito: 'Protocolo estandarizado para franquiciar', criterioSalida: 'Manual operativo cerrado y probado' },
   ],
 };
 
@@ -400,8 +476,9 @@ async function main() {
     await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: ref } }, create: { proyectoId: PID, tablaRef: ref, filas: J(filas), actualizadoEn: now() }, update: { filas: J(filas), actualizadoEn: now() } });
   };
   await up('productos_compra', PRODUCTOS);
-  // Limpia la tabla vieja 'productos' (colisionaba con el catálogo de venta del plano Comercial).
-  await prisma.tablaProyecto.deleteMany({ where: { proyectoId: PID, tablaRef: 'productos' } });
+  // (La colisión con la tabla 'productos' del plano Comercial ya se corrigió: el abastecimiento
+  //  usa 'productos_compra'. La tabla 'productos' vuelve a ser SOLO el catálogo de venta —lo llena
+  //  el bloque TABLAS de arriba— así que aquí ya no se borra.)
   await up('producto_proveedor', VINCULOS);
   await up('ordenes_compra', ORDENES);
   await up('contratos', CONTRATOS);
