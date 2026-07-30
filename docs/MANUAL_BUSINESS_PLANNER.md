@@ -11,6 +11,9 @@
 
 El **Business Planner** de CPF (Corporativo Palo Fierro) es un **diseñador de empresas**: convierte una idea/necesidad de negocio en **planos ejecutables**. No es un generador de documentos sueltos; es un sistema donde **un dato se captura una vez y se ve desde muchos "lentes" (planos), formando un grafo** ("un dato → muchos lentes → un grafo").
 
+> ### ⚖️ Principio rector (frontera del sistema)
+> **El Business Planner DISEÑA la empresa; NO administra su operación diaria.** Su único producto es la **configuración inicial completa** del negocio (planos, manuales, paquetes, datos semilla). La **operación cotidiana** (registrar ventas/compras/nómina/impuestos día a día) es responsabilidad del **software operativo** (ERP / CRM / WMS / HCM) que se generará **a partir del Plano ALV**. Por eso, todo lo que el Planner captura (proveedores, procesos, inventario, personas…) se entiende como **definición y semilla de configuración**, no como el sistema de gestión en vivo. Cuando un módulo del Planner parece "operativo" (ej. el flujo de compras o la bitácora de proveedores), su rol real es **dejar lista la configuración y el modelo** que el software operativo heredará. → Ver **PARTE II** para responsabilidades, entregables y la capa de generación.
+
 - **Stack:** Next.js 16 + React 19 + Prisma 6 (PostgreSQL) + Three.js 0.185.
 - **Deploy:** Railway (`start:prod` = `prisma db push --skip-generate && next start`); auto-deploy desde GitHub.
 - **IA:** API de Claude (server-side). Requiere `ANTHROPIC_API_KEY` en el entorno.
@@ -253,3 +256,205 @@ Los 18 **ya son llenables** por 3 vías (campos a mano · chat especialista IA �
 - **Fix:** colisión de tabla `productos`.
 
 _Nota: Marketing como "fábrica de personalidades" NO se construyó en el Planner (esa idea es para **Macao Marketing**, un proyecto hermano fuera del Planner)._
+
+---
+---
+
+# PARTE II — MÉTODO: Responsabilidades y Entregables de los Planos
+
+> Esta parte **profundiza** los planos existentes: define con precisión **qué produce cada uno** (entregables), **qué contiene** y **cómo se relaciona** con el resto. **No** crea planos nuevos, **no** cambia la arquitectura, **no** describe funciones de ERP. Cada ampliación se integra al plano existente que arquitectónicamente le corresponde. Regla base: si algo cabe en un plano existente, va ahí.
+
+## II.0 Cómo leer esta parte y mapeo de nombres
+
+Algunos nombres del negocio no son 1:1 con los `planoId` del sistema. Mapeo oficial (sin crear planos):
+
+| Nombre de negocio | Plano(s) del sistema |
+|---|---|
+| **Ejecutivo** | **META** (documento maestro/ejecutivo) + apoyo de **EST** (estratégico) |
+| **Arquitectónico** | **ARQ** |
+| **Operativo (Manual Operativo)** | **OPE** + **PRO** (procesos) — se nutren del **Mapa Operativo** |
+| **Financiero** | **FIN** |
+| **Inversionista** | **INV** |
+| **Comercial** | **COM** (separado de MKT) |
+| **Marketing** | **MKT** |
+| **Jurídico** | **JUR** |
+| **Recursos Humanos** | **RH** (+ **ORG** para estructura) |
+| **Cultural** | **CUL** |
+| **Proveedores y Compras** | **NO es un plano**: es la **superficie** "Recursos & Proveedores" que **configura** y **alimenta** COM/FIN/TEC/JUR |
+| **Tecnológico / IA / Control / Implementación / Escalamiento** | **TEC / IA / CTR / IMP / ESC** (conservan su rol; ver II.1 y II.6) |
+
+Cada plano ya declara en código un **`contratoEntrega`** (documento/diagrama/tabla/dashboard). Lo que sigue **amplía el contenido** de ese contrato; no lo reemplaza.
+
+---
+
+## II.1 Responsabilidades y entregables ampliados (por plano)
+
+### 1. Ejecutivo → **META** (contrato actual: *Documento maestro de la entidad*)
+**Entregable:** Documento Ejecutivo completo (resumen que integra a todos los planos).
+**Contenido mínimo:** resumen ejecutivo · problema · solución · propuesta de valor · modelo de negocio · objetivos · KPIs generales · roadmap · riesgos · ventajas competitivas · restricciones · cronograma general · **dependencias entre departamentos** · **etapas de crecimiento** (arrancar→…→vender) · **criterios para pasar a la siguiente etapa**.
+**Relaciones:** *consume* de EST, COM, FIN, OPE, MKT (resúmenes) · *alimenta* a INV. Las "etapas de crecimiento" reusan la **ruta de 5 etapas** del sistema.
+
+### 2. Arquitectónico → **ARQ** (contrato actual: *Casa de muñecas, sin diseño/renders*)
+**Entregable:** **Paquete para arquitectos e ingenieros** — insumo para que una constructora pueda **diseñar, cotizar y construir** (el Planner **no** diseña arquitectura ni hace renders).
+**Contenido mínimo:** programa arquitectónico · casa de muñecas (bloques funcionales) · relaciones entre espacios · **flujo de personas** · **flujo de materiales** · **documento por espacio** con: área requerida, restricciones, instalaciones necesarias, equipamiento, mobiliario, iluminación, ventilación, electricidad, agua, gas, sanitarios, seguridad y **acabados requeridos**.
+**Relaciones:** *consume* de OPE/PRO (qué se hace en cada espacio), Proveedores (equipo/mobiliario), FIN (presupuesto de obra); la geometría y ambientes vienen de la superficie **Sedes & Espacios**. *Alimenta* a FIN (CAPEX de obra) y JUR (permisos/uso de suelo).
+
+### 3. Operativo → **OPE** + **PRO** (contratos: *documento operativo* + *diagrama de flujo*)
+**Entregable:** **Manual Operativo** por departamento. Por cada departamento la cadena completa:
+`Departamento → Roles → Procesos → Subprocesos → Pasos → Herramientas → Permisos → Entradas → Salidas → Triggers → KPIs → Checklists → Plantillas → SOPs → Errores comunes → Protocolos de contingencia → Tiempo esperado → Automatizaciones previstas → Documentación generada`.
+**Ya lo produce el Mapa Operativo** (procesos, subflujos, roles, herramientas, insumos, entradas/salidas, **ramas=triggers**, tiempos, **contingencias**, **automatización**, apoyos/manuales). **Falta estandarizar como contenido**: permisos por rol, checklists, plantillas, SOPs formales, errores comunes y "documentación generada" por proceso.
+**Relaciones:** *consume* de COM (rutas del catálogo), ARQ (espacios), Proveedores (insumos), RH (ejecutores). *Alimenta* a FIN (costeo/tiempos), TEC/IA (automatizaciones), CTR (KPIs/tiempos), y es la **base de configuración del software operativo**.
+
+### 4. Financiero → **FIN** (contrato: *tablas/modelo, cifras = PENDIENTE*)
+**Entregable:** Modelo financiero de arranque (estructura; cifras reales = PENDIENTE hasta dato real).
+**Contenido mínimo:** **CAPEX** · **OPEX** · capital de trabajo · presupuesto inicial · flujo mensual · flujo anual · **proyección a 5 años** · **escenarios** (optimista/realista/conservador) · ROI · VPN · TIR · punto de equilibrio · calendario de inversión · **calendario de compras** · calendario de pagos · fondos de emergencia · supuestos financieros.
+**Relaciones:** *consume* de OPE (costos/tiempos), RH (nómina), ARQ (CAPEX de obra), TEC/Proveedores (equipo/insumos/logística → landed cost), COM (ingresos/precios). *Alimenta* a INV y META.
+
+### 5. Inversionista → **INV** (contrato: *deck de inversión*)
+**Entregable:** **Investment Memorandum**.
+**Contenido mínimo:** resumen ejecutivo · descripción del negocio · mercado · competencia · **uso del capital** · **etapas de inversión** y **qué desbloquea cada etapa** · proyección · KPIs · riesgos · **salida del inversionista** · valuación · dilución · cronograma.
+**Relaciones:** *consume* (derivado) de META, EST, FIN, COM, MKT. No recaptura: se arma de esos planos.
+
+### 6. Comercial → **COM** — **separado de Marketing** (contrato: *documento comercial + catálogo de oferta*)
+**Entregable:** Sistema comercial de arranque (la venta, no la comunicación).
+**Contenido mínimo:** **pipeline** · embudo comercial · proceso comercial · **CRM inicial** (config de etapas/campos, no operación) · cotizaciones (plantilla/lógica) · seguimiento · scripts · objeciones · comisiones · metas · forecast.
+**Relaciones:** *consume* de META (propuesta de valor), MKT (demanda validada), FIN (precios/márgenes), Proveedores (catálogo de venta). *Alimenta* a FIN (ingresos) e INV. Su **CRM inicial** es **configuración semilla** para el CRM operativo.
+
+### 7. Marketing → **MKT** (contrato: *antropología + calendario + laboratorio*)
+**Entregable:** Sistema completo de planificación de marketing.
+**Contenido mínimo:** investigación antropológica · segmentación · mercado/nicho/micronicho · avatar/subavatar · **mapas** (psicológico, emocional, cultural, de dolores, de objeciones, de aspiraciones) · buyer journey · plan anual · campañas · KPIs · calendario de producción · calendario editorial · mensajes clave · canales · presupuestos · responsables · guiones profesionales · briefs · prompts · entregables · versiones · aprendizajes · retroalimentación.
+**+ Laboratorio de validación de mercado:** formular hipótesis → diseñar pruebas → validar demanda → lanzar **campañas piloto** → obtener conclusiones **antes de invertir fuerte**.
+**Relaciones:** *consume* de META, COM, FIN (presupuesto), CUL (identidad). *Alimenta* a COM (demanda) e INV.
+
+### 8. Jurídico → **JUR** (contrato: *checklist legal, borradores + PENDIENTE asesor*)
+**Entregable:** Paquete legal de arranque (borradores + checklist; dictamen final = asesor).
+**Contenido mínimo:** constitución · contratos · NDA · licencias · permisos · marcas · patentes · políticas · términos · propiedad intelectual · **checklist legal** · **calendario de obligaciones**.
+**Relaciones:** *consume* de RH (contratos laborales, datos fiscales), Proveedores (contratos/pólizas), COM (términos de venta), ARQ (permisos/uso de suelo). Los **contratos** capturados en la superficie de Abastecimiento y los **datos fiscales** de Personas son su insumo.
+
+### 9. Recursos Humanos → **RH** (contrato: *manual del empleado + puestos + ciclo de vida*)
+**Entregable:** Paquete de RH de arranque.
+**Contenido mínimo:** manual del empleado · descripción de puestos · proceso de contratación · onboarding · capacitación · evaluaciones · bonos · plan de carrera · sucesión · offboarding · KPIs.
+**Relaciones:** *consume* de ORG (estructura), OPE (roles/procesos por puesto), FIN (nómina). Se nutre del **roster de Personas & RH**. *Alimenta* a JUR (contratos laborales) y FIN (costo de personal).
+
+### 10. Cultural → **CUL** (contrato: *propósito, valores, comportamientos*)
+**Entregable:** Documento de cultura e identidad.
+**Contenido mínimo:** valores · normas · lenguaje · protocolos · historia · rituales · reconocimientos · identidad · liderazgo.
+**Relaciones:** *consume* de META (propósito). *Alimenta* a MKT (identidad de marca) y RH (comportamientos/onboarding).
+
+### 11. Proveedores y Compras → superficie **Recursos & Proveedores** (alimenta COM/FIN/TEC/JUR)
+**No es un plano ni un ERP.** Su único objetivo es dejar lista la **configuración inicial** de abastecimiento; la administración diaria será del software operativo.
+**Contenido mínimo (config):** registro de proveedores · **clasificación** · productos · servicios · ubicaciones · contratos · capacidad · tiempo de entrega · rotación · vida útil · tiempo de anaquel · condiciones de almacenamiento · **historial de precios** · riesgos · calificación · **proveedor alternativo** · subcontratistas.
+**Responsabilidad de IA (definida como entregable, no como feature operativa):** la IA debe **recomendar automáticamente la clasificación** de productos y proveedores para no confundir al usuario.
+**Relaciones:** *alimenta* a **COM** (proveedores/catálogo), **FIN** (costos/compras/landed cost), **TEC** (equipo/licencias), **JUR** (contratos/pólizas). Todo lo capturado es **semilla de configuración** para el WMS/compras del software operativo.
+
+### Planos de soporte que conservan su rol
+- **ORG** (organigrama/estructura y autoridad) — insumo de RH y OPE.
+- **TEC** (componentes, contratos, seguridad, datos) — define la **configuración inicial del software** (stack, componentes, licencias); *consume* de PRO/OPE.
+- **IA** (fichas de agente, autonomía, memoria) — define los **agentes** que operarán; *consume* de TEC/ORG/OPE.
+- **CTR** (dashboard de KPIs) — consolida KPIs de todos los planos.
+- **IMP** (roadmap de implementación) — hitos por plano + calendario.
+- **ESC** (escalamiento: unidad replicable, fases, límites) — cómo se replica/franquicia.
+
+---
+
+## II.2 Entregables por Plano (catálogo — índice, no re-detalle)
+
+Índice compacto de artefactos por plano (el detalle vive en II.1; esto es referencia rápida — **SSOT en II.1**).
+
+| Plano | Produce |
+|---|---|
+| **META (Ejecutivo)** | Documento ejecutivo · roadmap · dependencias entre departamentos · etapas y criterios de avance |
+| **EST** | Documento estratégico (norte, prioridades, sistema de decisión) |
+| **ARQ** | Programa arquitectónico · casa de muñecas · documento por espacio · paquete para arquitectos/ingenieros |
+| **OPE + PRO** | Manual Operativo · SOPs · checklists · plantillas · diagramas de flujo · KPIs · formularios · permisos · protocolos de contingencia |
+| **FIN** | CAPEX/OPEX · flujos · proyección 5 años · escenarios · ROI/VPN/TIR/punto de equilibrio · calendarios · supuestos |
+| **INV** | Investment Memorandum (deck) |
+| **COM** | Pipeline · embudo · proceso comercial · CRM inicial · cotizaciones · scripts · objeciones · comisiones · forecast |
+| **MKT** | Investigación/segmentación/avatares · mapas · buyer journey · plan anual · campañas · calendarios · guiones/briefs/prompts · laboratorio de validación |
+| **JUR** | Constitución · contratos/NDA · permisos/licencias · marcas/patentes/PI · checklist legal · calendario de obligaciones |
+| **RH** | Manual del empleado · descripciones de puesto · ciclo (contratación→…→offboarding) · KPIs |
+| **CUL** | Valores · normas · lenguaje · protocolos · rituales · identidad · liderazgo |
+| **ORG** | Organigrama / estructura y autoridad |
+| **TEC** | Componentes/contratos · seguridad/datos · configuración inicial de software |
+| **IA** | Fichas de agente · autonomía · memoria |
+| **CTR** | Modelo de dashboard de KPIs |
+| **IMP** | Roadmap de implementación (hitos) |
+| **ESC** | Documento de escalamiento (unidad, fases, límites) |
+| **Proveedores & Compras** (superficie) | Configuración inicial de abastecimiento (registro/clasificación/contratos/riesgos…) |
+
+---
+
+## II.3 Dependencias entre Planos
+
+**Distinto de §10.** §10 documenta **superficie → plano** (proyección de datos). Aquí se documenta **plano → plano** (qué información consume un plano de otros) para evitar inconsistencias.
+
+| Plano | Depende de (consume) |
+|---|---|
+| **META (Ejecutivo)** | EST, COM, FIN, OPE, MKT (integra sus resúmenes) |
+| **EST** | META |
+| **FIN** | OPE, RH, ARQ (construcción/CAPEX), TEC, Proveedores, COM (ingresos) |
+| **INV** | META, EST, FIN, COM, MKT |
+| **COM** | META, MKT (demanda), FIN (precios), Proveedores (catálogo) |
+| **MKT** | META (propuesta de valor), COM (oferta), FIN (presupuesto), CUL (identidad) |
+| **OPE / PRO** | COM (rutas), ARQ (espacios), Proveedores (insumos), RH (ejecutores), TEC (automatización) |
+| **ARQ** | OPE/PRO (uso de espacios), Proveedores (equipo/mobiliario), FIN (presupuesto) |
+| **RH** | ORG (estructura), OPE (roles/procesos), FIN (nómina) |
+| **ORG** | OPE (roles), RH |
+| **TEC** | PRO/OPE (procesos y automatizaciones) |
+| **IA** | TEC, ORG, OPE |
+| **JUR** | RH (laboral/fiscal), Proveedores (contratos), COM (términos), ARQ (permisos) |
+| **CTR** | Todos (KPIs), en especial OPE, FIN, MKT |
+| **IMP** | Todos (hitos por plano), FIN (calendario) |
+| **ESC** | OPE (replicabilidad), FIN, COM |
+| **CUL** | META |
+
+Regla de consistencia: si un plano cambia un dato compartido (precio, rol, espacio, proceso), los planos que dependen de él deben recomputar (hoy la **proyección** lo resuelve en las tablas; el **grafo de dependencias** —`domain/dependencias.ts`— hace explícita la cadena plano↔tabla↔proceso).
+
+---
+
+## II.4 Nivel de Completitud
+
+Cada plano debe poder reportar su **estado de llenado** para saber cuándo está listo para la siguiente fase. Métrica estándar por plano:
+
+- **% completado** = campos+tablas requeridos llenos / requeridos totales (por profundidad esencial/estándar/completo).
+- **Información pendiente** = lista de campos/tablas `⚠ PENDIENTE` (los marca el generador de documentos, `domain/plano-doc.ts`).
+- **Bloqueos** = requisitos aguas arriba sin cumplir (del **grafo de dependencias**: p. ej. FIN bloqueado si OPE no tiene costos).
+- **Dependencias** = planos de los que aún espera datos (ver II.3).
+
+**Base ya existente:** el motor de *readiness* (`readiness-engine.ts`) calcula estados `LOCKED / DISPONIBLE / MIN_OPERABLE / PUBLICADO / COMPLETO`; el grafo de planos muestra `progreso`, `estado`, `pendientes` por nodo. Esta sección **estandariza qué reporta cada plano**; no requiere arquitectura nueva. Un proyecto está listo para publicar cuando todos los planos seleccionados alcanzan al menos **MIN_OPERABLE** y sus bloqueos están resueltos.
+
+---
+
+## II.5 Simulación Empresarial
+
+Antes de publicar, el Planner debe poder **describir cómo funcionaría la empresa**, simulando su lógica de extremo a extremo. Objetivo: **validar el diseño antes de generar el software operativo** (encontrar incoherencias, cuellos y huecos).
+
+**Qué simular:** clientes · ventas · compras · producción · inventario · nómina · pagos · impuestos · mantenimiento · incidentes · **cuellos de botella**.
+
+**Base ya existente:** el Mapa Operativo tiene el panel **🎬 Simular** (carga por espacio/rol, cuellos, recorrido, cambios de espacio) y el motor de **planeación de compras** (qué se agotará), la **agenda** (choques de recursos) y las **contingencias** (incidentes). Esta sección define la **simulación integral** como la **unión** de esas piezas + el modelo financiero (flujos) + el roster (nómina) — una "corrida" de la empresa en papel. **Propósito documental** (no se especifica implementación aquí): que el resultado de la simulación sea un **reporte de viabilidad** que condicione la generación de entregables (II.6).
+
+---
+
+## II.6 Generación de Entregables
+
+Cuando **todos los planos** alcanzan su nivel objetivo (II.4) y la simulación (II.5) es viable, el Planner puede producir sus **artefactos finales**. Aquí se documenta la **arquitectura y el propósito** (la generación automática **no** se desarrolla todavía).
+
+**Artefactos finales:**
+- **Plano ALV** (documento maestro bajo ARQOS V2.1 + PLANO ALV V1.0).
+- **Manuales** (operativo, del empleado, etc.).
+- **Documentación técnica** (TEC/IA: componentes, agentes, seguridad).
+- **Documentación para inversionistas** (INV: memorandum/deck).
+- **Paquete para arquitectos** (ARQ: programa + casa de muñecas + doc por espacio).
+- **Paquete para operaciones** (OPE/PRO: manual, SOPs, checklists, flujos).
+- **Paquete para Recursos Humanos** (RH).
+- **Paquete para Marketing** (MKT).
+- **Configuración inicial para el ERP** (FIN + Proveedores + OPE).
+- **Configuración inicial para el CRM** (COM).
+- **Configuración inicial para el software operativo** (semilla que hereda: procesos, roles, permisos, catálogos, proveedores, inventario, KPIs, contingencias).
+
+**Mecanismo base ya existente:** cada plano genera hoy su **documento** (`generarDocumentoDePlano`) marcando pendientes. Un "paquete" = **bundle** de los documentos de un grupo de planos. La **configuración para ERP/CRM/software operativo** = exportación estructurada de las superficies (procesos, roles, permisos, proveedores, productos, inventario, KPIs) como **datos semilla**, no como sistema en vivo. Esta capa cierra la frontera del Principio Rector: **el Planner entrega la configuración; el software operativo la ejecuta.**
+
+---
+
+### Nota de mantenimiento (SSOT)
+Este capítulo (PARTE II) es la **fuente única** de las responsabilidades y entregables de los planos. Los `contratoEntrega` en `especialistas.ts` son su reflejo mínimo en código. Si se amplía un entregable, se edita **aquí**; no se duplica en otros documentos. El estado operativo del proyecto sigue viviendo en `90_Curador/ESTADO_ACTUAL.md`.
