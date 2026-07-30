@@ -263,7 +263,8 @@ async function snapshotAbastecimiento(proyectoId: string): Promise<string> {
   L.push(`Embarques (${embs.length}${retrasados.length ? `, ${retrasados.length} RETRASADO(S)` : ''}):`);
   for (const e of embs) {
     const lc = landedCostEmbarque(e, ocs);
-    L.push(`  · "${e.folio || e.destino || 'embarque'}" — ${modalidadEnvioInfo(e.modalidad).label} · ${estadoEmbarqueInfo(e.estado).label}${e.transportista ? ` · ${e.transportista}` : ''}${e.tracking ? ` · guía ${e.tracking}` : ''}${e.fechaEstimada ? ` · ETA ${e.fechaEstimada}${embarqueRetrasado(e, hoy) ? ' ⚠RETRASADO' : ''}` : ''} · ${e.ordenIds.length} orden(es) · landed ${lc.total.toFixed(2)} (log ${lc.logistica.toFixed(2)}, ×${lc.factor.toFixed(2)})`);
+    const impTxt = e.importacion.esImportacion ? ` · 🛃 importación${e.importacion.paisOrigen ? ` de ${e.importacion.paisOrigen}` : ''}${e.importacion.pedimento ? ` (pedimento ${e.importacion.pedimento})` : ''}` : '';
+    L.push(`  · "${e.folio || e.destino || 'embarque'}" — ${modalidadEnvioInfo(e.modalidad).label} · ${estadoEmbarqueInfo(e.estado).label}${impTxt}${e.transportista ? ` · ${e.transportista}` : ''}${e.tracking ? ` · guía ${e.tracking}` : ''}${e.fechaEstimada ? ` · ETA ${e.fechaEstimada}${embarqueRetrasado(e, hoy) ? ' ⚠RETRASADO' : ''}` : ''} · ${e.ordenIds.length} orden(es) · landed ${lc.total.toFixed(2)} (log ${lc.logistica.toFixed(2)}, ×${lc.factor.toFixed(2)})`);
   }
   L.push(`Transportistas (${trps.length}):`);
   for (const t of trps) {

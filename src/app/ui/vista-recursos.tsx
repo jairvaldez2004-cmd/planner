@@ -36,8 +36,9 @@ import {
   ESTADOS_RELACION, TIPOS_INTERACCION, interaccionesDeProveedor, ultimoContacto, seguimientosPendientes,
   ESTADOS_EMBARQUE, estadoEmbarqueInfo, siguienteEstadoEmbarque, embarqueVacio, costoLogisticoEmbarque, landedCostEmbarque, prorrateoLanded, embarqueRetrasado,
   MODALIDADES_ENVIO, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista, planArranque,
+  desgloseAduana, costoAduana,
 } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia, Interaccion, Embarque, Transportista, Tarifa } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia, Interaccion, Embarque, Transportista, Tarifa, Importacion } from '@/domain/recursos';
 import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -641,7 +642,7 @@ function EmbarquesLista({ embs, ocs, trps, sel, onSel, hoy, onPatch, onDelete, m
                   <span style={{ fontWeight: 'bold', fontSize: 13.5, flex: 1 }}>{modalidadEnvioInfo(e.modalidad).emoji} {e.folio || e.destino || 'Embarque'}</span>
                   <span style={{ fontSize: 10.5, fontWeight: 'bold', color: '#fff', background: ret ? '#c0392b' : '#3b9ec9', borderRadius: 8, padding: '0 6px' }}>{inf.emoji} {inf.label}</span>
                 </div>
-                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{modalidadEnvioInfo(e.modalidad).label} · {e.transportista || 'sin transportista'}{e.tracking ? ` · guía ${e.tracking}` : ''}{e.fechaEstimada ? ` · ETA ${e.fechaEstimada}` : ''}</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{modalidadEnvioInfo(e.modalidad).label}{e.importacion.esImportacion ? ' · 🛃 importación' : ''} · {e.transportista || 'sin transportista'}{e.tracking ? ` · guía ${e.tracking}` : ''}{e.fechaEstimada ? ` · ETA ${e.fechaEstimada}` : ''}</div>
                 <div style={{ fontSize: 11.5, color: '#6b5320', marginTop: 2 }}>Landed <strong>{formatoMoneda(lc.total)}</strong> {lc.logistica > 0 ? <span style={{ color: '#999' }}>(+{formatoMoneda(lc.logistica)} log · ×{lc.factor.toFixed(2)})</span> : null}</div>
               </div>
             );
@@ -656,7 +657,10 @@ function EmbarquesLista({ embs, ocs, trps, sel, onSel, hoy, onPatch, onDelete, m
 function EmbarqueEditor({ e, ocs, trps, onPatch, onClose, onDelete }: {
   e: Embarque; ocs: OrdenCompra[]; trps: Transportista[]; onPatch: (e: Embarque) => void; onClose: () => void; onDelete: (id: string) => void;
 }) {
-  const set = (k: keyof Embarque, val: string | string[]) => onPatch({ ...e, [k]: val });
+  const set = (k: keyof Embarque, val: string | string[] | Importacion) => onPatch({ ...e, [k]: val });
+  const setImp = (patch: Partial<Importacion>) => set('importacion', { ...e.importacion, ...patch });
+  const imp = e.importacion;
+  const desg = desgloseAduana(imp);
   const estimarFlete = () => {
     const t = trps.find((x) => x.nombre.trim().toLowerCase() === e.transportista.trim().toLowerCase());
     if (!t) { window.alert('Escribe un transportista que exista en el directorio (🚛 Transportistas) para estimar el flete.'); return; }
@@ -725,6 +729,34 @@ function EmbarqueEditor({ e, ocs, trps, onPatch, onClose, onDelete }: {
         {F('Flete', 'flete')}{F('Seguro', 'seguro')}{F('Aduana', 'aduana')}
         {F('Maniobras', 'maniobras')}{F('Otros', 'otros')}
       </div>
+
+      {/* Aduana / importación */}
+      <details open={imp.esImportacion} style={{ marginTop: '0.4rem' }}>
+        <summary style={sum}>🛃 Aduana / importación</summary>
+        <label style={{ fontSize: 12, color: '#b5651d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: 4 }}>
+          <input type="checkbox" checked={imp.esImportacion} onChange={(ev) => setImp({ esImportacion: ev.target.checked })} /> Es importación (internacional)
+        </label>
+        {imp.esImportacion && (() => {
+          const I = (label: string, k: keyof Importacion, ph = '') => (
+            <div><label style={lbl}>{label}</label><input style={inp} defaultValue={String(imp[k] ?? '')} key={`imp-${String(k)}-${e.id}`} placeholder={ph} onBlur={(ev) => { if (ev.target.value !== imp[k]) setImp({ [k]: ev.target.value } as Partial<Importacion>); }} /></div>
+          );
+          return (
+            <div style={{ marginTop: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                {I('País de origen', 'paisOrigen')}{I('Fracción arancelaria (HS)', 'fraccionArancelaria')}
+                {I('Pedimento', 'pedimento')}{I('Agente aduanal', 'agenteAduanal')}
+                {I('Valor en aduana', 'valorAduana', '$')}{I('Arancel IGI (%)', 'arancelPct')}
+                {I('IVA importación (%)', 'ivaPct', '16')}{I('DTA', 'dta')}
+                {I('Honorarios agente', 'honorariosAgente')}{I('Otros gastos', 'otros')}
+              </div>
+              <div style={{ marginTop: 5, border: '1px solid #ecd9a0', borderRadius: 7, background: '#fffdf6', padding: '0.4rem 0.55rem', fontSize: 11.5, color: '#6b5320' }}>
+                Arancel {formatoMoneda(desg.arancel)} + IVA {formatoMoneda(desg.iva)} + DTA {formatoMoneda(desg.dta)} + agente {formatoMoneda(desg.honorarios)} + otros {formatoMoneda(desg.otros)} = <strong>{formatoMoneda(desg.total)}</strong>
+                <button style={{ ...btnSm, marginLeft: 8, fontSize: 11 }} onClick={() => set('aduana', String(Math.round(costoAduana(imp) * 100) / 100))}>💡 Pasar a “Aduana” ({formatoMoneda(desg.total)})</button>
+              </div>
+            </div>
+          );
+        })()}
+      </details>
 
       {/* Panel landed cost */}
       <div style={{ marginTop: '0.5rem', border: '1px solid #bcd8e6', borderRadius: 8, background: '#f7fbfd', padding: '0.5rem 0.6rem' }}>

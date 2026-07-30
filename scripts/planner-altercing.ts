@@ -25,7 +25,8 @@ import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from 
 import { indiceRecursos, costearProceso, indiceCosto } from '@/domain/costeo';
 import { costosDeProductos, costosDeEmbarques } from '@/domain/proyeccion';
 import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque, normalizarEmbarque, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista, planArranque } from '@/domain/recursos';
-import type { Transportista } from '@/domain/recursos';
+import type { Transportista, Importacion } from '@/domain/recursos';
+import { importacionVacia, desgloseAduana, costoAduana } from '@/domain/recursos';
 import type { Embarque } from '@/domain/recursos';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
@@ -571,6 +572,21 @@ check('Costo del inventario inicial = 18 × 180 = 3240', planA.totalInsumos === 
 check('Inversión de apertura total = 25000 + 3240 = 28240', planA.total === 28240);
 check('El insumo trae proveedor sugerido (el del vínculo)', planA.insumos[0]!.proveedorId === 'prv');
 check('Un producto ya en su máximo NO entra al arranque', planArranque([], [{ ...productoVacio('pB'), nombre: 'X', stockActual: '20', stockMaximo: '20' }], []).insumos.length === 0);
+
+// ============================================================
+// 24) ADUANA / IMPORTACIÓN: desglose de impuestos y su paso al landed cost
+// ============================================================
+h('24) Aduana: arancel + IVA sobre (valor+arancel+DTA) + DTA + agente');
+const impMX: Importacion = { ...importacionVacia(), esImportacion: true, valorAduana: '8000', arancelPct: '15', ivaPct: '16', dta: '290', honorariosAgente: '1200', otros: '150' };
+const dz = desgloseAduana(impMX);
+check('Arancel IGI = 15% de 8000 = 1200', dz.arancel === 1200);
+check('IVA = 16% de (8000+1200+290) = 1518.4', Math.abs(dz.iva - 1518.4) < 0.001);
+check('Total aduana = 1200 + 1518.4 + 290 + 1200 + 150 = 4358.4', Math.abs(dz.total - 4358.4) < 0.001);
+check('costoAduana = total del desglose', Math.abs(costoAduana(impMX) - 4358.4) < 0.001);
+check('Un embarque NO importación no genera costo de aduana', costoAduana({ ...importacionVacia(), esImportacion: false, valorAduana: '9999', arancelPct: '20' }) === 0);
+// Ese costo de aduana entra al landed cost vía el campo `aduana` del embarque.
+const embImp = { ...embarqueVacio('EI'), importacion: impMX, aduana: '4358.40', flete: '650' };
+check('Landed cost incluye la aduana (flete 650 + aduana 4358.4 = 5008.4)', Math.abs(costoLogisticoEmbarque(embImp) - 5008.4) < 0.001);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

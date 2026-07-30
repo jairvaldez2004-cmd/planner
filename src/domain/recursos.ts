@@ -641,10 +641,51 @@ export function siguienteEstadoEmbarque(id: EstadoEmbarque): EstadoEmbarque {
   return ESTADOS_EMBARQUE[Math.min(i + 1, ESTADOS_EMBARQUE.length - 1)]!.id;
 }
 
+// IMPORTACIÓN (aduana): datos y cálculo de impuestos de importación (México). Cuando un
+// embarque es internacional, la aduana se DESGLOSA y su total se suma al landed cost.
+export interface Importacion {
+  esImportacion: boolean;
+  paisOrigen: string;
+  fraccionArancelaria: string; // HS / fracción
+  pedimento: string;
+  agenteAduanal: string;
+  valorAduana: string;         // base de los impuestos
+  arancelPct: string;          // IGI (% de arancel de importación)
+  ivaPct: string;              // IVA de importación (típico 16)
+  dta: string;                 // Derecho de Trámite Aduanero (monto)
+  honorariosAgente: string;
+  otros: string;               // otros gastos aduanales
+}
+export function importacionVacia(): Importacion {
+  return { esImportacion: false, paisOrigen: '', fraccionArancelaria: '', pedimento: '', agenteAduanal: '', valorAduana: '', arancelPct: '', ivaPct: '16', dta: '', honorariosAgente: '', otros: '' };
+}
+export function normalizarImportacion(v: unknown): Importacion {
+  const d = (v && typeof v === 'object') ? v as Record<string, unknown> : {};
+  return {
+    esImportacion: d.esImportacion === true, paisOrigen: s(d.paisOrigen), fraccionArancelaria: s(d.fraccionArancelaria),
+    pedimento: s(d.pedimento), agenteAduanal: s(d.agenteAduanal), valorAduana: s(d.valorAduana), arancelPct: s(d.arancelPct),
+    ivaPct: s(d.ivaPct) || '16', dta: s(d.dta), honorariosAgente: s(d.honorariosAgente), otros: s(d.otros),
+  };
+}
+// Desglose de impuestos de importación: arancel (IGI), IVA sobre (valor+arancel+DTA), DTA,
+// honorarios del agente y otros. Total = lo que cuesta "nacionalizar" la mercancía.
+export function desgloseAduana(imp: Importacion): { valor: number; arancel: number; iva: number; dta: number; honorarios: number; otros: number; total: number } {
+  if (!imp.esImportacion) return { valor: 0, arancel: 0, iva: 0, dta: 0, honorarios: 0, otros: 0, total: 0 };
+  const valor = numero(imp.valorAduana) ?? 0;
+  const arancel = valor * (numero(imp.arancelPct) ?? 0) / 100;
+  const dta = numero(imp.dta) ?? 0;
+  const iva = (valor + arancel + dta) * (numero(imp.ivaPct) ?? 0) / 100;
+  const honorarios = numero(imp.honorariosAgente) ?? 0;
+  const otros = numero(imp.otros) ?? 0;
+  return { valor, arancel, iva, dta, honorarios, otros, total: arancel + iva + dta + honorarios + otros };
+}
+export function costoAduana(imp: Importacion): number { return desgloseAduana(imp).total; }
+
 export interface Embarque {
   id: string;
   folio: string;
   modalidad: ModalidadEnvio; // paquetería / carga / mensajería / recolección / digital
+  importacion: Importacion;  // datos de aduana si es internacional
   ordenIds: string[];       // órdenes de compra que consolida (paquetería suele ser 1)
   transportista: string;    // courier o línea de carga
   origen: string;
@@ -667,7 +708,7 @@ export interface Embarque {
 }
 export function embarqueVacio(id: string): Embarque {
   return {
-    id, folio: '', modalidad: 'paqueteria', ordenIds: [], transportista: '', origen: '', destino: '', incoterm: '', estado: 'preparando',
+    id, folio: '', modalidad: 'paqueteria', importacion: importacionVacia(), ordenIds: [], transportista: '', origen: '', destino: '', incoterm: '', estado: 'preparando',
     fechaRecoleccion: '', fechaEstimada: '', fechaEntrega: '', tracking: '', peso: '', bultos: '', flete: '', seguro: '', aduana: '', maniobras: '', otros: '', notas: '',
   };
 }
@@ -676,7 +717,7 @@ export function normalizarEmbarque(v: unknown): Embarque {
   const estado = (ESTADOS_EMBARQUE.some((e) => e.id === d.estado) ? d.estado : 'preparando') as EstadoEmbarque;
   const modalidad = (MODALIDADES_ENVIO.some((m) => m.id === d.modalidad) ? d.modalidad : 'paqueteria') as ModalidadEnvio;
   return {
-    id: s(d.id) || `EMB-${Math.random().toString(36).slice(2, 8)}`, folio: s(d.folio), modalidad, ordenIds: sa(d.ordenIds),
+    id: s(d.id) || `EMB-${Math.random().toString(36).slice(2, 8)}`, folio: s(d.folio), modalidad, importacion: normalizarImportacion(d.importacion), ordenIds: sa(d.ordenIds),
     transportista: s(d.transportista), origen: s(d.origen), destino: s(d.destino), incoterm: s(d.incoterm), estado,
     fechaRecoleccion: s(d.fechaRecoleccion), fechaEstimada: s(d.fechaEstimada), fechaEntrega: s(d.fechaEntrega), tracking: s(d.tracking),
     peso: s(d.peso), bultos: s(d.bultos),
