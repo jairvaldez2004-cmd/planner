@@ -214,12 +214,12 @@ En el **Mapa Operativo** (panel ⚠️ Contingencias + sección dentro de cada p
 Los 18 **ya son llenables** por 3 vías (campos a mano · chat especialista IA · CSV), y varios se autollenan por proyección. Para llenarlos **completos y sin recapturar** falta:
 
 1. **✅ (HECHO) Colisión `productos`** — el maestro de compra chocaba con el "Catálogo de oferta" del plano Comercial. Renombrado a `productos_compra` y limpiada la tabla vieja.
-2. **📝 Editor de tablas dentro de la app** (hoy las tablas se llenan solo por CSV). Es el de mayor impacto: destraba MKT, FIN(ingresos), CTR, IMP, ESC, INV, JUR, COM.
-3. **🔗 Proyecciones que faltan:** FIN←ingresos (del catálogo comercial) · CTR←kpis (del Mapa) · JUR←legales (de Contratos + datos fiscales) · ESC←unidades (de las UCs) · INV←rondas (derivado de META/FIN/COM).
-4. **🤖 `ANTHROPIC_API_KEY`** para el chat especialista de cada plano.
+2. **✅ (HECHO) Editor de tablas inline** — en la Vista de Plano se agregan/editan/borran **filas manuales** sin CSV; las **derivadas** de superficies se ven read-only y siguen autollenándose. Destraba llenar MKT, FIN(ingresos), CTR, IMP, ESC, INV, JUR, COM. (CSV sigue disponible.)
+3. **✅ (HECHO parcial) Proyecciones nuevas:** FIN←ingresos (ofertas/UCs) · CTR←kpis (tiempo por proceso del Mapa) · JUR←legales (contratos del abastecimiento) · ESC←unidades (UCs). **Falta:** INV←rondas (derivado de META/FIN/COM) y enlazar datos fiscales de Personas a JUR.
+4. **🤖 `ANTHROPIC_API_KEY`** para el chat especialista de cada plano (llenado asistido).
 5. **Nodo Marketing** que escriba filas directas (hoy manda a CSV); mini-CRM para COM(clientes/canales); pre-llenado por el Curador de los narrativos (META/EST/CUL) desde el diagnóstico.
 
-**Orden recomendado:** (1 hecho) → editor de tablas inline → proyecciones faltantes → mejoras.
+**Estado:** 1–2 completos y 3 casi completo → los 18 planos ya son llenables (auto + inline + CSV + chat). Restan mejoras (4–5) e INV←rondas.
 
 ---
 
