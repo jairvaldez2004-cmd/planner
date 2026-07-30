@@ -17,6 +17,7 @@ import { procesosDeNivel, contarSubprocesos, subprocesosDe } from '@/domain/mapa
 import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, superficiesDePlano, puestosDeEmpleados } from '@/domain/proyeccion';
 import type { EspacioSrc, ProcesoSrc } from '@/domain/proyeccion';
 import { PAQUETES } from '@/domain/entregables';
+import { simularEmpresa } from '@/domain/simulacion-empresa';
 import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
 import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
@@ -667,6 +668,34 @@ check('Todos los planos de los paquetes existen en PLANOS_MAESTROS', PAQUETES.ev
 check('Ningún paquete está vacío', PAQUETES.every((p) => p.planos.length > 0));
 check('Hay paquetes por audiencia (inversionistas, arquitectos, operaciones, RH, marketing)', ['inversionistas', 'arquitectos', 'operaciones', 'rh', 'marketing'].every((id) => PAQUETES.some((p) => p.id === id)));
 check('El paquete de arquitectos entrega ARQ', PAQUETES.find((p) => p.id === 'arquitectos')!.planos.includes('ARQ'));
+
+// ============================================================
+// 29) SIMULACIÓN EMPRESARIAL: valida la lógica del negocio
+// ============================================================
+h('29) Simulación empresarial: capacidad, consumo, hallazgos y veredicto');
+const mkProc = (o: Partial<ProcesoNodo>): ProcesoNodo => ({ id: 'p', departamentoId: 'd', nombre: 'Proc', fase: 'durante', etapaDesde: 'arrancar', orden: 1, roles: [], herramientas: [], insumos: [], espacios: [], ramas: [], ...o });
+const procsSim: ProcesoNodo[] = [
+  mkProc({ id: 'a', nombre: 'Asepsia', roles: ['Perforador'], tiempoMin: 5, espacios: [{ nombre: 'Cabina de perforación' }], insumos: ['Guantes'], cantidades: { 'Guantes': '1' } }),
+  mkProc({ id: 'b', nombre: 'Perforar', roles: ['Perforador'], tiempoMin: 15, espacios: [{ nombre: 'Cabina de perforación' }], insumos: ['Aguja'], cantidades: { 'Aguja': '1' } }),
+  mkProc({ id: 'c', nombre: 'Cobro', roles: [], tiempoMin: 5, espacios: [{ nombre: 'Recepción' }] }), // sin rol → hallazgo
+];
+const prodSim = [
+  { ...productoVacio('pg'), nombre: 'Guantes', unidad: 'caja', stockActual: '2', puntoReorden: '5' }, // bajo → alerta
+];
+const repSim = simularEmpresa({
+  procesos: procsSim, productos: prodSim as never, empleados: [{ ...empleadoVacio('e1'), nombre: 'Suzet', puesto: 'Directora', estado: 'activo', externo: false, nomina: 'PENDIENTE' }],
+  ofertas: [{ nombre: 'Perforación', precio: 'PENDIENTE' }], costos: [{ concepto: 'Renta', monto: 'PENDIENTE' }],
+  proveedores: [{ ...proveedorVacio('pv'), nombre: 'Titanio', proveedorUnico: true, planB: '' }], contingencias: 0,
+}, { serviciosPorDia: 10, diasPorMes: 26, horasOperativas: 8, tiempoPorServicioMin: 25 });
+check('Tiempo por servicio = el supuesto (25 min)', repSim.capacidad.tiempoPorServicioMin === 25);
+check('Carga total del mapa = suma de procesos (25 min)', repSim.capacidad.tiempoTotalMapaMin === 25);
+check('Detecta 1 cabina y calcula capacidad (8h×60/25 ≈ 19/día)', repSim.capacidad.cabinas === 1 && repSim.capacidad.serviciosPorDiaMax === 19);
+check('Producción/mes = 10×26 = 260 servicios', repSim.produccion.serviciosPorMes === 260);
+check('Consumo: Guantes en alerta (stock 2 ≤ reorden 5)', repSim.consumo.find((c) => c.insumo === 'Guantes')?.alerta === true);
+check('Hallazgo: proceso sin responsable (Cobro)', repSim.hallazgos.some((h) => h.includes('sin responsable')));
+check('Hallazgo: insumo sin precio / nómina PENDIENTE / proveedor único', repSim.ingresos.total === null && repSim.nomina.personasSinCifra === 1 && repSim.riesgos.proveedoresUnicosSinPlanB === 1);
+check('Veredicto = con-observaciones (hay hallazgos, no bloqueo)', repSim.veredicto === 'con-observaciones');
+check('Sin procesos → bloqueado', simularEmpresa({ procesos: [], productos: [], empleados: [], ofertas: [], costos: [], proveedores: [], contingencias: 1 }).veredicto === 'bloqueado');
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

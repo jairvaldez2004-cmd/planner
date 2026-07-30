@@ -26,7 +26,9 @@ import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { DocumentoPlano } from '@/domain/plano-doc';
 import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, costosDeProductos, costosDeEmbarques, componentesDeEquipo, componentesDeAutomatizacion, agentesDeProcesos, proveedoresATabla, ingresosDeOfertas, kpisDeProcesos, legalesDeContratos, legalesDeEmpleados, unidadesDeUCs, rondasDeRuta } from '@/domain/proyeccion';
 import { listarSedes, listarEspacios } from '@/app/actions/espacios.actions';
-import { listarProcesos } from '@/app/actions/mapa.actions';
+import { listarProcesos, listarContingencias } from '@/app/actions/mapa.actions';
+import { simularEmpresa, SUPUESTOS_DEFAULT } from '@/domain/simulacion-empresa';
+import type { SupuestosSim, ReporteSimulacion } from '@/domain/simulacion-empresa';
 import { listarEmpleados } from '@/app/actions/rh.actions';
 import { listarRecursos, listarProveedores, listarProductos, listarVinculos, listarEmbarques, listarContratos } from '@/app/actions/recursos.actions';
 
@@ -326,6 +328,22 @@ export async function generarPaqueteEntregables(proyectoId: string, paqueteId: s
     planos.length ? `\n| Plano | Pendientes | Requeridos |\n|---|---|---|\n${planos.map((p) => `| ${p.nombre} | ${p.pendientes} | ${p.total} |`).join('\n')}` : '',
   ].join('\n\n');
   return { paqueteId, titulo: pq.nombre, markup: portada + partes.join(''), pendientes, totalRequerido, planos };
+}
+
+// --- SIMULACIÓN EMPRESARIAL: valida la lógica del negocio antes de publicar ---
+export type { ReporteSimulacion } from '@/domain/simulacion-empresa';
+export async function simularEmpresaProyecto(proyectoId: string, supuestos?: Partial<SupuestosSim>): Promise<ReporteSimulacion> {
+  const [procesos, productos, proveedores, empleados, contingencias, ingresosT, costosT] = await Promise.all([
+    listarProcesos(proyectoId), listarProductos(proyectoId), listarProveedores(proyectoId), listarEmpleados(proyectoId),
+    listarContingencias(proyectoId),
+    prisma.tablaProyecto.findUnique({ where: { proyectoId_tablaRef: { proyectoId, tablaRef: 'ingresos' } } }),
+    prisma.tablaProyecto.findUnique({ where: { proyectoId_tablaRef: { proyectoId, tablaRef: 'costos' } } }),
+  ]);
+  const filasDe = (t: { filas: unknown } | null) => (t && Array.isArray(t.filas) ? t.filas as Record<string, string>[] : []);
+  const ofertas = filasDe(ingresosT).map((f) => ({ nombre: f.fuente ?? '', precio: f.precio ?? '' }));
+  const costos = filasDe(costosT).map((f) => ({ concepto: f.concepto ?? '', monto: f.monto ?? '' }));
+  const sup: SupuestosSim = { ...SUPUESTOS_DEFAULT, ...(supuestos ?? {}) };
+  return simularEmpresa({ procesos, productos, empleados, ofertas, costos, proveedores, contingencias: contingencias.length }, sup);
 }
 
 // --- edición manual de un campo ---

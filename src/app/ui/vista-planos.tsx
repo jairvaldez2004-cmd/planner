@@ -5,8 +5,8 @@
 
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { obtenerGrafoPlanos, generarPaqueteEntregables } from '@/app/actions/especialista.actions';
-import type { GrafoPlanos, NodoPlano, DocumentoPaquete } from '@/app/actions/especialista.actions';
+import { obtenerGrafoPlanos, generarPaqueteEntregables, simularEmpresaProyecto } from '@/app/actions/especialista.actions';
+import type { GrafoPlanos, NodoPlano, DocumentoPaquete, ReporteSimulacion } from '@/app/actions/especialista.actions';
 import { PAQUETES } from '@/domain/entregables';
 import { COLOR_ESTADO, LABEL_ESTADO } from '@/app/readiness/readiness-engine';
 import type { EstadoPlano } from '@/app/readiness/readiness-engine';
@@ -24,12 +24,14 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
   const [hover, setHover] = useState<string | null>(null);
   const [planoAbierto, setPlanoAbierto] = useState<string | null>(null);
   const [verEntregables, setVerEntregables] = useState(false);
+  const [verSimulacion, setVerSimulacion] = useState(false);
 
   const cargar = () => { setLoading(true); obtenerGrafoPlanos(proyectoId).then(setGrafo).catch(() => {}).finally(() => setLoading(false)); };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
 
   if (planoAbierto) return <VistaPlano proyectoId={proyectoId} planoId={planoAbierto} onVolver={() => { setPlanoAbierto(null); cargar(); }} />;
   if (verEntregables) return <PanelEntregables proyectoId={proyectoId} onVolver={() => setVerEntregables(false)} />;
+  if (verSimulacion) return <PanelSimulacion proyectoId={proyectoId} onVolver={() => setVerSimulacion(false)} />;
 
   const nodos = grafo?.nodos ?? [];
   const seleccionados = nodos.filter((n) => n.seleccionado);
@@ -52,6 +54,7 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h2 style={{ margin: 0 }}>Administración · Planos <span style={{ fontSize: 13, color: '#888' }}>· Coordinador + grafo</span></h2>
         <div style={{ display: 'flex', gap: '0.4rem' }}>
+          <button style={{ ...btn, borderColor: '#2b7a93', color: '#1f5c70', fontWeight: 'bold' }} onClick={() => setVerSimulacion(true)}>🏢 Simular empresa</button>
           <button style={{ ...btn, borderColor: '#8a4fbf', color: '#6a3aa0', fontWeight: 'bold' }} onClick={() => setVerEntregables(true)}>📦 Generar entregables</button>
           <button style={btn} onClick={onVolver}>← Proyecto</button>
         </div>
@@ -128,6 +131,120 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
             <p style={{ fontSize: 12, color: '#888', padding: '0 0.75rem 0.5rem' }}>Nodos = 13 planos (atenuados = no seleccionados). Color = estado. Clic para entrar.</p>
           </div>
         </div>
+      )}
+    </section>
+  );
+}
+
+// ===== SIMULACIÓN EMPRESARIAL: valida la lógica del negocio antes de publicar =====
+const VEREDICTO_INFO: Record<string, { label: string; color: string; emoji: string }> = {
+  'coherente': { label: 'Diseño coherente', color: '#2e9e63', emoji: '🟢' },
+  'con-observaciones': { label: 'Con observaciones', color: '#d9781f', emoji: '🟡' },
+  'bloqueado': { label: 'Bloqueado', color: '#c0392b', emoji: '🔴' },
+};
+function PanelSimulacion({ proyectoId, onVolver }: { proyectoId: string; onVolver: () => void }) {
+  const [rep, setRep] = useState<ReporteSimulacion | null>(null);
+  const [load, setLoad] = useState(false);
+  const [serviciosDia, setServiciosDia] = useState('');
+  const [tServicio, setTServicio] = useState('40');
+  const [horas, setHoras] = useState('8');
+  const [dias, setDias] = useState('26');
+
+  async function correr() {
+    setLoad(true);
+    try {
+      const r = await simularEmpresaProyecto(proyectoId, {
+        serviciosPorDia: Number(serviciosDia) || 0, tiempoPorServicioMin: Number(tServicio) || 0, horasOperativas: Number(horas) || 8, diasPorMes: Number(dias) || 26,
+      });
+      setRep(r);
+    } catch { setRep(null); } finally { setLoad(false); }
+  }
+  useEffect(() => { void correr(); /* eslint-disable-next-line */ }, []);
+
+  const stat: CSSProperties = { border: '1px solid #bcd8e6', borderRadius: 9, padding: '0.5rem 0.7rem', background: '#fff', textAlign: 'center' };
+  const v = rep ? VEREDICTO_INFO[rep.veredicto]! : null;
+
+  return (
+    <section>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <h2 style={{ margin: 0 }}>🏢 Simulación empresarial <span style={{ fontSize: 13, color: '#888' }}>· valida la lógica antes de publicar</span></h2>
+        <button style={btn} onClick={onVolver}>← Planos</button>
+      </div>
+      <p style={{ fontSize: 12, color: '#777', margin: '0.3rem 0 0.6rem' }}>
+        Una “corrida” del negocio en papel: capacidad, producción, consumo de insumos, nómina, costos, ingresos y riesgos. Marca lo que falta como PENDIENTE y lista los <strong>hallazgos</strong> a resolver antes de generar el software operativo.
+      </p>
+
+      {/* Supuestos */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '0.7rem', background: '#f7fbfd', border: '1px solid #cfe3ea', borderRadius: 9, padding: '0.5rem 0.7rem' }}>
+        <label style={{ fontSize: 11.5, color: '#555' }}>Min/servicio<br /><input style={{ width: 80, padding: '0.25rem', borderRadius: 5, border: '1px solid #ccc' }} value={tServicio} onChange={(e) => setTServicio(e.target.value)} /></label>
+        <label style={{ fontSize: 11.5, color: '#555' }}>Servicios/día<br /><input style={{ width: 90, padding: '0.25rem', borderRadius: 5, border: '1px solid #ccc' }} placeholder="máx" value={serviciosDia} onChange={(e) => setServiciosDia(e.target.value)} /></label>
+        <label style={{ fontSize: 11.5, color: '#555' }}>Horas/día<br /><input style={{ width: 70, padding: '0.25rem', borderRadius: 5, border: '1px solid #ccc' }} value={horas} onChange={(e) => setHoras(e.target.value)} /></label>
+        <label style={{ fontSize: 11.5, color: '#555' }}>Días/mes<br /><input style={{ width: 70, padding: '0.25rem', borderRadius: 5, border: '1px solid #ccc' }} value={dias} onChange={(e) => setDias(e.target.value)} /></label>
+        <button style={{ ...btn, background: '#2b7a93', color: '#fff', borderColor: '#2b7a93' }} disabled={load} onClick={() => void correr()}>{load ? 'Simulando…' : '▶ Correr simulación'}</button>
+      </div>
+
+      {rep && v && (
+        <>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: v.color, color: '#fff', borderRadius: 8, padding: '0.3rem 0.8rem', fontWeight: 'bold', marginBottom: '0.7rem' }}>
+            {v.emoji} Veredicto: {v.label}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.5rem', marginBottom: '0.8rem' }}>
+            <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#2b7a93' }}>{rep.capacidad.serviciosPorDiaMax}</div><div style={{ fontSize: 11, color: '#888' }}>servicios/día (capacidad)</div></div>
+            <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#2b7a93' }}>{rep.produccion.serviciosPorMes}</div><div style={{ fontSize: 11, color: '#888' }}>servicios/mes (simulado)</div></div>
+            <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#6b5320' }}>{rep.capacidad.tiempoPorServicioMin} min</div><div style={{ fontSize: 11, color: '#888' }}>por servicio · {rep.capacidad.cabinas} cabina(s)</div></div>
+            <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#8a93a8' }}>{rep.capacidad.tiempoTotalMapaMin} min</div><div style={{ fontSize: 11, color: '#888' }}>carga total del mapa</div></div>
+            <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#8a4fbf' }}>{rep.nomina.personasInternas}</div><div style={{ fontSize: 11, color: '#888' }}>personas internas</div></div>
+            <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: rep.consumo.some((c) => c.alerta) ? '#c0392b' : '#2e9e63' }}>{rep.consumo.filter((c) => c.alerta).length}</div><div style={{ fontSize: 11, color: '#888' }}>insumos en alerta</div></div>
+            <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: rep.riesgos.proveedoresUnicosSinPlanB ? '#c0392b' : '#2e9e63' }}>{rep.riesgos.proveedoresUnicosSinPlanB}</div><div style={{ fontSize: 11, color: '#888' }}>proveedor único sin plan B</div></div>
+          </div>
+
+          {/* Consumo de insumos */}
+          {rep.consumo.length > 0 && (
+            <div style={{ border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.6rem', marginBottom: '0.7rem', background: '#fff' }}>
+              <strong style={{ fontSize: 13, color: '#6b5320' }}>🧴 Consumo de insumos a {rep.produccion.serviciosPorDia} servicios/día</strong>
+              <div style={{ overflowX: 'auto', marginTop: 4 }}>
+                <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%' }}>
+                  <thead><tr>{['Insumo', 'Por servicio', 'Por mes', 'Stock', 'Cobertura', ''].map((h) => <th key={h} style={{ border: '1px solid #eee', padding: '2px 6px', background: '#f0ead9', textAlign: 'left' }}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {rep.consumo.map((c, i) => (
+                      <tr key={i} style={{ background: c.alerta ? '#fdecea' : 'transparent' }}>
+                        <td style={{ border: '1px solid #eee', padding: '2px 6px' }}>{c.insumo}{!c.enCatalogo && <span style={{ color: '#c60' }}> ⚠ sin catálogo</span>}</td>
+                        <td style={{ border: '1px solid #eee', padding: '2px 6px' }}>{c.porServicio} {c.unidad}</td>
+                        <td style={{ border: '1px solid #eee', padding: '2px 6px' }}>{c.porMes} {c.unidad}</td>
+                        <td style={{ border: '1px solid #eee', padding: '2px 6px' }}>{c.stockActual ?? '—'}</td>
+                        <td style={{ border: '1px solid #eee', padding: '2px 6px', color: c.alerta ? '#c0392b' : '#555' }}>{c.diasCobertura !== null ? `${c.diasCobertura} d` : '—'}</td>
+                        <td style={{ border: '1px solid #eee', padding: '2px 6px' }}>{c.alerta ? '🔴' : '🟢'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Finanzas */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '0.5rem', marginBottom: '0.7rem' }}>
+            <div style={{ border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.5rem 0.7rem', background: '#fff' }}>
+              <strong style={{ fontSize: 12.5, color: '#6b5320' }}>💵 Ingresos (fuentes: {rep.ingresos.fuentes})</strong>
+              <div style={{ fontSize: 12, color: rep.ingresos.total !== null ? '#2e9e63' : '#c60', marginTop: 3 }}>{rep.ingresos.total !== null ? `$${rep.ingresos.total}` : `PENDIENTE (${rep.ingresos.sinPrecio} sin precio)`}</div>
+            </div>
+            <div style={{ border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.5rem 0.7rem', background: '#fff' }}>
+              <strong style={{ fontSize: 12.5, color: '#6b5320' }}>💸 Costos/mes (líneas: {rep.costosMes.lineas})</strong>
+              <div style={{ fontSize: 12, color: rep.costosMes.total !== null ? '#c0392b' : '#c60', marginTop: 3 }}>{rep.costosMes.total !== null ? `$${rep.costosMes.total}` : `PENDIENTE (${rep.costosMes.pendientes} sin monto)`}</div>
+            </div>
+            <div style={{ border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.5rem 0.7rem', background: '#fff' }}>
+              <strong style={{ fontSize: 12.5, color: '#6b5320' }}>👥 Nómina</strong>
+              <div style={{ fontSize: 12, color: '#555', marginTop: 3 }}>{rep.nomina.personasInternas} personas · {rep.nomina.personasSinCifra ? `${rep.nomina.personasSinCifra} sin cifra` : `$${rep.nomina.mensualConocido}/mes`}</div>
+            </div>
+          </div>
+
+          {/* Hallazgos */}
+          <div style={{ border: `1px solid ${rep.hallazgos.length ? '#f0c9c2' : '#bfe6cf'}`, borderRadius: 9, padding: '0.6rem 0.8rem', background: rep.hallazgos.length ? '#fdf3f1' : '#eefaf2' }}>
+            <strong style={{ fontSize: 13, color: rep.hallazgos.length ? '#c0392b' : '#2f6b4d' }}>{rep.hallazgos.length ? `⚠ ${rep.hallazgos.length} hallazgo(s) a resolver antes de publicar` : '✅ Sin incoherencias detectadas'}</strong>
+            {rep.hallazgos.length > 0 && <ul style={{ margin: '0.3rem 0 0', paddingLeft: '1.1rem', fontSize: 12.5, color: '#7a3a30' }}>{rep.hallazgos.map((h, i) => <li key={i} style={{ marginBottom: 2 }}>{h}</li>)}</ul>}
+          </div>
+        </>
       )}
     </section>
   );
