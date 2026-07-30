@@ -70,18 +70,18 @@ export async function eliminarProveedor(proyectoId: string, id: string): Promise
 }
 
 // --- Productos (maestro) ---
-export async function listarProductos(proyectoId: string): Promise<Producto[]> { return listar(proyectoId, 'productos', normalizarProducto); }
+export async function listarProductos(proyectoId: string): Promise<Producto[]> { return listar(proyectoId, 'productos_compra', normalizarProducto); }
 export async function guardarProducto(proyectoId: string, p: Producto): Promise<Producto> {
   const lista = await listarProductos(proyectoId);
   const id = p.id?.trim() || nid('PROD');
   const norm = normalizarProducto({ ...p, id });
   const i = lista.findIndex((x) => x.id === id);
   if (i >= 0) lista[i] = norm; else lista.push(norm);
-  await guardarLista(proyectoId, 'productos', lista);
+  await guardarLista(proyectoId, 'productos_compra', lista);
   return norm;
 }
 export async function eliminarProducto(proyectoId: string, id: string): Promise<void> {
-  await guardarLista(proyectoId, 'productos', (await listarProductos(proyectoId)).filter((x) => x.id !== id));
+  await guardarLista(proyectoId, 'productos_compra', (await listarProductos(proyectoId)).filter((x) => x.id !== id));
   await guardarLista(proyectoId, 'producto_proveedor', (await listarVinculos(proyectoId)).filter((v) => v.productoId !== id));
 }
 

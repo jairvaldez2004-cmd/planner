@@ -399,7 +399,9 @@ async function main() {
   const up = async (ref: string, filas: unknown[]) => {
     await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: ref } }, create: { proyectoId: PID, tablaRef: ref, filas: J(filas), actualizadoEn: now() }, update: { filas: J(filas), actualizadoEn: now() } });
   };
-  await up('productos', PRODUCTOS);
+  await up('productos_compra', PRODUCTOS);
+  // Limpia la tabla vieja 'productos' (colisionaba con el catálogo de venta del plano Comercial).
+  await prisma.tablaProyecto.deleteMany({ where: { proyectoId: PID, tablaRef: 'productos' } });
   await up('producto_proveedor', VINCULOS);
   await up('ordenes_compra', ORDENES);
   await up('contratos', CONTRATOS);
