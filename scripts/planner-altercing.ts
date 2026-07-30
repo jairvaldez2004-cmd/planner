@@ -22,7 +22,8 @@ import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInter
 import { costosDeRecursos, componentesDeEquipo, proveedoresATabla, agentesDeProcesos, componentesDeAutomatizacion } from '@/domain/proyeccion';
 import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra, siguienteEtapaCompra, totalOrden, ordenVacia, solicitudDesdeProducto, contratoVacio, estadoContrato, scoreProveedor, incidenciaVacia, redactarSolicitudCotizacion, normalizarInteraccion, interaccionesDeProveedor, ultimoContacto, requiereSeguimiento, seguimientosPendientes } from '@/domain/recursos';
 import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from '@/domain/recursos';
-import { indiceRecursos, costearProceso } from '@/domain/costeo';
+import { indiceRecursos, costearProceso, indiceCosto } from '@/domain/costeo';
+import { costosDeProductos } from '@/domain/proyeccion';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
 import { normalizarPrimitivas, leerModelo3D, alturaModelo } from '@/domain/modelo-parametrico';
@@ -491,6 +492,25 @@ check('requiereSeguimiento true si la fecha ya pasó (hoy 2026-07-29)', requiere
 check('requiereSeguimiento false si es futura', !requiereSeguimiento(pFuturo, HOY));
 check('requiereSeguimiento false sin fecha', !requiereSeguimiento(pSin, HOY));
 check('seguimientosPendientes solo devuelve los vencidos', (() => { const l = seguimientosPendientes([pSeg, pFuturo, pSin], HOY); return l.length === 1 && l[0]!.nombre === 'A'; })());
+
+// ============================================================
+// 20) UNIFICACIÓN: Productos como fuente de precio para costeo y Financiero
+// ============================================================
+h('20) Catálogo unificado: el precio del vínculo del producto manda en el costeo');
+const prodG = { ...productoVacio('prod-g'), nombre: 'Guantes de nitrilo', unidad: 'caja', consumoMensual: '12' };
+// Dos proveedores: el más barato (165) fija el precio vigente para costeo/FIN.
+const vG1 = { ...vinculoVacio('vg1', 'prod-g', 'prv-a'), precio: '180', moneda: 'MXN' };
+const vG2 = { ...vinculoVacio('vg2', 'prod-g', 'prv-b'), precio: '165', moneda: 'MXN' };
+const recActivo = { ...recursoVacio('rec-auto'), nombre: 'Autoclave', costo: '25000', unidad: 'pza' };
+const idxU = indiceCosto([recActivo], [prodG], [vG1, vG2]);
+check('indiceCosto toma el precio vigente más barato del producto (165)', idxU.get('guantes de nitrilo')?.costo === '165');
+check('indiceCosto conserva los activos de Recursos (autoclave)', idxU.get('autoclave')?.costo === '25000');
+const cU = costearProceso(['Guantes de nitrilo'], { 'Guantes de nitrilo': '2' }, idxU);
+check('costearProceso usa el precio de Productos (2×165 = 330)', cU.total === 330);
+// Financiero: el producto proyecta costo recurrente = precio vigente × consumo mensual.
+const finRows = costosDeProductos([prodG], [vG1, vG2]);
+check('costosDeProductos = 165 × 12 = 1980 al mes', finRows[0]?.monto === '$1,980.00');
+check('El ítem NO se duplica: guantes solo como producto (no en Recursos)', !idxU.has('guantes de nitrilo') === false && idxU.get('guantes de nitrilo')?.costo === '165');
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

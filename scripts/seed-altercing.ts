@@ -317,27 +317,22 @@ async function main() {
     { id: 'prv-nails', nombre: 'Beauty Nails MX', tipo: 'insumos', categorias: ['insumos'], contacto: '', email: 'hola@beautynails.mx', rfc: '', estadoRelacion: 'prospecto', notas: 'Geles, limas y lámparas UV.' },
     { id: 'prv-clima', nombre: 'ClimaMX', tipo: 'equipo', categorias: ['equipo', 'mantenimiento'], contacto: 'Soporte', email: 'soporte@climamx.mx', telefono: '442-555-6677', rfc: '', estadoRelacion: 'inactivo', proximoSeguimiento: d(-1), responsable: 'Suzet', notas: 'Minisplits y mantenimiento.' },
   ];
+  // RECURSOS = ACTIVOS / EQUIPO / MUEBLES / OBRA (compra única/setup). Los INSUMOS recurrentes
+  // (guantes, agujas, gasas, joyería, tinta…) viven en PRODUCTOS (inventario + proveedores +
+  // precio), para NO duplicar el ítem ni el precio. El costeo del Mapa toma el precio de Productos.
   const RECURSOS = [
-    { id: 'rec-aguja', nombre: 'Aguja estéril 16G', categoria: 'insumo', grupo: 'Cabina de perforación', proveedor: 'Insumos Médicos MX', unidad: 'pza', costo: '8', cantidad: '200', impuesto: '16% IVA', logistica: 'Pedido semanal', notas: 'Un solo uso.' },
-    { id: 'rec-joya', nombre: 'Joyería de titanio', categoria: 'insumo', grupo: 'Joyería', proveedor: 'Titanio Body MX', unidad: 'pza', costo: '120', cantidad: '50', impuesto: '16% IVA', logistica: 'Pedido mensual', notas: 'Varios calibres.' },
-    { id: 'rec-gasas', nombre: 'Gasas estériles', categoria: 'insumo', grupo: 'Cabina de perforación', proveedor: 'Insumos Médicos MX', unidad: 'pza', costo: '2', cantidad: '500', impuesto: '16% IVA', logistica: '', notas: '' },
-    { id: 'rec-guantes', nombre: 'Guantes de nitrilo', categoria: 'insumo', grupo: 'Cabina de perforación', proveedor: 'Insumos Médicos MX', unidad: 'caja', costo: '180', cantidad: '10', impuesto: '16% IVA', logistica: '', notas: '' },
     { id: 'rec-autoclave', nombre: 'Autoclave', categoria: 'equipo', grupo: 'Esterilización', proveedor: 'EquipMed', unidad: 'pza', costo: '25000', cantidad: '1', impuesto: '16% IVA', logistica: 'Compra única', notas: 'Ciclo 134°C/18min.' },
     { id: 'rec-lampara', nombre: 'Lámpara de examen', categoria: 'equipo', grupo: 'Cabina de perforación', proveedor: 'EquipMed', unidad: 'pza', costo: '3500', cantidad: '2', impuesto: '16% IVA', logistica: '', notas: '' },
     { id: 'rec-camilla', nombre: 'Camilla / sillón', categoria: 'mueble', grupo: 'Cabina de perforación', proveedor: 'Estudio de interiores', unidad: 'pza', costo: '8000', cantidad: '2', impuesto: '16% IVA', logistica: '', notas: '' },
     { id: 'rec-mostrador', nombre: 'Mostrador de recepción', categoria: 'mueble', grupo: 'Recepción', proveedor: 'Estudio de interiores', unidad: 'pza', costo: '6000', cantidad: '1', impuesto: '16% IVA', logistica: '', notas: '' },
     { id: 'rec-porcelanato', nombre: 'Porcelanato (piso)', categoria: 'material', grupo: 'Obra planta baja', proveedor: 'Constructora externa', unidad: 'm²', costo: '350', cantidad: '32', impuesto: '16% IVA', logistica: 'Obra inicial', notas: 'Lavable, no poroso.' },
-    { id: 'rec-tinta', nombre: 'Tinta de tatuaje', categoria: 'insumo', grupo: 'Tatuajes', proveedor: 'Tattoo Supply MX', unidad: 'bote', costo: '250', cantidad: '20', impuesto: '16% IVA', logistica: 'Pedido mensual', notas: '' },
-    { id: 'rec-agtatuaje', nombre: 'Agujas de tatuaje', categoria: 'insumo', grupo: 'Tatuajes', proveedor: 'Tattoo Supply MX', unidad: 'pza', costo: '15', cantidad: '50', impuesto: '16% IVA', logistica: '', notas: 'Un solo uso.' },
-    { id: 'rec-film', nombre: 'Film protector', categoria: 'insumo', grupo: 'Tatuajes', proveedor: 'Tattoo Supply MX', unidad: 'rollo', costo: '40', cantidad: '5', impuesto: '16% IVA', logistica: '', notas: '' },
     { id: 'rec-maqtat', nombre: 'Máquina de tatuaje', categoria: 'equipo', grupo: 'Tatuajes', proveedor: 'Tattoo Supply MX', unidad: 'pza', costo: '4500', cantidad: '2', impuesto: '16% IVA', logistica: '', notas: '' },
-    { id: 'rec-gel', nombre: 'Gel para uñas', categoria: 'insumo', grupo: 'Uñas', proveedor: 'Beauty Nails MX', unidad: 'pza', costo: '90', cantidad: '15', impuesto: '16% IVA', logistica: '', notas: '' },
     { id: 'rec-lampuv', nombre: 'Lámpara UV de uñas', categoria: 'equipo', grupo: 'Uñas', proveedor: 'Beauty Nails MX', unidad: 'pza', costo: '800', cantidad: '2', impuesto: '16% IVA', logistica: '', notas: '' },
     { id: 'rec-limas', nombre: 'Limas y pulidores', categoria: 'herramienta', grupo: 'Uñas', proveedor: 'Beauty Nails MX', unidad: 'set', costo: '25', cantidad: '30', impuesto: '16% IVA', logistica: '', notas: '' },
     { id: 'rec-minisplit', nombre: 'Minisplit', categoria: 'equipo', grupo: 'Clima', proveedor: 'ClimaMX', unidad: 'pza', costo: '9000', cantidad: '2', impuesto: '16% IVA', logistica: 'Instalación incluida', notas: '' },
     { id: 'rec-dispensador', nombre: 'Dispensador de agua', categoria: 'mueble', grupo: 'Recepción', proveedor: 'Estudio de interiores', unidad: 'pza', costo: '1200', cantidad: '1', impuesto: '16% IVA', logistica: '', notas: '' },
   ];
-  // Lo que YA se tiene (muebles/equipo instalados) vs lo que hay que adquirir (insumos).
+  // Lo que YA se tiene (muebles/equipo instalados) vs lo que hay que adquirir.
   const YA_EXISTE = new Set(['rec-autoclave', 'rec-lampara', 'rec-camilla', 'rec-mostrador', 'rec-porcelanato', 'rec-dispensador', 'rec-minisplit', 'rec-maqtat', 'rec-lampuv']);
   const RECURSOS_EX = RECURSOS.map((r) => ({ ...r, existe: YA_EXISTE.has(r.id) }));
   await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: 'proveedores_dir' } }, create: { proyectoId: PID, tablaRef: 'proveedores_dir', filas: J(PROVEEDORES), actualizadoEn: now() }, update: { filas: J(PROVEEDORES), actualizadoEn: now() } });
@@ -347,11 +342,11 @@ async function main() {
   // 7b) ABASTECIMIENTO avanzado: productos con inventario, vínculos m:n con historial de precios,
   //     órdenes de compra por etapa, contratos con vencimiento, incidencias y bitácora de relación.
   const PRODUCTOS = [
-    { id: 'prod-guantes', nombre: 'Guantes de nitrilo (caja 100)', skuInterno: 'GNT-100', codigoFabricante: 'AMB-NIT-M', marca: 'Ambiderm', modelo: 'Nitrilo M', categoria: 'insumos', unidad: 'caja', presentacion: 'Caja 100 pzas', empaque: 'Caja', cantidadPorCaja: '100', vidaUtil: '3 años', almacenamiento: 'Seco, fresco', stockActual: '2', stockMinimo: '3', stockMaximo: '20', puntoReorden: '5', stockSeguridad: '3', ubicacion: 'Rincón Servicios', consumoMensual: '12', frecuenciaCompra: 'mensual', leadTimeDias: '5', notas: 'Talla M.' },
+    { id: 'prod-guantes', nombre: 'Guantes de nitrilo', skuInterno: 'GNT-100', codigoFabricante: 'AMB-NIT-M', marca: 'Ambiderm', modelo: 'Nitrilo M', categoria: 'insumos', unidad: 'caja', presentacion: 'Caja 100 pzas', empaque: 'Caja', cantidadPorCaja: '100', vidaUtil: '3 años', almacenamiento: 'Seco, fresco', stockActual: '2', stockMinimo: '3', stockMaximo: '20', puntoReorden: '5', stockSeguridad: '3', ubicacion: 'Rincón Servicios', consumoMensual: '12', frecuenciaCompra: 'mensual', leadTimeDias: '5', notas: 'Talla M. Caja de 100 pzas.' },
     { id: 'prod-aguja', nombre: 'Aguja estéril 16G', skuInterno: 'AGJ-16G', marca: '', modelo: '16G', categoria: 'insumos', unidad: 'pza', presentacion: 'Sobre individual estéril', vidaUtil: '5 años', almacenamiento: 'Seco', stockActual: '40', stockMinimo: '50', stockMaximo: '400', puntoReorden: '80', stockSeguridad: '50', ubicacion: 'Cabina de perforación', consumoMensual: '200', frecuenciaCompra: 'semanal', leadTimeDias: '7', notas: 'Un solo uso.' },
-    { id: 'prod-joya', nombre: 'Joyería de titanio ASTM F-136', skuInterno: 'JOY-TI', marca: 'Titanio Body', categoria: 'insumos', unidad: 'pza', presentacion: 'Bolsa individual', stockActual: '45', stockMinimo: '20', stockMaximo: '60', puntoReorden: '30', stockSeguridad: '15', ubicacion: 'Recepción (vitrina)', consumoMensual: '20', frecuenciaCompra: 'mensual', leadTimeDias: '10', notas: 'Varios calibres.' },
+    { id: 'prod-joya', nombre: 'Joyería de titanio', skuInterno: 'JOY-TI', codigoFabricante: 'ASTM F-136', marca: 'Titanio Body', categoria: 'insumos', unidad: 'pza', presentacion: 'Bolsa individual', stockActual: '45', stockMinimo: '20', stockMaximo: '60', puntoReorden: '30', stockSeguridad: '15', ubicacion: 'Recepción (vitrina)', consumoMensual: '20', frecuenciaCompra: 'mensual', leadTimeDias: '10', notas: 'Titanio grado implante ASTM F-136, varios calibres.' },
     { id: 'prod-gasas', nombre: 'Gasas estériles', skuInterno: 'GAS-EST', categoria: 'insumos', unidad: 'pza', stockActual: '120', stockMinimo: '100', stockMaximo: '800', puntoReorden: '200', stockSeguridad: '80', ubicacion: 'Cabina de perforación', consumoMensual: '500', frecuenciaCompra: 'semanal', leadTimeDias: '4', notas: '' },
-    { id: 'prod-tinta', nombre: 'Tinta de tatuaje negra', skuInterno: 'TNT-NEG', marca: 'Eternal', categoria: 'insumos', unidad: 'bote', stockActual: '8', stockMinimo: '4', stockMaximo: '30', puntoReorden: '10', stockSeguridad: '3', ubicacion: 'Cabina 2', consumoMensual: '6', frecuenciaCompra: 'mensual', leadTimeDias: '6', notas: '' },
+    { id: 'prod-tinta', nombre: 'Tinta de tatuaje', skuInterno: 'TNT-NEG', marca: 'Eternal', categoria: 'insumos', unidad: 'bote', presentacion: 'Bote negro', stockActual: '8', stockMinimo: '4', stockMaximo: '30', puntoReorden: '10', stockSeguridad: '3', ubicacion: 'Cabina 2', consumoMensual: '6', frecuenciaCompra: 'mensual', leadTimeDias: '6', notas: '' },
   ];
   const VINCULOS = [
     // Guantes: dos proveedores → el sistema detecta el más barato; con historial de precios.
@@ -400,10 +395,12 @@ async function main() {
   for (const pr of procesosTodos) {
     const n = pr.nombre.toLowerCase();
     let auto: { con: string; herramienta: string; nota: string } | null = null;
+    // Solo procesos claramente automatizables (evita marcar de más).
     if (n.includes('catálogo') || n.includes('catalogo')) auto = { con: 'ia', herramienta: 'Agente de catálogo', nota: 'Publica y actualiza el catálogo desde una lista.' };
-    else if (n.includes('cita') || n.includes('agenda') || n.includes('recordatorio')) auto = { con: 'n8n', herramienta: 'n8n: recordatorio de cita', nota: 'Envía recordatorio por WhatsApp antes de la cita.' };
-    else if (n.includes('cobro') || n.includes('factura') || n.includes('caja')) auto = { con: 'software', herramienta: 'POS + facturación', nota: 'Cobro y CFDI desde el punto de venta.' };
+    else if (n.includes('recordatorio') || n.includes('confirmar cita') || n.includes('confirmación de cita')) auto = { con: 'n8n', herramienta: 'n8n: recordatorio de cita', nota: 'Envía recordatorio por WhatsApp antes de la cita.' };
+    else if (n.includes('facturación') || n.includes('facturacion') || n.includes('emitir factura')) auto = { con: 'software', herramienta: 'Facturación CFDI', nota: 'Emite el CFDI desde el POS.' };
     if (auto) { const dd = (pr.data as Record<string, unknown>) ?? {}; await prisma.proceso.update({ where: { id: pr.id }, data: { data: J({ ...dd, automatizacion: auto }) } }); autos++; }
+    else if ((pr.data as Record<string, unknown>)?.automatizacion) { const dd = { ...(pr.data as Record<string, unknown>) }; delete dd.automatizacion; await prisma.proceso.update({ where: { id: pr.id }, data: { data: J(dd) } }); }
   }
   console.log(`✅ RH: ${autos} procesos marcados como automatizados (alimentan IA/Tecnológico).`);
 

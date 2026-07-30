@@ -9,8 +9,8 @@
 import type { Fila } from './plano-doc';
 import type { Empleado } from './rh';
 import type { Automatizacion } from './mapa';
-import type { Recurso, Proveedor } from './recursos';
-import { subtotalRecurso, formatoMoneda, categoriaRecurso } from './recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor } from './recursos';
+import { subtotalRecurso, formatoMoneda, categoriaRecurso, numero, proveedorMasBarato, precioVigente } from './recursos';
 
 // ---------- Registro declarativo: qué planos enriquece cada superficie (para UI) ----------
 export type Superficie = 'sedes' | 'mapa' | 'uc' | 'personas' | 'recursos';
@@ -168,6 +168,24 @@ export function costosDeRecursos(recursos: Recurso[]): Fila[] {
       tipo: 'costo',
       centro: r.grupo || categoriaRecurso(r.categoria).label,
       monto: sub !== null ? formatoMoneda(sub) : (r.costo || 'PENDIENTE'),
+    };
+  });
+}
+
+// Productos (insumos recurrentes) → filas de `costos` (plano Financiero) = costo de suministro.
+// Monto = precio vigente (del proveedor más barato) × consumo mensual → costo recurrente al mes.
+// Es la contraparte de costosDeRecursos (que cubre activos/obra); juntos, sin duplicar el ítem.
+export function costosDeProductos(productos: Producto[], vinculos: ProductoProveedor[]): Fila[] {
+  return productos.filter((p) => p.nombre.trim()).map((p): Fila => {
+    const barato = proveedorMasBarato(vinculos, p.id);
+    const precio = barato ? numero(precioVigente(barato)) : null;
+    const consumo = numero(p.consumoMensual);
+    const monto = precio !== null && consumo !== null ? precio * consumo : precio;
+    return {
+      concepto: p.nombre + (consumo !== null ? ` (${consumo}${p.unidad ? ' ' + p.unidad : ''}/mes)` : ''),
+      tipo: 'costo recurrente',
+      centro: p.categoria || 'Insumos',
+      monto: monto !== null ? formatoMoneda(monto) : 'PENDIENTE',
     };
   });
 }
