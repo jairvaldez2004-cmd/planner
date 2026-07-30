@@ -20,8 +20,8 @@ import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
 import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
 import { costosDeRecursos, componentesDeEquipo, proveedoresATabla, agentesDeProcesos, componentesDeAutomatizacion } from '@/domain/proyeccion';
-import { recursoVacio, proveedorVacio, numero, subtotalRecurso } from '@/domain/recursos';
-import type { Recurso } from '@/domain/recursos';
+import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto } from '@/domain/recursos';
+import type { Recurso, ProductoProveedor } from '@/domain/recursos';
 import { indiceRecursos, costearProceso } from '@/domain/costeo';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
@@ -351,6 +351,31 @@ check('El proceso n8n se vuelve componente técnico', compsAuto.length === 1 && 
 check('El componente declara que reemplaza el trabajo manual', String(compsAuto[0]!.sustitucion).includes('Recordatorio de cita'));
 check('Los procesos manuales y los subprocesos NO proyectan software', agentes.length + compsAuto.length === 2);
 check('Mapa enriquece IA/agentes y TEC/componentes', superficiesDePlano('IA').some((s) => s.superficie === 'mapa') && superficiesDePlano('TEC').some((s) => s.superficie === 'mapa'));
+
+// ============================================================
+// 14) ABASTECIMIENTO Fase 1: proveedor rico + muchos-a-muchos + historial de precios
+// ============================================================
+h('14) Recursos & Proveedores: modelo muchos-a-muchos e historial de precios');
+// Retrocompat: un proveedor viejo (solo `tipo`) siembra su categoría.
+const provViejo = normalizarProveedor({ id: 'PRV-1', nombre: 'Aceros MX', tipo: 'materiales / construcción' });
+check('Proveedor legacy conserva su tipo y lo copia a categorias', provViejo.categorias.includes('materiales / construcción'));
+check('Proveedor rico trae los campos nuevos vacíos (no undefined)', Array.isArray(provViejo.zonas) && Array.isArray(provViejo.incoterms) && provViejo.gps === '');
+
+// Un producto con 3 proveedores; precios distintos → el más barato se detecta.
+const prodId = 'PROD-guante';
+let v1 = vinculoVacio('PP1', prodId, 'PRV-A'); v1 = { ...v1, precio: '120', moneda: 'MXN' };
+let v2 = vinculoVacio('PP2', prodId, 'PRV-B'); v2 = { ...v2, precio: '95', moneda: 'MXN' };
+const v3 = vinculoVacio('PP3', 'PROD-otro', 'PRV-C'); // de otro producto: no debe contar
+const vinculos: ProductoProveedor[] = [v1, v2, v3];
+check('vinculosDeProducto filtra por producto (2 de 3)', vinculosDeProducto(vinculos, prodId).length === 2);
+check('proveedorMasBarato = PRV-B ($95)', proveedorMasBarato(vinculos, prodId)?.proveedorId === 'PRV-B');
+
+// Historial de precios: registrar un cambio actualiza el precio vigente.
+check('Precio vigente inicial = precio del vínculo', precioVigente(v2) === '95');
+const v2b = registrarCambioPrecio(v2, { fecha: '2026-07-29', precio: '130', moneda: 'MXN', quien: 'compras', motivo: 'alza de insumo', documento: '' });
+check('Tras registrar cambio, hay 1 en historial', v2b.historial.length === 1);
+check('Precio vigente = último del historial ($130)', precioVigente(v2b) === '130');
+check('El más barato cambia a PRV-A ($120) tras el alza de PRV-B', proveedorMasBarato([v1, v2b], prodId)?.proveedorId === 'PRV-A');
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

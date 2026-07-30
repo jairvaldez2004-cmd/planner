@@ -213,7 +213,7 @@ export function componentesDeAutomatizacion(procesos: ProcesoSrc[]): Fila[] {
 // Directorio de proveedores → filas de `proveedores` (plano Comercial).
 export function proveedoresATabla(proveedores: Proveedor[]): Fila[] {
   return proveedores.filter((p) => p.nombre.trim()).map((p): Fila => ({
-    proveedor: p.nombre, tipo: p.tipo, contacto: p.contacto || p.telefono || p.email,
+    proveedor: p.nombre, tipo: p.categorias.join(', ') || p.tipo, contacto: p.contacto || p.telefono || p.email,
   }));
 }
 

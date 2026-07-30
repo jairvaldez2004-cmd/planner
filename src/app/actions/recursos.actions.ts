@@ -5,8 +5,8 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
-import { normalizarRecurso, normalizarProveedor } from '@/domain/recursos';
-import type { Recurso, Proveedor } from '@/domain/recursos';
+import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor } from '@/domain/recursos';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nowISO(): string { return new Date().toISOString(); }
@@ -53,4 +53,37 @@ export async function guardarProveedor(proyectoId: string, p: Proveedor): Promis
 }
 export async function eliminarProveedor(proyectoId: string, id: string): Promise<void> {
   await guardarLista(proyectoId, 'proveedores_dir', (await listarProveedores(proyectoId)).filter((x) => x.id !== id));
+  // Al borrar un proveedor, se quitan sus vínculos con productos (limpieza del muchos-a-muchos).
+  await guardarLista(proyectoId, 'producto_proveedor', (await listarVinculos(proyectoId)).filter((v) => v.proveedorId !== id));
+}
+
+// --- Productos (maestro) ---
+export async function listarProductos(proyectoId: string): Promise<Producto[]> { return listar(proyectoId, 'productos', normalizarProducto); }
+export async function guardarProducto(proyectoId: string, p: Producto): Promise<Producto> {
+  const lista = await listarProductos(proyectoId);
+  const id = p.id?.trim() || nid('PROD');
+  const norm = normalizarProducto({ ...p, id });
+  const i = lista.findIndex((x) => x.id === id);
+  if (i >= 0) lista[i] = norm; else lista.push(norm);
+  await guardarLista(proyectoId, 'productos', lista);
+  return norm;
+}
+export async function eliminarProducto(proyectoId: string, id: string): Promise<void> {
+  await guardarLista(proyectoId, 'productos', (await listarProductos(proyectoId)).filter((x) => x.id !== id));
+  await guardarLista(proyectoId, 'producto_proveedor', (await listarVinculos(proyectoId)).filter((v) => v.productoId !== id));
+}
+
+// --- Vínculos producto ↔ proveedor (muchos-a-muchos + info comercial + historial de precios) ---
+export async function listarVinculos(proyectoId: string): Promise<ProductoProveedor[]> { return listar(proyectoId, 'producto_proveedor', normalizarVinculo); }
+export async function guardarVinculo(proyectoId: string, v: ProductoProveedor): Promise<ProductoProveedor> {
+  const lista = await listarVinculos(proyectoId);
+  const id = v.id?.trim() || nid('PP');
+  const norm = normalizarVinculo({ ...v, id });
+  const i = lista.findIndex((x) => x.id === id);
+  if (i >= 0) lista[i] = norm; else lista.push(norm);
+  await guardarLista(proyectoId, 'producto_proveedor', lista);
+  return norm;
+}
+export async function eliminarVinculo(proyectoId: string, id: string): Promise<void> {
+  await guardarLista(proyectoId, 'producto_proveedor', (await listarVinculos(proyectoId)).filter((x) => x.id !== id));
 }
