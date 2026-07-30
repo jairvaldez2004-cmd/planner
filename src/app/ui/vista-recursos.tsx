@@ -20,6 +20,7 @@ import {
   CATEGORIAS_RECURSO, categoriaRecurso, TIPOS_PROVEEDOR, CATEGORIAS_PROVEEDOR,
   recursoVacio, proveedorVacio, productoVacio, vinculoVacio,
   subtotalRecurso, formatoMoneda, precioVigente, registrarCambioPrecio, vinculosDeProducto, proveedorMasBarato,
+  planearCompra, ACCIONES_COMPRA,
 } from '@/domain/recursos';
 import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico } from '@/domain/recursos';
 import { useEsMovil } from './use-movil';
@@ -47,6 +48,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   const [buscar, setBuscar] = useState('');
   const [loading, setLoading] = useState(true);
   const movil = useEsMovil();
+  const hoy = new Date().toISOString().slice(0, 10);
 
   const cargar = () => {
     setLoading(true);
@@ -223,6 +225,21 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
       {/* ======= PRODUCTOS ======= */}
       {tab === 'productos' && (
         <>
+          {(() => {
+            const planes = prods.map((p) => planearCompra(p, hoy));
+            const urg = planes.filter((x) => x.accion === 'comprar-urgente').length;
+            const hoyN = planes.filter((x) => x.accion === 'comprar-hoy').length;
+            const pronto = planes.filter((x) => x.accion === 'comprar-pronto').length;
+            if (!urg && !hoyN && !pronto) return null;
+            return (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', background: '#fbf3e6', border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.4rem 0.7rem', marginBottom: '0.5rem' }}>
+                <strong style={{ fontSize: 12.5, color: '#6b5320' }}>🛒 Planeación de compras:</strong>
+                {urg > 0 && <span style={{ fontSize: 12.5, color: '#c0392b' }}>🔴 {urg} urgente(s)</span>}
+                {hoyN > 0 && <span style={{ fontSize: 12.5, color: '#d9781f' }}>🟠 {hoyN} comprar hoy</span>}
+                {pronto > 0 && <span style={{ fontSize: 12.5, color: '#c9a13b' }}>🟡 {pronto} pronto</span>}
+              </div>
+            );
+          })()}
           <input style={{ ...inp, maxWidth: 340, marginBottom: '0.5rem' }} placeholder="🔎 Buscar producto (nombre, marca, SKU)…" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
           <div style={{ display: 'grid', gridTemplateColumns: movil || !prodSel ? '1fr' : 'minmax(0, 1fr) 400px', gap: '0.75rem', alignItems: 'start' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
@@ -230,13 +247,19 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
               {prodsVis.map((p) => {
                 const nProv = vinculosDeProducto(vinc, p.id).length;
                 const barato = proveedorMasBarato(vinc, p.id);
+                const plan = planearCompra(p, hoy);
+                const ac = ACCIONES_COMPRA[plan.accion];
                 return (
                   <div key={p.id} onClick={() => setSelProd(p.id)}
-                    style={{ border: `1px solid ${selProd === p.id ? '#a9720f' : '#e0d3b0'}`, borderLeft: '4px solid #6b8e3d', borderRadius: 9, padding: '0.5rem 0.6rem', background: selProd === p.id ? '#fdf6e3' : '#fff', cursor: 'pointer' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>🏷️ {p.nombre || '(sin nombre)'}</div>
+                    style={{ border: `1px solid ${selProd === p.id ? '#a9720f' : '#e0d3b0'}`, borderLeft: `4px solid ${plan.accion === 'ok' || plan.accion === 'sin-datos' ? '#6b8e3d' : ac.color}`, borderRadius: 9, padding: '0.5rem 0.6rem', background: selProd === p.id ? '#fdf6e3' : '#fff', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontWeight: 'bold', fontSize: 13.5, flex: 1 }}>🏷️ {p.nombre || '(sin nombre)'}</span>
+                      {plan.accion !== 'ok' && plan.accion !== 'sin-datos' && <span style={{ fontSize: 10.5, fontWeight: 'bold', color: '#fff', background: ac.color, borderRadius: 8, padding: '0 6px' }}>{ac.emoji} {ac.label}</span>}
+                    </div>
                     <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{[p.marca, p.modelo].filter(Boolean).join(' ') || p.categoria}{p.skuInterno ? ` · ${p.skuInterno}` : ''}</div>
                     <div style={{ fontSize: 11, color: nProv ? '#6b5320' : '#c0392b', marginTop: 2 }}>
                       {nProv ? `🏭 ${nProv} proveedor${nProv !== 1 ? 'es' : ''}` : '⚠ sin proveedor'}{barato ? ` · desde ${precioVigente(barato)}${barato.moneda ? ' ' + barato.moneda : ''}` : ''}
+                      {plan.diasCobertura !== null ? ` · ${plan.diasCobertura}d de stock` : ''}
                     </div>
                   </div>
                 );
@@ -244,7 +267,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
             </div>
             {prodSel && (
               <ProductoEditor
-                prod={prodSel} provs={provs} vinculos={vinculosDeProducto(vinc, prodSel.id)} provNombre={provNombre}
+                prod={prodSel} provs={provs} vinculos={vinculosDeProducto(vinc, prodSel.id)} provNombre={provNombre} hoy={hoy}
                 onPatch={patchProd} onClose={() => setSelProd(null)} onDelete={borrarProd}
                 onAgregar={(provId) => void agregarVinculo(prodSel.id, provId)} onGuardarVinculo={patchVinculo} onBorrarVinculo={borrarVinculo}
               />
@@ -321,8 +344,8 @@ function ProveedorEditor({ prov, onPatch, onClose, onDelete }: {
 }
 
 // ===== Editor de PRODUCTO (rico) + vínculos con proveedores =====
-function ProductoEditor({ prod, provs, vinculos, provNombre, onPatch, onClose, onDelete, onAgregar, onGuardarVinculo, onBorrarVinculo }: {
-  prod: Producto; provs: Proveedor[]; vinculos: ProductoProveedor[]; provNombre: (id: string) => string;
+function ProductoEditor({ prod, provs, vinculos, provNombre, hoy, onPatch, onClose, onDelete, onAgregar, onGuardarVinculo, onBorrarVinculo }: {
+  prod: Producto; provs: Proveedor[]; vinculos: ProductoProveedor[]; provNombre: (id: string) => string; hoy: string;
   onPatch: (p: Partial<Producto>) => void; onClose: () => void; onDelete: () => void;
   onAgregar: (proveedorId: string) => void; onGuardarVinculo: (v: ProductoProveedor) => void; onBorrarVinculo: (id: string) => void;
 }) {
@@ -332,6 +355,8 @@ function ProductoEditor({ prod, provs, vinculos, provNombre, onPatch, onClose, o
   );
   const yaVinculados = new Set(vinculos.map((v) => v.proveedorId));
   const disponibles = provs.filter((p) => !yaVinculados.has(p.id));
+  const plan = planearCompra(prod, hoy);
+  const ac = ACCIONES_COMPRA[plan.accion];
 
   return (
     <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
@@ -368,6 +393,32 @@ function ProductoEditor({ prod, provs, vinculos, provNombre, onPatch, onClose, o
           {T('Humedad', 'humedad')}{T('Garantía', 'garantia')}
         </div>
       </details>
+
+      {/* ==== INVENTARIO Y PLANEACIÓN ==== */}
+      <div style={{ borderTop: '2px solid #e0d3b0', marginTop: '0.7rem', paddingTop: '0.4rem' }}>
+        <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#6b5320' }}>📦 Inventario y planeación</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
+          {T('Stock actual', 'stockActual')}{T('Stock mínimo', 'stockMinimo')}{T('Stock máximo', 'stockMaximo')}
+          {T('Punto de reorden', 'puntoReorden')}{T('Stock de seguridad', 'stockSeguridad')}{T('Lead time (días)', 'leadTimeDias')}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+          {T('Consumo mensual', 'consumoMensual', 'unid./mes')}{T('Frecuencia de compra', 'frecuenciaCompra', 'mensual…')}
+        </div>
+        {T('📍 Ubicación del inventario', 'ubicacion')}
+
+        {/* Recomendación automática */}
+        <div style={{ marginTop: '0.5rem', border: `1px solid ${ac.color}`, borderRadius: 8, background: '#fff', padding: '0.5rem 0.6rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 'bold', color: '#fff', background: ac.color, borderRadius: 8, padding: '1px 8px' }}>{ac.emoji} {ac.label}</span>
+            {plan.diasCobertura !== null && <span style={{ fontSize: 12, color: '#555' }}>~{plan.diasCobertura} días de cobertura</span>}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#666', marginTop: 4 }}>{plan.motivo}</div>
+          <div style={{ fontSize: 11.5, color: '#888', marginTop: 2 }}>
+            {plan.seAgotaEn !== '—' ? `Se agota ~${plan.seAgotaEn}` : 'Sin pronóstico (falta consumo)'}
+            {plan.cantidadSugerida !== null ? ` · sugerido pedir: ${plan.cantidadSugerida} ${prod.unidad}`.trimEnd() : ''}
+          </div>
+        </div>
+      </div>
 
       <details>
         <summary style={sum}>📎 Fichas técnicas, MSDS, manual, fotos</summary>

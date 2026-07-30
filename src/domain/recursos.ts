@@ -113,6 +113,16 @@ export interface Producto {
   humedad: string;
   rotacion: string;       // rotación recomendada
   garantia: string;
+  // Inventario y planeación (Secciones 11–12): stock, umbrales y consumo del producto.
+  stockActual: string;
+  stockMinimo: string;
+  stockMaximo: string;
+  puntoReorden: string;   // nivel al que hay que recomprar
+  stockSeguridad: string; // colchón bajo el cual es urgente
+  ubicacion: string;      // dónde está el inventario
+  consumoMensual: string; // cuánto se consume por mes (para pronóstico)
+  frecuenciaCompra: string; // cada cuánto se compra (texto)
+  leadTimeDias: string;   // días típicos de reabasto
   // Docs: fichas técnicas, MSDS, manual, fotografías
   adjuntos: Adjunto[];
   notas: string;
@@ -174,7 +184,9 @@ export function productoVacio(id: string): Producto {
     id, nombre: '', skuInterno: '', codigoFabricante: '', marca: '', modelo: '', categoria: 'insumos', unidad: '',
     peso: '', volumen: '', dimensiones: '', color: '', material: '', presentacion: '', empaque: '',
     cantidadPorCaja: '', cantidadPorPallet: '', vidaUtil: '', caducidad: '', tiempoAnaquel: '', almacenamiento: '',
-    temperatura: '', humedad: '', rotacion: '', garantia: '', adjuntos: [], notas: '',
+    temperatura: '', humedad: '', rotacion: '', garantia: '',
+    stockActual: '', stockMinimo: '', stockMaximo: '', puntoReorden: '', stockSeguridad: '', ubicacion: '',
+    consumoMensual: '', frecuenciaCompra: '', leadTimeDias: '', adjuntos: [], notas: '',
   };
 }
 export function vinculoVacio(id: string, productoId: string, proveedorId: string): ProductoProveedor {
@@ -232,7 +244,11 @@ export function normalizarProducto(v: unknown): Producto {
     material: s(d.material), presentacion: s(d.presentacion), empaque: s(d.empaque), cantidadPorCaja: s(d.cantidadPorCaja),
     cantidadPorPallet: s(d.cantidadPorPallet), vidaUtil: s(d.vidaUtil), caducidad: s(d.caducidad), tiempoAnaquel: s(d.tiempoAnaquel),
     almacenamiento: s(d.almacenamiento), temperatura: s(d.temperatura), humedad: s(d.humedad), rotacion: s(d.rotacion),
-    garantia: s(d.garantia), adjuntos: Array.isArray(d.adjuntos) ? d.adjuntos.map(normAdjunto) : [], notas: s(d.notas),
+    garantia: s(d.garantia),
+    stockActual: s(d.stockActual), stockMinimo: s(d.stockMinimo), stockMaximo: s(d.stockMaximo), puntoReorden: s(d.puntoReorden),
+    stockSeguridad: s(d.stockSeguridad), ubicacion: s(d.ubicacion), consumoMensual: s(d.consumoMensual),
+    frecuenciaCompra: s(d.frecuenciaCompra), leadTimeDias: s(d.leadTimeDias),
+    adjuntos: Array.isArray(d.adjuntos) ? d.adjuntos.map(normAdjunto) : [], notas: s(d.notas),
   };
 }
 
@@ -294,4 +310,72 @@ export function proveedorMasBarato(vinculos: ProductoProveedor[], productoId: st
     .filter((x): x is { v: ProductoProveedor; n: number } => x.n !== null);
   if (!conPrecio.length) return null;
   return conPrecio.reduce((min, x) => x.n < min.n ? x : min).v;
+}
+
+// ---------- Inventario y planeación de compras (Secciones 11–12) ----------
+
+export type AccionCompra = 'comprar-urgente' | 'comprar-hoy' | 'comprar-pronto' | 'ok' | 'exceso' | 'sin-datos';
+
+export const ACCIONES_COMPRA: Record<AccionCompra, { label: string; color: string; emoji: string }> = {
+  'comprar-urgente': { label: 'Comprar YA', color: '#c0392b', emoji: '🔴' },
+  'comprar-hoy': { label: 'Comprar hoy', color: '#d9781f', emoji: '🟠' },
+  'comprar-pronto': { label: 'Comprar pronto', color: '#c9a13b', emoji: '🟡' },
+  'ok': { label: 'OK', color: '#2e9e63', emoji: '🟢' },
+  'exceso': { label: 'Exceso de stock', color: '#8a6db0', emoji: '🟣' },
+  'sin-datos': { label: 'Sin datos', color: '#8a93a8', emoji: '⚪' },
+};
+
+export interface PlanCompra {
+  accion: AccionCompra;
+  etiqueta: string;
+  diasCobertura: number | null;   // días que dura el stock al ritmo de consumo
+  seAgotaEn: string;              // fecha estimada (YYYY-MM-DD) o "—"
+  cantidadSugerida: number | null; // cuánto pedir para llegar al máximo
+  motivo: string;
+}
+
+// Suma días a una fecha ISO (YYYY-MM-DD o ISO completo). Determinista: se le pasa "hoy".
+function addDias(iso: string, n: number): string {
+  const d = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
+  if (isNaN(d.getTime())) return '—';
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// Recomendación de compra para un producto según stock, umbrales, consumo y lead time.
+// `hoyISO` se pasa para que el cálculo sea determinista (y testeable).
+export function planearCompra(p: Producto, hoyISO: string): PlanCompra {
+  const stock = numero(p.stockActual);
+  const consumoMes = numero(p.consumoMensual);
+  const consumoDia = consumoMes !== null && consumoMes > 0 ? consumoMes / 30 : null;
+  const reorder = numero(p.puntoReorden);
+  const min = numero(p.stockMinimo);
+  const seg = numero(p.stockSeguridad);
+  const max = numero(p.stockMaximo);
+  const lead = numero(p.leadTimeDias) ?? 0;
+
+  const diasCobertura = (stock !== null && consumoDia) ? Math.round((stock / consumoDia) * 10) / 10 : null;
+  const seAgotaEn = diasCobertura !== null ? addDias(hoyISO, Math.floor(diasCobertura)) : '—';
+  const cantidadSugerida = (max !== null && stock !== null) ? Math.max(0, max - stock) : null;
+  const base = { diasCobertura, seAgotaEn, cantidadSugerida };
+
+  if (stock === null || (reorder === null && min === null && seg === null && consumoDia === null)) {
+    return { accion: 'sin-datos', etiqueta: ACCIONES_COMPRA['sin-datos'].label, ...base, motivo: 'Faltan datos de stock, umbrales o consumo.' };
+  }
+
+  let accion: AccionCompra = 'ok';
+  let motivo = 'Cobertura suficiente.';
+  const umbralUrgente = seg ?? min;
+  if (umbralUrgente !== null && stock <= umbralUrgente) {
+    accion = 'comprar-urgente'; motivo = `Stock (${stock}) en o bajo el mínimo/seguridad (${umbralUrgente}).`;
+  } else if (reorder !== null && stock <= reorder) {
+    accion = 'comprar-hoy'; motivo = `Stock (${stock}) llegó al punto de reorden (${reorder}).`;
+  } else if (diasCobertura !== null && lead > 0 && diasCobertura <= lead) {
+    accion = 'comprar-hoy'; motivo = `Se agota en ~${diasCobertura}d, menos que el lead time (${lead}d).`;
+  } else if (diasCobertura !== null && lead > 0 && diasCobertura <= lead * 2) {
+    accion = 'comprar-pronto'; motivo = `Se agota en ~${diasCobertura}d; conviene pedir pronto (lead ${lead}d).`;
+  } else if (max !== null && stock > max) {
+    accion = 'exceso'; motivo = `Stock (${stock}) por encima del máximo (${max}).`;
+  }
+  return { accion, etiqueta: ACCIONES_COMPRA[accion].label, ...base, motivo };
 }

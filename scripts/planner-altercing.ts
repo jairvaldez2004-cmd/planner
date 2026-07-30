@@ -20,8 +20,8 @@ import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
 import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
 import { costosDeRecursos, componentesDeEquipo, proveedoresATabla, agentesDeProcesos, componentesDeAutomatizacion } from '@/domain/proyeccion';
-import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto } from '@/domain/recursos';
-import type { Recurso, ProductoProveedor } from '@/domain/recursos';
+import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra } from '@/domain/recursos';
+import type { Recurso, ProductoProveedor, Producto } from '@/domain/recursos';
 import { indiceRecursos, costearProceso } from '@/domain/costeo';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
@@ -376,6 +376,35 @@ const v2b = registrarCambioPrecio(v2, { fecha: '2026-07-29', precio: '130', mone
 check('Tras registrar cambio, hay 1 en historial', v2b.historial.length === 1);
 check('Precio vigente = último del historial ($130)', precioVigente(v2b) === '130');
 check('El más barato cambia a PRV-A ($120) tras el alza de PRV-B', proveedorMasBarato([v1, v2b], prodId)?.proveedorId === 'PRV-A');
+
+// ============================================================
+// 15) INVENTARIO + PLANEACIÓN de compras (motor de recomendación)
+// ============================================================
+h('15) Planeación de compras: recomienda comprar/esperar según stock, umbrales y consumo');
+const HOY = '2026-07-29';
+const prodBase = (o: Partial<Producto>): Producto => ({ ...productoVacio('PROD-x'), ...o });
+
+// Bajo el stock de seguridad → urgente.
+const plUrg = planearCompra(prodBase({ stockActual: '2', stockSeguridad: '5', stockMaximo: '50', consumoMensual: '30' }), HOY);
+check('Stock bajo seguridad → comprar-urgente', plUrg.accion === 'comprar-urgente');
+check('Cantidad sugerida = máximo - actual (48)', plUrg.cantidadSugerida === 48);
+
+// En punto de reorden → comprar hoy.
+const plHoy = planearCompra(prodBase({ stockActual: '10', puntoReorden: '10', stockSeguridad: '3', consumoMensual: '30' }), HOY);
+check('Stock en punto de reorden → comprar-hoy', plHoy.accion === 'comprar-hoy');
+
+// Cobertura amplia → OK, con pronóstico de agotamiento.
+const plOk = planearCompra(prodBase({ stockActual: '300', stockSeguridad: '10', consumoMensual: '30', leadTimeDias: '5' }), HOY);
+check('Stock holgado → OK', plOk.accion === 'ok');
+check('Calcula días de cobertura (~300 días)', plOk.diasCobertura !== null && plOk.diasCobertura > 250);
+check('Pronostica fecha de agotamiento (no "—")', plOk.seAgotaEn !== '—' && plOk.seAgotaEn > HOY);
+
+// Cobertura menor al lead time → comprar hoy aunque no toque el reorden.
+const plLead = planearCompra(prodBase({ stockActual: '10', consumoMensual: '30', leadTimeDias: '15' }), HOY);
+check('Cobertura (~10d) < lead time (15d) → comprar-hoy', plLead.accion === 'comprar-hoy');
+
+// Sin datos → sin-datos.
+check('Producto sin stock/consumo → sin-datos', planearCompra(productoVacio('P0'), HOY).accion === 'sin-datos');
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado
