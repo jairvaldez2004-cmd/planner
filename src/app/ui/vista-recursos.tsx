@@ -33,6 +33,7 @@ import {
   CRITERIOS_EVAL, RIESGOS, DEPENDENCIAS, TIPOS_INCIDENCIA, incidenciaVacia, scoreProveedor, NIVELES_SCORE,
   ESTADOS_RELACION, TIPOS_INTERACCION, interaccionesDeProveedor, ultimoContacto, seguimientosPendientes,
   ESTADOS_EMBARQUE, estadoEmbarqueInfo, siguienteEstadoEmbarque, embarqueVacio, costoLogisticoEmbarque, landedCostEmbarque, prorrateoLanded, embarqueRetrasado,
+  MODALIDADES_ENVIO, modalidadEnvioInfo,
 } from '@/domain/recursos';
 import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia, Interaccion, Embarque } from '@/domain/recursos';
 import { useEsMovil } from './use-movil';
@@ -544,10 +545,10 @@ function EmbarquesLista({ embs, ocs, sel, onSel, hoy, onPatch, onDelete, movil }
               <div key={e.id} onClick={() => onSel(e.id)}
                 style={{ border: `1px solid ${sel === e.id ? '#a9720f' : '#e0d3b0'}`, borderLeft: `4px solid ${ret ? '#c0392b' : '#3bb0c9'}`, borderRadius: 9, padding: '0.5rem 0.6rem', background: sel === e.id ? '#fdf6e3' : '#fff', cursor: 'pointer' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ fontWeight: 'bold', fontSize: 13.5, flex: 1 }}>🚚 {e.folio || e.destino || 'Embarque'}</span>
+                  <span style={{ fontWeight: 'bold', fontSize: 13.5, flex: 1 }}>{modalidadEnvioInfo(e.modalidad).emoji} {e.folio || e.destino || 'Embarque'}</span>
                   <span style={{ fontSize: 10.5, fontWeight: 'bold', color: '#fff', background: ret ? '#c0392b' : '#3b9ec9', borderRadius: 8, padding: '0 6px' }}>{inf.emoji} {inf.label}</span>
                 </div>
-                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{e.transportista || 'sin transportista'} · {e.ordenIds.length} orden(es){e.fechaEstimada ? ` · ETA ${e.fechaEstimada}` : ''}</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{modalidadEnvioInfo(e.modalidad).label} · {e.transportista || 'sin transportista'}{e.tracking ? ` · guía ${e.tracking}` : ''}{e.fechaEstimada ? ` · ETA ${e.fechaEstimada}` : ''}</div>
                 <div style={{ fontSize: 11.5, color: '#6b5320', marginTop: 2 }}>Landed <strong>{formatoMoneda(lc.total)}</strong> {lc.logistica > 0 ? <span style={{ color: '#999' }}>(+{formatoMoneda(lc.logistica)} log · ×{lc.factor.toFixed(2)})</span> : null}</div>
               </div>
             );
@@ -587,10 +588,17 @@ function EmbarqueEditor({ e, ocs, onPatch, onClose, onDelete }: {
       <div style={{ fontSize: 12, fontWeight: 'bold', color: '#2b7a93' }}>{estadoEmbarqueInfo(e.estado).emoji} {estadoEmbarqueInfo(e.estado).label}</div>
       {e.estado !== 'entregado' && <button style={{ ...btnSm, marginTop: 4, background: '#eef7fb', borderColor: '#bcd8e6', color: '#2b7a93', fontWeight: 'bold' }} onClick={() => set('estado', siguienteEstadoEmbarque(e.estado))}>→ Avanzar a «{estadoEmbarqueInfo(siguienteEstadoEmbarque(e.estado)).label}»</button>}
 
+      <label style={lbl}>Modalidad de envío</label>
+      <select style={inp} value={e.modalidad} onChange={(ev) => set('modalidad', ev.target.value)}>
+        {MODALIDADES_ENVIO.map((m) => <option key={m.id} value={m.id}>{m.emoji} {m.label}</option>)}
+      </select>
+      {e.modalidad === 'paqueteria' && <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 0' }}>Courier (Estafeta/DHL/FedEx…): cobra por guía/peso/volumen. Suele ser 1 orden por guía; el flete es el costo de la guía.</p>}
+      {e.modalidad === 'carga' && <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 0' }}>Flete/tráiler: aquí sí conviene consolidar varias órdenes en el mismo envío.</p>}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
-        {F('Folio', 'folio')}{F('Transportista', 'transportista')}
+        {F('Folio', 'folio')}{F('Transportista', 'transportista', 'Estafeta, DHL…')}
         {F('Origen', 'origen')}{F('Destino', 'destino')}
-        {F('Incoterm', 'incoterm', 'FOB / DAP…')}{F('Tracking', 'tracking')}
+        {F('Incoterm', 'incoterm', 'FOB / DAP…')}{F(e.modalidad === 'carga' ? 'Carta porte' : 'Guía / tracking', 'tracking')}
+        {F('Peso (kg)', 'peso')}{F('Bultos', 'bultos')}
         {F('Recolección', 'fechaRecoleccion', '', 'date')}{F('ETA (estimada)', 'fechaEstimada', '', 'date')}
         {F('Entrega real', 'fechaEntrega', '', 'date')}
       </div>

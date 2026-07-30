@@ -11,7 +11,7 @@ import {
   planearCompra, precioVigente, proveedorMasBarato, vinculosDeProducto, estadoContrato, scoreProveedor,
   solicitudDesdeProducto, incidenciaVacia, ordenVacia, redactarSolicitudCotizacion,
   interaccionVacia, vinculoVacio, registrarCambioPrecio, seguimientosPendientes, ultimoContacto,
-  embarqueVacio, landedCostEmbarque, embarqueRetrasado, estadoEmbarqueInfo,
+  embarqueVacio, landedCostEmbarque, embarqueRetrasado, estadoEmbarqueInfo, modalidadEnvioInfo,
 } from '@/domain/recursos';
 import { enviarCorreo } from '@/adapters/email/enviar';
 import { correrCentroAbastecimiento } from '@/adapters/ai/arquitecto-agent';
@@ -222,7 +222,7 @@ async function snapshotAbastecimiento(proyectoId: string): Promise<string> {
   L.push(`Embarques (${embs.length}${retrasados.length ? `, ${retrasados.length} RETRASADO(S)` : ''}):`);
   for (const e of embs) {
     const lc = landedCostEmbarque(e, ocs);
-    L.push(`  · "${e.folio || e.destino || 'embarque'}" — ${estadoEmbarqueInfo(e.estado).label}${e.transportista ? ` · ${e.transportista}` : ''}${e.fechaEstimada ? ` · ETA ${e.fechaEstimada}${embarqueRetrasado(e, hoy) ? ' ⚠RETRASADO' : ''}` : ''} · ${e.ordenIds.length} orden(es) · landed ${lc.total.toFixed(2)} (log ${lc.logistica.toFixed(2)}, ×${lc.factor.toFixed(2)})`);
+    L.push(`  · "${e.folio || e.destino || 'embarque'}" — ${modalidadEnvioInfo(e.modalidad).label} · ${estadoEmbarqueInfo(e.estado).label}${e.transportista ? ` · ${e.transportista}` : ''}${e.tracking ? ` · guía ${e.tracking}` : ''}${e.fechaEstimada ? ` · ETA ${e.fechaEstimada}${embarqueRetrasado(e, hoy) ? ' ⚠RETRASADO' : ''}` : ''} · ${e.ordenIds.length} orden(es) · landed ${lc.total.toFixed(2)} (log ${lc.logistica.toFixed(2)}, ×${lc.factor.toFixed(2)})`);
   }
   return L.join('\n');
 }
@@ -340,8 +340,9 @@ export async function conversarCentroAbastecimiento(
         if (!refs.length) return 'Indica al menos una orden a consolidar (por folio o descripción).';
         const incluidas = ocs.filter((o) => refs.some((r) => o.folio.toLowerCase() === r || o.descripcion.toLowerCase().includes(r)));
         if (!incluidas.length) return `No encontré órdenes que coincidan con: ${refs.join(', ')}.`;
+        const modalidad = (['paqueteria', 'carga', 'mensajeria', 'recoleccion', 'digital'].includes(String(input.modalidad)) ? String(input.modalidad) : 'paqueteria') as Embarque['modalidad'];
         const emb = await guardarEmbarque(proyectoId, {
-          ...embarqueVacio(''), ordenIds: incluidas.map((o) => o.id),
+          ...embarqueVacio(''), modalidad, ordenIds: incluidas.map((o) => o.id),
           transportista: String(input.transportista ?? ''), origen: String(input.origen ?? ''), destino: String(input.destino ?? ''),
           incoterm: String(input.incoterm ?? ''), fechaRecoleccion: hoy,
           flete: String(input.flete ?? ''), seguro: String(input.seguro ?? ''), aduana: String(input.aduana ?? ''),

@@ -24,7 +24,7 @@ import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProvee
 import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from '@/domain/recursos';
 import { indiceRecursos, costearProceso, indiceCosto } from '@/domain/costeo';
 import { costosDeProductos, costosDeEmbarques } from '@/domain/proyeccion';
-import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque } from '@/domain/recursos';
+import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque, normalizarEmbarque, modalidadEnvioInfo } from '@/domain/recursos';
 import type { Embarque } from '@/domain/recursos';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
@@ -531,6 +531,11 @@ check('Prorrateo del flete por valor: guantes recibe 500×(1800/2600)≈346.15',
 check('Embarque en tránsito con ETA vencida (hoy 2026-07-29) → retrasado', embarqueRetrasado(emb, HOY));
 check('Embarque entregado NO cuenta como retrasado', !embarqueRetrasado({ ...emb, estado: 'entregado' }, HOY));
 check('costosDeEmbarques proyecta el costo logístico a Financiero', costosDeEmbarques([emb])[0]?.monto === '$500.00');
+// Modalidad de envío (paquetería vs carga/tráiler).
+check('embarqueVacio nace como paquetería (courier)', embarqueVacio('Ex').modalidad === 'paqueteria');
+check('normalizarEmbarque respeta modalidad carga', normalizarEmbarque({ id: 'E2', modalidad: 'carga' }).modalidad === 'carga');
+check('normalizarEmbarque cae a paquetería si la modalidad es inválida', normalizarEmbarque({ id: 'E3', modalidad: 'avión-privado' }).modalidad === 'paqueteria');
+check('modalidadEnvioInfo da etiqueta legible', modalidadEnvioInfo('paqueteria').label.includes('Paquetería'));
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

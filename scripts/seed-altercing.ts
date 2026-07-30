@@ -369,10 +369,12 @@ async function main() {
     { id: 'ctr-titanio', titulo: 'Suministro joyería titanio', proveedorId: 'prv-titanio', tipo: 'suministro', fechaInicio: d(-400), fechaVencimiento: d(-10), renovacionAutomatica: false, monto: '', moneda: 'MXN', responsables: 'Suzet', clausulas: 'Precios preferentes por volumen anual.', multas: '', exclusividad: true, confidencialidad: false, garantias: '', alertaDias: '30', documento: '', notas: 'VENCIDO: renegociar (proveedor único).' },
   ];
   const EMBARQUES = [
-    // Consolida agujas + guantes de Insumos Médicos MX en un envío por Estafeta (en tránsito, ETA vencida = retrasado).
-    { id: 'emb-insumos', folio: 'EMB-0001', ordenIds: ['oc-aguja', 'oc-guantes-rfq'], transportista: 'Estafeta', origen: 'Querétaro', destino: 'Girly Zone', incoterm: 'DAP', estado: 'transito', fechaRecoleccion: d(-4), fechaEstimada: d(-1), fechaEntrega: '', tracking: 'EST-778812', flete: '350', seguro: '50', aduana: '', maniobras: '40', otros: '', notas: 'Consolidado para ahorrar flete.' },
-    // Joyería de titanio desde CDMX (en aduana/tránsito nacional), con seguro por valor.
-    { id: 'emb-titanio', folio: 'EMB-0002', ordenIds: ['oc-joya'], transportista: 'Paquetexpress', origen: 'CDMX', destino: 'Girly Zone', incoterm: 'EXW', estado: 'transito', fechaRecoleccion: d(-2), fechaEstimada: d(3), fechaEntrega: '', tracking: 'PX-4471', flete: '280', seguro: '120', aduana: '', maniobras: '', otros: '', notas: 'Recolección en origen (EXW).' },
+    // Paquetería (Estafeta): agujas + guantes en una guía. En tránsito con ETA vencida = retrasado.
+    { id: 'emb-insumos', folio: 'EMB-0001', modalidad: 'paqueteria', ordenIds: ['oc-aguja', 'oc-guantes-rfq'], transportista: 'Estafeta', origen: 'Querétaro', destino: 'Girly Zone', incoterm: 'DAP', estado: 'transito', fechaRecoleccion: d(-4), fechaEstimada: d(-1), fechaEntrega: '', tracking: 'EST-778812', peso: '6', bultos: '2', flete: '220', seguro: '50', aduana: '', maniobras: '', otros: '', notas: 'Paquetería: cobro por guía/peso.' },
+    // Paquetería (Paquetexpress): joyería de titanio desde CDMX, recolección en origen (EXW).
+    { id: 'emb-titanio', folio: 'EMB-0002', modalidad: 'paqueteria', ordenIds: ['oc-joya'], transportista: 'Paquetexpress', origen: 'CDMX', destino: 'Girly Zone', incoterm: 'EXW', estado: 'transito', fechaRecoleccion: d(-2), fechaEstimada: d(3), fechaEntrega: '', tracking: 'PX-4471', peso: '1.5', bultos: '1', flete: '180', seguro: '120', aduana: '', maniobras: '', otros: '', notas: 'Sobre asegurado por valor.' },
+    // Carga/flete: porcelanato y material de obra en tráiler (consolidado, entregado).
+    { id: 'emb-obra', folio: 'EMB-0003', modalidad: 'carga', ordenIds: [], transportista: 'Fletes del Centro', origen: 'León', destino: 'Girly Zone', incoterm: 'DAP', estado: 'entregado', fechaRecoleccion: d(-30), fechaEstimada: d(-27), fechaEntrega: d(-27), tracking: 'CP-1102', peso: '850', bultos: '12', flete: '1800', seguro: '200', aduana: '', maniobras: '300', otros: '', notas: 'Tráiler con material de obra en tarima.' },
   ];
   const INCIDENCIAS = [
     { id: 'inc-1', proveedorId: 'prv-insumos', tipo: 'retraso', gravedad: 'media', fecha: d(-25), descripcion: 'Entrega de guantes llegó 4 días tarde.', ordenId: '', evidencia: '' },

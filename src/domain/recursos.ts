@@ -622,6 +622,20 @@ export type EstadoEmbarque = typeof ESTADOS_EMBARQUE[number]['id'];
 export function estadoEmbarqueInfo(id: string) {
   return ESTADOS_EMBARQUE.find((e) => e.id === id) ?? ESTADOS_EMBARQUE[0];
 }
+
+// MODALIDAD de envío: no todo va en tráiler. La paquetería (courier) cobra por GUÍA/peso/
+// volumen y no se consolida en tarima; la carga (flete/tráiler) sí. También local/recolección.
+export const MODALIDADES_ENVIO = [
+  { id: 'paqueteria', label: 'Paquetería (courier)', emoji: '📮' },
+  { id: 'carga', label: 'Carga / flete (tráiler)', emoji: '🚚' },
+  { id: 'mensajeria', label: 'Mensajería local', emoji: '🛵' },
+  { id: 'recoleccion', label: 'Recolección propia', emoji: '🚗' },
+  { id: 'digital', label: 'Digital / sin envío', emoji: '💾' },
+] as const;
+export type ModalidadEnvio = typeof MODALIDADES_ENVIO[number]['id'];
+export function modalidadEnvioInfo(id: string) {
+  return MODALIDADES_ENVIO.find((m) => m.id === id) ?? MODALIDADES_ENVIO[0];
+}
 export function siguienteEstadoEmbarque(id: EstadoEmbarque): EstadoEmbarque {
   const i = ESTADOS_EMBARQUE.findIndex((e) => e.id === id);
   return ESTADOS_EMBARQUE[Math.min(i + 1, ESTADOS_EMBARQUE.length - 1)]!.id;
@@ -630,8 +644,9 @@ export function siguienteEstadoEmbarque(id: EstadoEmbarque): EstadoEmbarque {
 export interface Embarque {
   id: string;
   folio: string;
-  ordenIds: string[];       // órdenes de compra que consolida
-  transportista: string;
+  modalidad: ModalidadEnvio; // paquetería / carga / mensajería / recolección / digital
+  ordenIds: string[];       // órdenes de compra que consolida (paquetería suele ser 1)
+  transportista: string;    // courier o línea de carga
   origen: string;
   destino: string;
   incoterm: string;
@@ -639,7 +654,9 @@ export interface Embarque {
   fechaRecoleccion: string;
   fechaEstimada: string;    // ETA
   fechaEntrega: string;     // entrega real
-  tracking: string;
+  tracking: string;         // número de guía (paquetería) / carta porte (carga)
+  peso: string;             // kg (base del cobro en paquetería)
+  bultos: string;           // nº de paquetes/cajas
   // Costos logísticos (texto numérico)
   flete: string;
   seguro: string;
@@ -650,17 +667,19 @@ export interface Embarque {
 }
 export function embarqueVacio(id: string): Embarque {
   return {
-    id, folio: '', ordenIds: [], transportista: '', origen: '', destino: '', incoterm: '', estado: 'preparando',
-    fechaRecoleccion: '', fechaEstimada: '', fechaEntrega: '', tracking: '', flete: '', seguro: '', aduana: '', maniobras: '', otros: '', notas: '',
+    id, folio: '', modalidad: 'paqueteria', ordenIds: [], transportista: '', origen: '', destino: '', incoterm: '', estado: 'preparando',
+    fechaRecoleccion: '', fechaEstimada: '', fechaEntrega: '', tracking: '', peso: '', bultos: '', flete: '', seguro: '', aduana: '', maniobras: '', otros: '', notas: '',
   };
 }
 export function normalizarEmbarque(v: unknown): Embarque {
   const d = (v && typeof v === 'object') ? v as Record<string, unknown> : {};
   const estado = (ESTADOS_EMBARQUE.some((e) => e.id === d.estado) ? d.estado : 'preparando') as EstadoEmbarque;
+  const modalidad = (MODALIDADES_ENVIO.some((m) => m.id === d.modalidad) ? d.modalidad : 'paqueteria') as ModalidadEnvio;
   return {
-    id: s(d.id) || `EMB-${Math.random().toString(36).slice(2, 8)}`, folio: s(d.folio), ordenIds: sa(d.ordenIds),
+    id: s(d.id) || `EMB-${Math.random().toString(36).slice(2, 8)}`, folio: s(d.folio), modalidad, ordenIds: sa(d.ordenIds),
     transportista: s(d.transportista), origen: s(d.origen), destino: s(d.destino), incoterm: s(d.incoterm), estado,
     fechaRecoleccion: s(d.fechaRecoleccion), fechaEstimada: s(d.fechaEstimada), fechaEntrega: s(d.fechaEntrega), tracking: s(d.tracking),
+    peso: s(d.peso), bultos: s(d.bultos),
     flete: s(d.flete), seguro: s(d.seguro), aduana: s(d.aduana), maniobras: s(d.maniobras), otros: s(d.otros), notas: s(d.notas),
   };
 }

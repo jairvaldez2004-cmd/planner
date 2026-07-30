@@ -884,7 +884,8 @@ const TOOLS_ABASTECIMIENTO: Anthropic.Tool[] = [
     input_schema: {
       type: 'object', additionalProperties: false,
       properties: {
-        ordenes: { type: 'array', items: { type: 'string' }, description: 'Folios o descripciones de las órdenes a consolidar.' },
+        ordenes: { type: 'array', items: { type: 'string' }, description: 'Folios o descripciones de las órdenes a consolidar (en paquetería suele ser 1).' },
+        modalidad: { type: 'string', enum: ['paqueteria', 'carga', 'mensajeria', 'recoleccion', 'digital'], description: 'paqueteria = courier por guía/peso · carga = flete/tráiler (consolidar) · mensajeria = local · recoleccion = pickup propio.' },
         transportista: { type: 'string' },
         origen: { type: 'string' },
         destino: { type: 'string' },
