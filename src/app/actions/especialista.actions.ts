@@ -23,11 +23,11 @@ import type { Fila } from '@/app/captura/csv';
 import { modeloActual } from '@/app/actions/config.actions';
 import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { DocumentoPlano } from '@/domain/plano-doc';
-import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, costosDeProductos, componentesDeEquipo, componentesDeAutomatizacion, agentesDeProcesos, proveedoresATabla } from '@/domain/proyeccion';
+import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, costosDeProductos, costosDeEmbarques, componentesDeEquipo, componentesDeAutomatizacion, agentesDeProcesos, proveedoresATabla } from '@/domain/proyeccion';
 import { listarSedes, listarEspacios } from '@/app/actions/espacios.actions';
 import { listarProcesos } from '@/app/actions/mapa.actions';
 import { listarEmpleados } from '@/app/actions/rh.actions';
-import { listarRecursos, listarProveedores, listarProductos, listarVinculos } from '@/app/actions/recursos.actions';
+import { listarRecursos, listarProveedores, listarProductos, listarVinculos, listarEmbarques } from '@/app/actions/recursos.actions';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nowISO(): string { return new Date().toISOString(); }
@@ -67,12 +67,14 @@ async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<R
   const getProveedores = async () => { if (!proveedores) proveedores = await listarProveedores(proyectoId); return proveedores; };
   const getProductos = async () => { if (!productos) productos = await listarProductos(proyectoId); return productos; };
   const getVinculos = async () => { if (!vinculos) vinculos = await listarVinculos(proyectoId); return vinculos; };
+  let embarques: Awaited<ReturnType<typeof listarEmbarques>> | null = null;
+  const getEmbarques = async () => { if (!embarques) embarques = await listarEmbarques(proyectoId); return embarques; };
   if (refs.has('ambientes')) out['ambientes'] = ambientesDeEspacios(await getEspacios());
   if (refs.has('procesos')) out['procesos'] = procesosDeMapa(await getProcesos());
   if (refs.has('puestos')) out['puestos'] = puestosDeEmpleados(await getEmpleados());
   if (refs.has('personas')) out['personas'] = personasDeSuperficies(await getEspacios(), await getProcesos(), await getEmpleados());
   // Financiero = activos/obra (Recursos) + insumos recurrentes (Productos), sin duplicar el ítem.
-  if (refs.has('costos')) out['costos'] = [...costosDeRecursos(await getRecursos()), ...costosDeProductos(await getProductos(), await getVinculos())];
+  if (refs.has('costos')) out['costos'] = [...costosDeRecursos(await getRecursos()), ...costosDeProductos(await getProductos(), await getVinculos()), ...costosDeEmbarques(await getEmbarques())];
   // Componentes técnicos = inventario de equipo (Recursos) + automatizaciones n8n/software (Mapa).
   if (refs.has('componentes')) out['componentes'] = [...componentesDeEquipo(await getRecursos()), ...componentesDeAutomatizacion(await getProcesos())];
   // Fichas de agente = procesos que el Organizador (IA) decidió automatizar con IA.

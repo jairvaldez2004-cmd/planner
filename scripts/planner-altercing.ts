@@ -23,7 +23,9 @@ import { costosDeRecursos, componentesDeEquipo, proveedoresATabla, agentesDeProc
 import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra, siguienteEtapaCompra, totalOrden, ordenVacia, solicitudDesdeProducto, contratoVacio, estadoContrato, scoreProveedor, incidenciaVacia, redactarSolicitudCotizacion, normalizarInteraccion, interaccionesDeProveedor, ultimoContacto, requiereSeguimiento, seguimientosPendientes } from '@/domain/recursos';
 import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from '@/domain/recursos';
 import { indiceRecursos, costearProceso, indiceCosto } from '@/domain/costeo';
-import { costosDeProductos } from '@/domain/proyeccion';
+import { costosDeProductos, costosDeEmbarques } from '@/domain/proyeccion';
+import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque } from '@/domain/recursos';
+import type { Embarque } from '@/domain/recursos';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
 import { normalizarPrimitivas, leerModelo3D, alturaModelo } from '@/domain/modelo-parametrico';
@@ -511,6 +513,24 @@ check('costearProceso usa el precio de Productos (2×165 = 330)', cU.total === 3
 const finRows = costosDeProductos([prodG], [vG1, vG2]);
 check('costosDeProductos = 165 × 12 = 1980 al mes', finRows[0]?.monto === '$1,980.00');
 check('El ítem NO se duplica: guantes solo como producto (no en Recursos)', !idxU.has('guantes de nitrilo') === false && idxU.get('guantes de nitrilo')?.costo === '165');
+
+// ============================================================
+// 21) LOGÍSTICA: embarques + landed cost (consolidación y prorrateo)
+// ============================================================
+h('21) Embarque consolida órdenes y calcula landed cost + prorrateo');
+const ocA = { ...ordenVacia('OCA'), descripcion: 'Guantes', precioUnitario: '180', cantidad: '10' }; // 1800
+const ocB = { ...ordenVacia('OCB'), descripcion: 'Agujas', precioUnitario: '8', cantidad: '100' };   // 800
+const emb: Embarque = { ...embarqueVacio('E1'), ordenIds: ['OCA', 'OCB'], transportista: 'Estafeta', flete: '400', aduana: '100', fechaEstimada: '2026-07-20', estado: 'transito' };
+check('Costo logístico = flete + aduana (500)', costoLogisticoEmbarque(emb) === 500);
+const lc = landedCostEmbarque(emb, [ocA, ocB]);
+check('Valor mercancía = 1800 + 800 = 2600', lc.valor === 2600);
+check('Landed = 2600 + 500 = 3100', lc.total === 3100);
+check('Factor landed ≈ 1.19', Math.abs(lc.factor - 3100 / 2600) < 0.001);
+const prLc = prorrateoLanded(emb, [ocA, ocB]);
+check('Prorrateo del flete por valor: guantes recibe 500×(1800/2600)≈346.15', Math.abs(prLc.find((x) => x.ordenId === 'OCA')!.logistica - 500 * 1800 / 2600) < 0.01);
+check('Embarque en tránsito con ETA vencida (hoy 2026-07-29) → retrasado', embarqueRetrasado(emb, HOY));
+check('Embarque entregado NO cuenta como retrasado', !embarqueRetrasado({ ...emb, estado: 'entregado' }, HOY));
+check('costosDeEmbarques proyecta el costo logístico a Financiero', costosDeEmbarques([emb])[0]?.monto === '$500.00');
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

@@ -784,6 +784,7 @@ TU TRABAJO:
 1) DECIDIR el abastecimiento: qué comprar esta semana y qué esperar (usa el plan de cada producto y los días de cobertura); qué proveedor conviene hoy (precio vigente + score + riesgo/distancia, con justificación); qué se agotará, qué contratos vencen, qué insumos dependen de un proveedor único sin plan B; qué compras consolidar y qué proveedor incumple.
 2) PROACTIVIDAD: revisa el estado y, si ves productos en "comprar-urgente/hoy" o cerca de agotarse, PROPÓN y —si el usuario lo aprueba o te lo pidió— pide cotizaciones o genera la solicitud tú mismo. No esperes a que te lo pidan todo.
 3) RELACIÓN CONTINUA CON CADA PROVEEDOR (compremos o no): mantén viva la relación. Mira "último contacto" y "próximo seguimiento" en el estado; a quien toca seguimiento, escríbele. Al pedir cotización, agenda el seguimiento. Cuida a los preferentes y reactiva a los inactivos.
+4) LOGÍSTICA: puedes CONSOLIDAR varias órdenes en un EMBARQUE (mismo proveedor/zona) para ahorrar flete, con "crear_embarque". El costo logístico (flete/seguro/aduana/maniobras) se suma al valor de la mercancía = "landed cost" (costo puesto en tienda). Avisa qué embarques van RETRASADOS (ETA vencida) y qué compras conviene juntar en un solo envío.
 
 CÓMO ESCRIBES LOS CORREOS (MUY IMPORTANTE): escribes como una PERSONA REAL del equipo de compras, NO como un bot. Redacta tú el cuerpo completo (en el parámetro "cuerpo"), cálido y profesional, natural y variado —nunca con plantillas rígidas ni frases robóticas—. Usa el nombre de la persona de contacto si existe, saluda como humano, sé concreto y cordial, y firma con un nombre real (el "responsable" del proveedor si está, o un nombre propio verosímil). JAMÁS reveles ni insinúes que eres una IA ni menciones "sistema", "agente" o "automático". Suena como alguien que de verdad lleva la relación.
 
@@ -874,6 +875,25 @@ const TOOLS_ABASTECIMIENTO: Anthropic.Tool[] = [
         proveedor: { type: 'string', description: 'Nombre del proveedor (opcional).' },
       },
       required: ['producto'],
+    },
+  },
+  {
+    name: 'crear_embarque',
+    description: 'Consolida una o varias órdenes de compra (por folio o descripción) en un EMBARQUE con transportista, destino, incoterm y costos logísticos (flete/seguro/aduana). Sirve para agrupar compras del mismo proveedor/zona y calcular el landed cost.',
+    strict: true,
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        ordenes: { type: 'array', items: { type: 'string' }, description: 'Folios o descripciones de las órdenes a consolidar.' },
+        transportista: { type: 'string' },
+        origen: { type: 'string' },
+        destino: { type: 'string' },
+        incoterm: { type: 'string' },
+        flete: { type: 'string' },
+        seguro: { type: 'string' },
+        aduana: { type: 'string' },
+      },
+      required: ['ordenes'],
     },
   },
   {

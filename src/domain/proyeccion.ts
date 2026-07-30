@@ -9,8 +9,8 @@
 import type { Fila } from './plano-doc';
 import type { Empleado } from './rh';
 import type { Automatizacion } from './mapa';
-import type { Recurso, Proveedor, Producto, ProductoProveedor } from './recursos';
-import { subtotalRecurso, formatoMoneda, categoriaRecurso, numero, proveedorMasBarato, precioVigente } from './recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, Embarque } from './recursos';
+import { subtotalRecurso, formatoMoneda, categoriaRecurso, numero, proveedorMasBarato, precioVigente, costoLogisticoEmbarque } from './recursos';
 
 // ---------- Registro declarativo: qué planos enriquece cada superficie (para UI) ----------
 export type Superficie = 'sedes' | 'mapa' | 'uc' | 'personas' | 'recursos';
@@ -188,6 +188,17 @@ export function costosDeProductos(productos: Producto[], vinculos: ProductoProve
       monto: monto !== null ? formatoMoneda(monto) : 'PENDIENTE',
     };
   });
+}
+
+// Embarques → filas de `costos` (plano Financiero) = costo LOGÍSTICO (flete/seguro/aduana…).
+// Es la parte del landed cost que no es el precio del producto: el costo de traer la mercancía.
+export function costosDeEmbarques(embarques: Embarque[]): Fila[] {
+  return embarques.map((e) => ({ e, log: costoLogisticoEmbarque(e) })).filter((x) => x.log > 0).map(({ e, log }): Fila => ({
+    concepto: `Logística ${e.folio || e.destino || 'embarque'}${e.transportista ? ` · ${e.transportista}` : ''}`,
+    tipo: 'costo logístico',
+    centro: 'Logística',
+    monto: formatoMoneda(log),
+  }));
 }
 
 // Equipo del catálogo → filas de `componentes` (plano Tecnológico) = inventario de equipo.

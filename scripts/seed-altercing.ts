@@ -368,6 +368,12 @@ async function main() {
     { id: 'ctr-rpbi', titulo: 'Gestión de RPBI', proveedorId: '', tipo: 'servicio', fechaInicio: d(-200), fechaVencimiento: d(160), renovacionAutomatica: true, monto: '1200', moneda: 'MXN', responsables: 'Suzet', clausulas: 'Recolección quincenal de residuos peligrosos biológico-infecciosos con manifiesto.', multas: '', exclusividad: false, confidencialidad: false, garantias: 'Manifiestos de disposición', alertaDias: '45', documento: '', notas: 'Obligatorio por normativa sanitaria.' },
     { id: 'ctr-titanio', titulo: 'Suministro joyería titanio', proveedorId: 'prv-titanio', tipo: 'suministro', fechaInicio: d(-400), fechaVencimiento: d(-10), renovacionAutomatica: false, monto: '', moneda: 'MXN', responsables: 'Suzet', clausulas: 'Precios preferentes por volumen anual.', multas: '', exclusividad: true, confidencialidad: false, garantias: '', alertaDias: '30', documento: '', notas: 'VENCIDO: renegociar (proveedor único).' },
   ];
+  const EMBARQUES = [
+    // Consolida agujas + guantes de Insumos Médicos MX en un envío por Estafeta (en tránsito, ETA vencida = retrasado).
+    { id: 'emb-insumos', folio: 'EMB-0001', ordenIds: ['oc-aguja', 'oc-guantes-rfq'], transportista: 'Estafeta', origen: 'Querétaro', destino: 'Girly Zone', incoterm: 'DAP', estado: 'transito', fechaRecoleccion: d(-4), fechaEstimada: d(-1), fechaEntrega: '', tracking: 'EST-778812', flete: '350', seguro: '50', aduana: '', maniobras: '40', otros: '', notas: 'Consolidado para ahorrar flete.' },
+    // Joyería de titanio desde CDMX (en aduana/tránsito nacional), con seguro por valor.
+    { id: 'emb-titanio', folio: 'EMB-0002', ordenIds: ['oc-joya'], transportista: 'Paquetexpress', origen: 'CDMX', destino: 'Girly Zone', incoterm: 'EXW', estado: 'transito', fechaRecoleccion: d(-2), fechaEstimada: d(3), fechaEntrega: '', tracking: 'PX-4471', flete: '280', seguro: '120', aduana: '', maniobras: '', otros: '', notas: 'Recolección en origen (EXW).' },
+  ];
   const INCIDENCIAS = [
     { id: 'inc-1', proveedorId: 'prv-insumos', tipo: 'retraso', gravedad: 'media', fecha: d(-25), descripcion: 'Entrega de guantes llegó 4 días tarde.', ordenId: '', evidencia: '' },
     { id: 'inc-2', proveedorId: 'prv-tattoo', tipo: 'defecto', gravedad: 'leve', fecha: d(-50), descripcion: 'Un bote de tinta llegó mal sellado.', ordenId: 'oc-tinta-cerrada', evidencia: '' },
@@ -387,7 +393,8 @@ async function main() {
   await up('contratos', CONTRATOS);
   await up('incidencias', INCIDENCIAS);
   await up('interacciones_prov', INTERACCIONES);
-  console.log(`✅ Abastecimiento: ${PRODUCTOS.length} productos, ${VINCULOS.length} vínculos, ${ORDENES.length} órdenes, ${CONTRATOS.length} contratos, ${INCIDENCIAS.length} incidencias, ${INTERACCIONES.length} interacciones.`);
+  await up('embarques', EMBARQUES);
+  console.log(`✅ Abastecimiento: ${PRODUCTOS.length} productos, ${VINCULOS.length} vínculos, ${ORDENES.length} órdenes, ${CONTRATOS.length} contratos, ${INCIDENCIAS.length} incidencias, ${INTERACCIONES.length} interacciones, ${EMBARQUES.length} embarques.`);
 
   // 7c) RH: marca algunos procesos como AUTOMATIZADOS → alimentan los planos IA y Tecnológico.
   const procesosTodos = await prisma.proceso.findMany({ where: { proyectoId: PID } });

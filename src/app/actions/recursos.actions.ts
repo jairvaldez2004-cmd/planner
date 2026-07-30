@@ -5,12 +5,13 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
-import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato, normalizarIncidencia, normalizarInteraccion } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato, Incidencia, Interaccion } from '@/domain/recursos';
+import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato, normalizarIncidencia, normalizarInteraccion, normalizarEmbarque } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato, Incidencia, Interaccion, Embarque } from '@/domain/recursos';
 import {
   planearCompra, precioVigente, proveedorMasBarato, vinculosDeProducto, estadoContrato, scoreProveedor,
   solicitudDesdeProducto, incidenciaVacia, ordenVacia, redactarSolicitudCotizacion,
   interaccionVacia, vinculoVacio, registrarCambioPrecio, seguimientosPendientes, ultimoContacto,
+  embarqueVacio, landedCostEmbarque, embarqueRetrasado, estadoEmbarqueInfo,
 } from '@/domain/recursos';
 import { enviarCorreo } from '@/adapters/email/enviar';
 import { correrCentroAbastecimiento } from '@/adapters/ai/arquitecto-agent';
@@ -143,6 +144,21 @@ export async function eliminarIncidencia(proyectoId: string, id: string): Promis
   await guardarLista(proyectoId, 'incidencias', (await listarIncidencias(proyectoId)).filter((x) => x.id !== id));
 }
 
+// --- Embarques (logística: consolidación + landed cost) ---
+export async function listarEmbarques(proyectoId: string): Promise<Embarque[]> { return listar(proyectoId, 'embarques', normalizarEmbarque); }
+export async function guardarEmbarque(proyectoId: string, e: Embarque): Promise<Embarque> {
+  const lista = await listarEmbarques(proyectoId);
+  const id = e.id?.trim() || nid('EMB');
+  const norm = normalizarEmbarque({ ...e, id });
+  const i = lista.findIndex((x) => x.id === id);
+  if (i >= 0) lista[i] = norm; else lista.push(norm);
+  await guardarLista(proyectoId, 'embarques', lista);
+  return norm;
+}
+export async function eliminarEmbarque(proyectoId: string, id: string): Promise<void> {
+  await guardarLista(proyectoId, 'embarques', (await listarEmbarques(proyectoId)).filter((x) => x.id !== id));
+}
+
 // --- Bitácora de interacciones con proveedores (CRM / relación comercial) ---
 export async function listarInteracciones(proyectoId: string): Promise<Interaccion[]> { return listar(proyectoId, 'interacciones_prov', normalizarInteraccion); }
 export async function guardarInteraccion(proyectoId: string, inc: Interaccion): Promise<Interaccion> {
@@ -168,9 +184,9 @@ function sumarDias(iso: string, n: number): string {
 // Snapshot que ve la IA cada turno: productos con plan de compra, proveedores con score/riesgo,
 // órdenes abiertas y contratos con estado. Es la base sobre la que razona y actúa.
 async function snapshotAbastecimiento(proyectoId: string): Promise<string> {
-  const [prods, vinc, provs, ocs, ctrs, incs, ints] = await Promise.all([
+  const [prods, vinc, provs, ocs, ctrs, incs, ints, embs] = await Promise.all([
     listarProductos(proyectoId), listarVinculos(proyectoId), listarProveedores(proyectoId),
-    listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId),
+    listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId), listarEmbarques(proyectoId),
   ]);
   const hoy = new Date().toISOString().slice(0, 10);
   const provById = new Map(provs.map((p) => [p.id, p]));
@@ -201,6 +217,12 @@ async function snapshotAbastecimiento(proyectoId: string): Promise<string> {
   for (const c of ctrs) {
     const info = estadoContrato(c, hoy);
     L.push(`  · "${c.titulo || '(sin título)'}" — ${info.estado}${info.diasRestantes !== null ? ` (${info.diasRestantes}d)` : ''}${c.proveedorId ? ` · ${nom(c.proveedorId)}` : ''}${c.renovacionAutomatica ? ' · renovación auto' : ''}`);
+  }
+  const retrasados = embs.filter((e) => embarqueRetrasado(e, hoy));
+  L.push(`Embarques (${embs.length}${retrasados.length ? `, ${retrasados.length} RETRASADO(S)` : ''}):`);
+  for (const e of embs) {
+    const lc = landedCostEmbarque(e, ocs);
+    L.push(`  · "${e.folio || e.destino || 'embarque'}" — ${estadoEmbarqueInfo(e.estado).label}${e.transportista ? ` · ${e.transportista}` : ''}${e.fechaEstimada ? ` · ETA ${e.fechaEstimada}${embarqueRetrasado(e, hoy) ? ' ⚠RETRASADO' : ''}` : ''} · ${e.ordenIds.length} orden(es) · landed ${lc.total.toFixed(2)} (log ${lc.logistica.toFixed(2)}, ×${lc.factor.toFixed(2)})`);
   }
   return L.join('\n');
 }
@@ -312,6 +334,22 @@ export async function conversarCentroAbastecimiento(
         const oc = await guardarOrden(proyectoId, solicitudDesdeProducto('', prod, cantidad, proveedorId, hoy));
         return `Solicitud creada para "${prod.nombre}"${cantidad !== null ? ` (${cantidad} ${prod.unidad})` : ''}${proveedorId ? ` con proveedor sugerido` : ' (sin proveedor)'} — etapa Solicitud, folio interno ${oc.id}.`;
       }
+      if (nombre === 'crear_embarque') {
+        const ocs = await listarOrdenes(proyectoId);
+        const refs = Array.isArray(input.ordenes) ? input.ordenes.map((x) => String(x).trim().toLowerCase()) : [];
+        if (!refs.length) return 'Indica al menos una orden a consolidar (por folio o descripción).';
+        const incluidas = ocs.filter((o) => refs.some((r) => o.folio.toLowerCase() === r || o.descripcion.toLowerCase().includes(r)));
+        if (!incluidas.length) return `No encontré órdenes que coincidan con: ${refs.join(', ')}.`;
+        const emb = await guardarEmbarque(proyectoId, {
+          ...embarqueVacio(''), ordenIds: incluidas.map((o) => o.id),
+          transportista: String(input.transportista ?? ''), origen: String(input.origen ?? ''), destino: String(input.destino ?? ''),
+          incoterm: String(input.incoterm ?? ''), fechaRecoleccion: hoy,
+          flete: String(input.flete ?? ''), seguro: String(input.seguro ?? ''), aduana: String(input.aduana ?? ''),
+        });
+        const lc = landedCostEmbarque(emb, ocs);
+        return `Embarque creado consolidando ${incluidas.length} orden(es): ${incluidas.map((o) => o.descripcion).join(', ')}.${emb.transportista ? ` Transportista: ${emb.transportista}.` : ''} Valor mercancía ${lc.valor.toFixed(2)} + logística ${lc.logistica.toFixed(2)} = landed ${lc.total.toFixed(2)} (×${lc.factor.toFixed(2)}).`;
+      }
+
       if (nombre === 'registrar_incidencia') {
         const provs = await listarProveedores(proyectoId);
         const prov = porNombre(provs, String(input.proveedor ?? ''));

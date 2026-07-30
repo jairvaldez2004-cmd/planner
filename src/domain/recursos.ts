@@ -607,6 +607,96 @@ export function redactarSolicitudCotizacion(prod: Producto, proveedorNombre: str
   return { asunto, cuerpo };
 }
 
+// ---------- LOGÍSTICA: embarques + landed cost (costo puesto en tienda) ----------
+// Un EMBARQUE consolida una o varias órdenes de compra en un envío, con transportista,
+// fechas, estado/tracking y costos logísticos (flete/seguro/aduana/maniobras). El "landed
+// cost" = valor de la mercancía + logística; se prorratea entre las órdenes por su valor.
+export const ESTADOS_EMBARQUE = [
+  { id: 'preparando', label: 'Preparando', emoji: '📦' },
+  { id: 'recoleccion', label: 'Recolección', emoji: '🏭' },
+  { id: 'transito', label: 'En tránsito', emoji: '🚚' },
+  { id: 'aduana', label: 'Aduana', emoji: '🛃' },
+  { id: 'entregado', label: 'Entregado', emoji: '✅' },
+] as const;
+export type EstadoEmbarque = typeof ESTADOS_EMBARQUE[number]['id'];
+export function estadoEmbarqueInfo(id: string) {
+  return ESTADOS_EMBARQUE.find((e) => e.id === id) ?? ESTADOS_EMBARQUE[0];
+}
+export function siguienteEstadoEmbarque(id: EstadoEmbarque): EstadoEmbarque {
+  const i = ESTADOS_EMBARQUE.findIndex((e) => e.id === id);
+  return ESTADOS_EMBARQUE[Math.min(i + 1, ESTADOS_EMBARQUE.length - 1)]!.id;
+}
+
+export interface Embarque {
+  id: string;
+  folio: string;
+  ordenIds: string[];       // órdenes de compra que consolida
+  transportista: string;
+  origen: string;
+  destino: string;
+  incoterm: string;
+  estado: EstadoEmbarque;
+  fechaRecoleccion: string;
+  fechaEstimada: string;    // ETA
+  fechaEntrega: string;     // entrega real
+  tracking: string;
+  // Costos logísticos (texto numérico)
+  flete: string;
+  seguro: string;
+  aduana: string;
+  maniobras: string;
+  otros: string;
+  notas: string;
+}
+export function embarqueVacio(id: string): Embarque {
+  return {
+    id, folio: '', ordenIds: [], transportista: '', origen: '', destino: '', incoterm: '', estado: 'preparando',
+    fechaRecoleccion: '', fechaEstimada: '', fechaEntrega: '', tracking: '', flete: '', seguro: '', aduana: '', maniobras: '', otros: '', notas: '',
+  };
+}
+export function normalizarEmbarque(v: unknown): Embarque {
+  const d = (v && typeof v === 'object') ? v as Record<string, unknown> : {};
+  const estado = (ESTADOS_EMBARQUE.some((e) => e.id === d.estado) ? d.estado : 'preparando') as EstadoEmbarque;
+  return {
+    id: s(d.id) || `EMB-${Math.random().toString(36).slice(2, 8)}`, folio: s(d.folio), ordenIds: sa(d.ordenIds),
+    transportista: s(d.transportista), origen: s(d.origen), destino: s(d.destino), incoterm: s(d.incoterm), estado,
+    fechaRecoleccion: s(d.fechaRecoleccion), fechaEstimada: s(d.fechaEstimada), fechaEntrega: s(d.fechaEntrega), tracking: s(d.tracking),
+    flete: s(d.flete), seguro: s(d.seguro), aduana: s(d.aduana), maniobras: s(d.maniobras), otros: s(d.otros), notas: s(d.notas),
+  };
+}
+// Costo logístico total del embarque (flete + seguro + aduana + maniobras + otros).
+export function costoLogisticoEmbarque(e: Embarque): number {
+  return [e.flete, e.seguro, e.aduana, e.maniobras, e.otros].reduce((s2, x) => s2 + (numero(x) ?? 0), 0);
+}
+// Valor de la mercancía = suma del total de las órdenes que incluye.
+export function valorMercanciaEmbarque(e: Embarque, ordenes: OrdenCompra[]): number {
+  const ids = new Set(e.ordenIds);
+  return ordenes.filter((o) => ids.has(o.id)).reduce((s2, o) => s2 + (totalOrden(o) ?? 0), 0);
+}
+// Landed cost = valor de mercancía + logística; factor = cuánto encarece la logística.
+export function landedCostEmbarque(e: Embarque, ordenes: OrdenCompra[]): { valor: number; logistica: number; total: number; factor: number } {
+  const valor = valorMercanciaEmbarque(e, ordenes);
+  const logistica = costoLogisticoEmbarque(e);
+  const total = valor + logistica;
+  return { valor, logistica, total, factor: valor > 0 ? total / valor : 1 };
+}
+// Prorrateo de la logística entre las órdenes, proporcional a su valor.
+export function prorrateoLanded(e: Embarque, ordenes: OrdenCompra[]): { ordenId: string; descripcion: string; valor: number; logistica: number; landed: number }[] {
+  const ids = new Set(e.ordenIds);
+  const incluidas = ordenes.filter((o) => ids.has(o.id));
+  const valorTotal = incluidas.reduce((s2, o) => s2 + (totalOrden(o) ?? 0), 0);
+  const logisticaTotal = costoLogisticoEmbarque(e);
+  return incluidas.map((o) => {
+    const valor = totalOrden(o) ?? 0;
+    const logistica = valorTotal > 0 ? logisticaTotal * (valor / valorTotal) : 0;
+    return { ordenId: o.id, descripcion: o.descripcion, valor, logistica, landed: valor + logistica };
+  });
+}
+// ¿El embarque va retrasado? (ETA ya pasó y no está entregado).
+export function embarqueRetrasado(e: Embarque, hoyISO: string): boolean {
+  return !!e.fechaEstimada && e.estado !== 'entregado' && e.fechaEstimada < hoyISO;
+}
+
 // ---------- Calidad (Sección 8): incidencias del proveedor ----------
 export type GravedadIncidencia = 'leve' | 'media' | 'grave';
 export interface Incidencia {

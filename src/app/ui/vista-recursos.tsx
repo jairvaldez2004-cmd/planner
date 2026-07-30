@@ -19,6 +19,7 @@ import {
   listarContratos, guardarContrato, eliminarContrato,
   listarIncidencias, guardarIncidencia, eliminarIncidencia,
   listarInteracciones, guardarInteraccion, eliminarInteraccion,
+  listarEmbarques, guardarEmbarque, eliminarEmbarque,
   conversarCentroAbastecimiento, cargarChatAbastecimiento,
 } from '@/app/actions/recursos.actions';
 import { ChatArquitecto } from './chat-arquitecto';
@@ -31,8 +32,9 @@ import {
   estadoContrato, ESTADOS_CONTRATO, solicitudDesdeProducto,
   CRITERIOS_EVAL, RIESGOS, DEPENDENCIAS, TIPOS_INCIDENCIA, incidenciaVacia, scoreProveedor, NIVELES_SCORE,
   ESTADOS_RELACION, TIPOS_INTERACCION, interaccionesDeProveedor, ultimoContacto, seguimientosPendientes,
+  ESTADOS_EMBARQUE, estadoEmbarqueInfo, siguienteEstadoEmbarque, embarqueVacio, costoLogisticoEmbarque, landedCostEmbarque, prorrateoLanded, embarqueRetrasado,
 } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia, Interaccion } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia, Interaccion, Embarque } from '@/domain/recursos';
 import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -43,7 +45,7 @@ const chip: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap:
 const sum: CSSProperties = { cursor: 'pointer', fontSize: 12, fontWeight: 'bold', color: '#6b5320', marginTop: '0.6rem' };
 
 type Agrupar = 'categoria' | 'grupo' | 'proveedor' | 'ninguno';
-type Tab = 'recursos' | 'proveedores' | 'productos' | 'compras' | 'contratos' | 'ia';
+type Tab = 'recursos' | 'proveedores' | 'productos' | 'compras' | 'logistica' | 'contratos' | 'ia';
 
 export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   const [recs, setRecs] = useState<Recurso[]>([]);
@@ -54,6 +56,8 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   const [ctrs, setCtrs] = useState<Contrato[]>([]);
   const [incs, setIncs] = useState<Incidencia[]>([]);
   const [ints, setInts] = useState<Interaccion[]>([]);
+  const [embs, setEmbs] = useState<Embarque[]>([]);
+  const [selEmb, setSelEmb] = useState<string | null>(null);
   const [selOC, setSelOC] = useState<string | null>(null);
   const [selCtr, setSelCtr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('recursos');
@@ -68,8 +72,8 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
 
   const cargar = () => {
     setLoading(true);
-    Promise.all([listarRecursos(proyectoId), listarProveedores(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId), listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId)])
-      .then(([r, p, pr, v, o, c, inc, itx]) => { setRecs(r); setProvs(p); setProds(pr); setVinc(v); setOcs(o); setCtrs(c); setIncs(inc); setInts(itx); }).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([listarRecursos(proyectoId), listarProveedores(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId), listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId), listarEmbarques(proyectoId)])
+      .then(([r, p, pr, v, o, c, inc, itx, emb]) => { setRecs(r); setProvs(p); setProds(pr); setVinc(v); setOcs(o); setCtrs(c); setIncs(inc); setInts(itx); setEmbs(emb); }).catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
 
@@ -124,6 +128,11 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   async function patchCtr(c: Contrato) { setCtrs((l) => l.map((x) => x.id === c.id ? c : x)); await guardarContrato(proyectoId, c); }
   async function borrarCtr(id: string) { if (!window.confirm('¿Eliminar este contrato?')) return; setCtrs((l) => l.filter((x) => x.id !== id)); setSelCtr(null); await eliminarContrato(proyectoId, id); }
 
+  // Embarques (logística)
+  async function nuevoEmb() { const n = await guardarEmbarque(proyectoId, { ...embarqueVacio(''), fechaRecoleccion: hoy }); setEmbs((l) => [...l, n]); setSelEmb(n.id); }
+  async function patchEmb(e: Embarque) { setEmbs((l) => l.map((x) => x.id === e.id ? e : x)); await guardarEmbarque(proyectoId, e); }
+  async function borrarEmb(id: string) { if (!window.confirm('¿Eliminar este embarque?')) return; setEmbs((l) => l.filter((x) => x.id !== id)); setSelEmb(null); await eliminarEmbarque(proyectoId, id); }
+
   // Agrupación libre de recursos + subtotales
   const claveGrupo = (r: Recurso) => agrupar === 'categoria' ? categoriaRecurso(r.categoria).label : agrupar === 'grupo' ? (r.grupo || '(sin grupo)') : agrupar === 'proveedor' ? (r.proveedor || '(sin proveedor)') : 'Todos';
   const grupos = new Map<string, Recurso[]>();
@@ -144,11 +153,12 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
         {tab === 'productos' && <button style={btn} onClick={() => void nuevoProd()}>＋ Producto</button>}
         {tab === 'compras' && <button style={btn} onClick={() => void nuevaOC()}>＋ Orden de compra</button>}
         {tab === 'contratos' && <button style={btn} onClick={() => void nuevoCtr()}>＋ Contrato</button>}
+        {tab === 'logistica' && <button style={btn} onClick={() => void nuevoEmb()}>＋ Embarque</button>}
       </div>
 
       <div style={{ display: 'flex', gap: '0.4rem', margin: '0.5rem 0 0.4rem', flexWrap: 'wrap' }}>
-        {([['recursos', '📦 Recursos'], ['proveedores', '🏭 Proveedores'], ['productos', '🏷️ Productos'], ['compras', '🛒 Compras'], ['contratos', '📄 Contratos'], ['ia', '🧠 Centro IA']] as const).map(([id, label]) => (
-          <button key={id} onClick={() => { setTab(id); setSelR(null); setSelP(null); setSelProd(null); setSelOC(null); setSelCtr(null); }}
+        {([['recursos', '📦 Recursos'], ['proveedores', '🏭 Proveedores'], ['productos', '🏷️ Productos'], ['compras', '🛒 Compras'], ['logistica', '🚚 Logística'], ['contratos', '📄 Contratos'], ['ia', '🧠 Centro IA']] as const).map(([id, label]) => (
+          <button key={id} onClick={() => { setTab(id); setSelR(null); setSelP(null); setSelProd(null); setSelOC(null); setSelCtr(null); setSelEmb(null); }}
             style={{ ...btn, background: tab === id ? '#a9720f' : '#fff', color: tab === id ? '#fff' : '#6b5320', borderColor: tab === id ? '#a9720f' : '#e0d3b0', fontWeight: 'bold' }}>{label}</button>
         ))}
       </div>
@@ -350,6 +360,11 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
           provs={provs} prods={prods} onPatch={patchOC} onDelete={borrarOC} movil={movil} />
       )}
 
+      {/* ======= LOGÍSTICA (embarques + landed cost) ======= */}
+      {tab === 'logistica' && (
+        <EmbarquesLista embs={embs} ocs={ocs} sel={selEmb} onSel={setSelEmb} hoy={hoy} onPatch={patchEmb} onDelete={borrarEmb} movil={movil} />
+      )}
+
       {/* ======= CONTRATOS ======= */}
       {tab === 'contratos' && (
         <ContratosLista ctrs={ctrs} sel={selCtr} onSel={setSelCtr} provs={provs} provNombre={provNombre}
@@ -497,6 +512,129 @@ function OrdenEditor({ o, provs, prods, onPatch, onClose, onDelete }: {
       <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={o.notas} key={`no-${o.id}`} onBlur={(e) => { if (e.target.value !== o.notas) set('notas', e.target.value); }} />
       <div style={{ borderTop: '1px solid #e0d3b0', marginTop: '0.6rem', paddingTop: '0.5rem' }}>
         <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => onDelete(o.id)}>🗑 Eliminar</button>
+      </div>
+    </div>
+  );
+}
+
+// ===== LOGÍSTICA: embarques (consolidación + landed cost) =====
+function EmbarquesLista({ embs, ocs, sel, onSel, hoy, onPatch, onDelete, movil }: {
+  embs: Embarque[]; ocs: OrdenCompra[]; sel: string | null; onSel: (id: string | null) => void; hoy: string;
+  onPatch: (e: Embarque) => void; onDelete: (id: string) => void; movil: boolean;
+}) {
+  const eSel = embs.find((e) => e.id === sel) ?? null;
+  const retrasados = embs.filter((e) => embarqueRetrasado(e, hoy));
+  return (
+    <>
+      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.5rem' }}>
+        Un <strong>embarque</strong> consolida órdenes de compra en un envío. El costo logístico (flete/seguro/aduana) se suma al valor de la mercancía = <strong>landed cost</strong> (costo puesto en tienda) y alimenta Financiero.
+      </p>
+      {retrasados.length > 0 && (
+        <div style={{ background: '#fdecea', border: '1px solid #f0c9c2', borderRadius: 9, padding: '0.45rem 0.7rem', marginBottom: '0.5rem' }}>
+          <strong style={{ fontSize: 12.5, color: '#c0392b' }}>⚠ {retrasados.length} embarque(s) retrasado(s):</strong>
+          <span style={{ fontSize: 12, color: '#a33', marginLeft: 6 }}>{retrasados.map((e) => `${e.folio || e.destino || 'embarque'} (ETA ${e.fechaEstimada})`).join(' · ')}</span>
+        </div>
+      )}
+      {embs.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay embarques. Pulsa <strong>＋ Embarque</strong> para consolidar órdenes y calcular el landed cost.</p>}
+      <div style={{ display: 'grid', gridTemplateColumns: movil || !eSel ? '1fr' : 'minmax(0, 1fr) 420px', gap: '0.75rem', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
+          {embs.map((e) => {
+            const inf = estadoEmbarqueInfo(e.estado); const lc = landedCostEmbarque(e, ocs); const ret = embarqueRetrasado(e, hoy);
+            return (
+              <div key={e.id} onClick={() => onSel(e.id)}
+                style={{ border: `1px solid ${sel === e.id ? '#a9720f' : '#e0d3b0'}`, borderLeft: `4px solid ${ret ? '#c0392b' : '#3bb0c9'}`, borderRadius: 9, padding: '0.5rem 0.6rem', background: sel === e.id ? '#fdf6e3' : '#fff', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ fontWeight: 'bold', fontSize: 13.5, flex: 1 }}>🚚 {e.folio || e.destino || 'Embarque'}</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 'bold', color: '#fff', background: ret ? '#c0392b' : '#3b9ec9', borderRadius: 8, padding: '0 6px' }}>{inf.emoji} {inf.label}</span>
+                </div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{e.transportista || 'sin transportista'} · {e.ordenIds.length} orden(es){e.fechaEstimada ? ` · ETA ${e.fechaEstimada}` : ''}</div>
+                <div style={{ fontSize: 11.5, color: '#6b5320', marginTop: 2 }}>Landed <strong>{formatoMoneda(lc.total)}</strong> {lc.logistica > 0 ? <span style={{ color: '#999' }}>(+{formatoMoneda(lc.logistica)} log · ×{lc.factor.toFixed(2)})</span> : null}</div>
+              </div>
+            );
+          })}
+        </div>
+        {eSel && <EmbarqueEditor e={eSel} ocs={ocs} onPatch={onPatch} onClose={() => onSel(null)} onDelete={onDelete} />}
+      </div>
+    </>
+  );
+}
+
+function EmbarqueEditor({ e, ocs, onPatch, onClose, onDelete }: {
+  e: Embarque; ocs: OrdenCompra[]; onPatch: (e: Embarque) => void; onClose: () => void; onDelete: (id: string) => void;
+}) {
+  const set = (k: keyof Embarque, val: string | string[]) => onPatch({ ...e, [k]: val });
+  const F = (label: string, k: keyof Embarque, ph = '', type = 'text') => (
+    <div><label style={lbl}>{label}</label><input style={inp} type={type} defaultValue={String(e[k] ?? '')} key={`${String(k)}-${e.id}`} placeholder={ph} onBlur={(ev) => { if (ev.target.value !== e[k]) set(k, ev.target.value); }} /></div>
+  );
+  const idx = ESTADOS_EMBARQUE.findIndex((x) => x.id === e.estado);
+  const lc = landedCostEmbarque(e, ocs);
+  const prorr = prorrateoLanded(e, ocs);
+  const incluidas = new Set(e.ordenIds);
+  const toggleOrden = (id: string) => set('ordenIds', incluidas.has(id) ? e.ordenIds.filter((x) => x !== id) : [...e.ordenIds, id]);
+  return (
+    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <strong style={{ fontSize: 14 }}>🚚 Embarque</strong>
+        <button style={btnSm} onClick={onClose}>✕</button>
+      </div>
+      {/* Stepper de estado */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, margin: '6px 0' }}>
+        {ESTADOS_EMBARQUE.map((x, i) => (
+          <span key={x.id} onClick={() => set('estado', x.id)} title={x.label}
+            style={{ fontSize: 11, cursor: 'pointer', padding: '1px 6px', borderRadius: 8, background: i <= idx ? '#3b9ec9' : '#e6eef1', color: i <= idx ? '#fff' : '#68808a' }}>{x.emoji}</span>
+        ))}
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 'bold', color: '#2b7a93' }}>{estadoEmbarqueInfo(e.estado).emoji} {estadoEmbarqueInfo(e.estado).label}</div>
+      {e.estado !== 'entregado' && <button style={{ ...btnSm, marginTop: 4, background: '#eef7fb', borderColor: '#bcd8e6', color: '#2b7a93', fontWeight: 'bold' }} onClick={() => set('estado', siguienteEstadoEmbarque(e.estado))}>→ Avanzar a «{estadoEmbarqueInfo(siguienteEstadoEmbarque(e.estado)).label}»</button>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+        {F('Folio', 'folio')}{F('Transportista', 'transportista')}
+        {F('Origen', 'origen')}{F('Destino', 'destino')}
+        {F('Incoterm', 'incoterm', 'FOB / DAP…')}{F('Tracking', 'tracking')}
+        {F('Recolección', 'fechaRecoleccion', '', 'date')}{F('ETA (estimada)', 'fechaEstimada', '', 'date')}
+        {F('Entrega real', 'fechaEntrega', '', 'date')}
+      </div>
+
+      {/* Órdenes consolidadas */}
+      <label style={lbl}>Órdenes consolidadas ({e.ordenIds.length})</label>
+      <div style={{ maxHeight: 130, overflowY: 'auto', border: '1px solid #e8dcc0', borderRadius: 7, padding: '0.3rem' }}>
+        {ocs.filter((o) => o.etapa !== 'cerrada' || incluidas.has(o.id)).map((o) => (
+          <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '2px 0', cursor: 'pointer' }}>
+            <input type="checkbox" checked={incluidas.has(o.id)} onChange={() => toggleOrden(o.id)} />
+            <span style={{ flex: 1 }}>{o.descripcion || '(orden)'} <span style={{ color: '#999' }}>{o.cantidad ? `· ${o.cantidad} ${o.unidad}` : ''}</span></span>
+            <span style={{ color: '#6b5320' }}>{totalOrden(o) !== null ? formatoMoneda(totalOrden(o)!) : '—'}</span>
+          </label>
+        ))}
+        {ocs.length === 0 && <span style={{ fontSize: 11, color: '#999' }}>No hay órdenes de compra. Créalas en 🛒 Compras.</span>}
+      </div>
+
+      {/* Costos logísticos */}
+      <label style={lbl}>Costos logísticos</label>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
+        {F('Flete', 'flete')}{F('Seguro', 'seguro')}{F('Aduana', 'aduana')}
+        {F('Maniobras', 'maniobras')}{F('Otros', 'otros')}
+      </div>
+
+      {/* Panel landed cost */}
+      <div style={{ marginTop: '0.5rem', border: '1px solid #bcd8e6', borderRadius: 8, background: '#f7fbfd', padding: '0.5rem 0.6rem' }}>
+        <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#2b7a93' }}>📦 Landed cost</div>
+        <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>Mercancía {formatoMoneda(lc.valor)} + logística {formatoMoneda(lc.logistica)} = <strong>{formatoMoneda(lc.total)}</strong> <span style={{ color: '#888' }}>(×{lc.factor.toFixed(2)} sobre el precio)</span></div>
+        {prorr.length > 0 && lc.logistica > 0 && (
+          <div style={{ marginTop: 4 }}>
+            {prorr.map((p) => (
+              <div key={p.ordenId} style={{ fontSize: 11, color: '#666', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e6eef1', padding: '1px 0' }}>
+                <span>{p.descripcion || '(orden)'}</span>
+                <span>{formatoMoneda(p.valor)} + {formatoMoneda(p.logistica)} log = <strong>{formatoMoneda(p.landed)}</strong></span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <label style={lbl}>Notas</label>
+      <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={e.notas} key={`eno-${e.id}`} onBlur={(ev) => { if (ev.target.value !== e.notas) set('notas', ev.target.value); }} />
+      <div style={{ borderTop: '1px solid #e0d3b0', marginTop: '0.6rem', paddingTop: '0.5rem' }}>
+        <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => onDelete(e.id)}>🗑 Eliminar</button>
       </div>
     </div>
   );
