@@ -15,7 +15,11 @@ import {
   listarDepartamentos, crearDepartamento, actualizarDepartamento, eliminarDepartamento,
   listarProcesos, crearProceso, actualizarProceso, eliminarProceso,
   importarRutasCatalogo, listarRecursosProyecto, crearRolMaestro, crearHerramientaMaestro, rescatarDuraciones,
+  listarContingencias, guardarContingencia, eliminarContingencia,
 } from '@/app/actions/mapa.actions';
+import { VistaContingencias } from './vista-contingencias';
+import { RIESGOS_LOGISTICA, contingenciaDesdePlantilla, contingenciasDeProceso, gravedadContingencia } from '@/domain/contingencia';
+import type { Contingencia } from '@/domain/contingencia';
 import type { RecursosProyecto } from '@/app/actions/mapa.actions';
 import { obtenerProyectoBase } from '@/app/actions/workspace.actions';
 import { FASES_MAPA, VISTAS_MAPA, ETAPA_BASE, colorDepto, ordenCronologico, recursosCompartidos, vigenteEn, naceEn, seRetiraEn, procesosDeEtapa, nEtapa, procesosDeNivel, contarSubprocesos } from '@/domain/mapa';
@@ -62,7 +66,8 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const [selProc, setSelProc] = useState<string | null>(null);
   const [selDepto, setSelDepto] = useState<string | null>(null);
   const [nuevoDepto, setNuevoDepto] = useState('');
-  const [panel, setPanel] = useState<'mapa' | 'instructivo' | 'agenda' | 'simulacion'>('mapa');
+  const [panel, setPanel] = useState<'mapa' | 'instructivo' | 'agenda' | 'simulacion' | 'contingencias'>('mapa');
+  const [contingencias, setContingencias] = useState<Contingencia[]>([]);
   const [msg, setMsg] = useState('');
   // Flujos ANIDADOS: `nivel` = el paso dentro del que estamos (null = mapa raíz);
   // `ruta` = migas de pan para navegar hacia arriba.
@@ -80,8 +85,8 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
 
   const cargar = () => {
     setLoading(true);
-    Promise.all([listarDepartamentos(proyectoId), listarProcesos(proyectoId), listarRecursosProyecto(proyectoId), obtenerProyectoBase(proyectoId), listarRecursos(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId)])
-      .then(([d, p, r, base, cat, prod, vinc]) => { setDeptos(d); setProcesos(p); setRecursos(r); setEtapaMeta(base?.etapaObjetivo ?? null); setCatalogo(cat); setProductos(prod); setVinculos(vinc); })
+    Promise.all([listarDepartamentos(proyectoId), listarProcesos(proyectoId), listarRecursosProyecto(proyectoId), obtenerProyectoBase(proyectoId), listarRecursos(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId), listarContingencias(proyectoId)])
+      .then(([d, p, r, base, cat, prod, vinc, cont]) => { setDeptos(d); setProcesos(p); setRecursos(r); setEtapaMeta(base?.etapaObjetivo ?? null); setCatalogo(cat); setProductos(prod); setVinculos(vinc); setContingencias(cont); })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
@@ -267,6 +272,13 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
       onCerrar={() => setPanel('mapa')}
       onIrProceso={(nombre) => { const p = procesos.find((x) => x.nombre === nombre); if (p) { setFase(p.fase); setSelProc(p.id); } setPanel('mapa'); }} />;
   }
+  if (panel === 'contingencias') {
+    return <VistaContingencias contingencias={contingencias} procesos={procesos}
+      onGuardar={async (c) => { const n = await guardarContingencia(proyectoId, c); await listarContingencias(proyectoId).then(setContingencias); return n; }}
+      onBorrar={async (id) => { await eliminarContingencia(proyectoId, id); await listarContingencias(proyectoId).then(setContingencias); }}
+      onCerrar={() => setPanel('mapa')}
+      onIrProceso={(id) => { const p = procesos.find((x) => x.id === id); if (p) { setFase(p.fase); setSelProc(id); } setPanel('mapa'); }} />;
+  }
 
   return (
     <section>
@@ -341,6 +353,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
         <button style={btnSm} onClick={() => setPanel('instructivo')} title="Documento imprimible con el paso a paso de esta etapa">🖨️ Instructivo</button>
         <button style={btnSm} onClick={() => setPanel('agenda')} title="Semana de los recursos compartidos y sus choques">🗓️ Agenda</button>
         <button style={btnSm} onClick={() => setPanel('simulacion')} title="Simula los procesos sobre el espacio: carga por espacio/rol, cuellos y recorrido">🎬 Simular</button>
+        <button style={btnSm} onClick={() => setPanel('contingencias')} title="Manuales de emergencia por riesgo: qué hacer si el pedido no llega, roban la mercancía, viene sin seguro…">⚠️ Contingencias{contingencias.length ? ` (${contingencias.length})` : ''}</button>
         {!nivel && <button style={btnSm} onClick={() => void importar()} title="Siembra en el mapa los pasos de las rutas del catálogo">⬇ Importar catálogo</button>}
         {!nivel && <button style={btnSm} onClick={() => void rescatarTiempos()} title="Lee el tiempo que traen las presentaciones del catálogo y lo baja a los pasos">⏱ Rescatar tiempos</button>}
       </div>
@@ -496,6 +509,9 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
         {proc && (
           <PanelProceso key={proc.id} proyectoId={proyectoId} proc={proc} procesos={procesosNivel} deptos={deptos} recursos={recursos} catalogo={catalogo} productos={productos} idxCosto={idxRec}
             subprocesos={subCount.get(proc.id) ?? 0}
+            contingencias={contingenciasDeProceso(contingencias, proc.id)}
+            onGuardarCont={async (c) => { await guardarContingencia(proyectoId, c); await listarContingencias(proyectoId).then(setContingencias); }}
+            onBorrarCont={async (id) => { await eliminarContingencia(proyectoId, id); await listarContingencias(proyectoId).then(setContingencias); }}
             onEntrarSubflujo={() => entrarSubflujo(proc)}
             onPatch={(patch) => guardar(proc.id, patch)}
             onRecargarRecursos={() => { listarRecursosProyecto(proyectoId).then(setRecursos).catch(() => {}); }}
@@ -520,10 +536,12 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
 
 // =================== PANEL: PROCESO ===================
 
-function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, productos, idxCosto, subprocesos, onEntrarSubflujo, onPatch, onRecargarRecursos, onEliminar, onCerrar, onIrSedes }: {
+function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, productos, idxCosto, subprocesos, contingencias, onGuardarCont, onBorrarCont, onEntrarSubflujo, onPatch, onRecargarRecursos, onEliminar, onCerrar, onIrSedes }: {
   proyectoId: string; proc: ProcesoNodo; procesos: ProcesoNodo[]; deptos: Departamento[]; recursos: RecursosProyecto; catalogo: Recurso[];
   productos: Producto[]; idxCosto: Map<string, { costo: string; unidad: string }>;
-  subprocesos: number; onEntrarSubflujo: () => void;
+  subprocesos: number; contingencias: Contingencia[];
+  onGuardarCont: (c: Contingencia) => void; onBorrarCont: (id: string) => void;
+  onEntrarSubflujo: () => void;
   onPatch: (p: PatchProceso) => void; onRecargarRecursos: () => void;
   onEliminar: () => Promise<void>; onCerrar: () => void; onIrSedes: () => void;
 }) {
@@ -792,6 +810,33 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
       ))}
       <button style={{ ...btnSm, marginTop: 4 }} onClick={() => onPatch({ ramas: [...proc.ramas, { id: `RAMA-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, evento: '' }] })}>＋ Rama</button>
       <p style={{ fontSize: 10.5, color: '#999', margin: '0.3rem 0 0' }}>Un proceso con 2+ ramas se divide en caminos según el disparador que se active. Si el destino está en otra fase aparece como portal ⤷; si nace en una etapa posterior, como ⏭ (el trabajo de hoy que alimenta el mañana — ej. guardar la factura hoy para Contabilidad en la etapa 2).</p>
+
+      {/* ==== CONTINGENCIAS / MANUALES DE EMERGENCIA de este proceso ==== */}
+      <div style={{ borderTop: '1px solid #dde', marginTop: '0.7rem', paddingTop: '0.5rem' }}>
+        <div style={{ fontSize: 12, fontWeight: 'bold', color: '#a03e2c' }}>⚠️ Contingencias / qué hacer si… ({contingencias.length})</div>
+        <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 4px' }}>Manuales de emergencia por riesgo, anclados a este paso del workflow.</p>
+        {contingencias.map((c) => {
+          const g = gravedadContingencia(c.gravedad);
+          return (
+            <div key={c.id} style={{ border: `1px solid ${g.color}44`, borderLeft: `3px solid ${g.color}`, borderRadius: 7, padding: '0.35rem 0.5rem', marginBottom: 4, background: '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 'bold', flex: 1 }}>{c.titulo}</span>
+                <span style={{ fontSize: 9.5, fontWeight: 'bold', color: '#fff', background: g.color, borderRadius: 7, padding: '0 5px' }}>{g.label}</span>
+                <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onBorrarCont(c.id)}>×</span>
+              </div>
+              {c.disparador && <div style={{ fontSize: 11, color: '#a03e2c', marginTop: 2 }}>⚡ {c.disparador}</div>}
+              <textarea style={{ ...inp, resize: 'vertical', marginTop: 3, fontSize: 12 }} rows={3} defaultValue={c.pasos} key={`cp-${c.id}`} placeholder="Pasos del protocolo…" onBlur={(e) => { if (e.target.value !== c.pasos) onGuardarCont({ ...c, pasos: e.target.value }); }} />
+            </div>
+          );
+        })}
+        <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+          <select style={{ ...inp, flex: 1 }} value="" onChange={(e) => { const pl = RIESGOS_LOGISTICA.find((x) => x.id === e.target.value); if (pl) onGuardarCont(contingenciaDesdePlantilla('', pl, proc.id)); }}>
+            <option value="">＋ Agregar riesgo (plantilla)…</option>
+            {RIESGOS_LOGISTICA.map((r) => <option key={r.id} value={r.id}>{r.titulo}</option>)}
+          </select>
+          <button style={btnSm} onClick={() => onGuardarCont({ id: '', titulo: 'Nueva contingencia', disparador: '', categoria: 'operación', gravedad: 'media', pasos: '', responsable: '', prevencion: '', procesoId: proc.id })}>＋ libre</button>
+        </div>
+      </div>
 
       <div style={{ borderTop: '1px solid #dde', marginTop: '0.7rem', paddingTop: '0.5rem' }}>
         <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => { if (window.confirm(`¿Eliminar el proceso "${proc.nombre}"?`)) void onEliminar(); }}>🗑 Eliminar proceso</button>

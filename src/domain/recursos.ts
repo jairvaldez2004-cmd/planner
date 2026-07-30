@@ -469,6 +469,7 @@ export interface OrdenCompra {
   proveedorId: string;  // opcional: proveedor elegido
   descripcion: string;  // qué se compra (libre si no es un producto del catálogo)
   cantidad: string;
+  cantidadRecibida: string; // recepción parcial: cuánto llegó (vs cantidad pedida)
   unidad: string;
   precioUnitario: string;
   moneda: string;
@@ -481,7 +482,7 @@ export interface OrdenCompra {
 }
 export function ordenVacia(id: string): OrdenCompra {
   return {
-    id, folio: '', etapa: 'solicitud', productoId: '', proveedorId: '', descripcion: '', cantidad: '', unidad: '',
+    id, folio: '', etapa: 'solicitud', productoId: '', proveedorId: '', descripcion: '', cantidad: '', cantidadRecibida: '', unidad: '',
     precioUnitario: '', moneda: '', fechaSolicitud: '', fechaRequerida: '', aprobadaPor: '', recibidoOk: false, evaluacion: '', notas: '',
   };
 }
@@ -491,7 +492,7 @@ export function normalizarOrden(v: unknown): OrdenCompra {
   return {
     id: s(d.id) || `OC-${Math.random().toString(36).slice(2, 8)}`, folio: s(d.folio), etapa,
     productoId: s(d.productoId), proveedorId: s(d.proveedorId), descripcion: s(d.descripcion), cantidad: s(d.cantidad),
-    unidad: s(d.unidad), precioUnitario: s(d.precioUnitario), moneda: s(d.moneda), fechaSolicitud: s(d.fechaSolicitud),
+    cantidadRecibida: s(d.cantidadRecibida), unidad: s(d.unidad), precioUnitario: s(d.precioUnitario), moneda: s(d.moneda), fechaSolicitud: s(d.fechaSolicitud),
     fechaRequerida: s(d.fechaRequerida), aprobadaPor: s(d.aprobadaPor), recibidoOk: d.recibidoOk === true, evaluacion: s(d.evaluacion), notas: s(d.notas),
   };
 }
@@ -499,6 +500,13 @@ export function totalOrden(o: OrdenCompra): number | null {
   const c = numero(o.precioUnitario), q = numero(o.cantidad);
   if (c === null) return null;
   return q === null ? c : c * q;
+}
+// Recepción parcial: compara lo recibido contra lo pedido.
+export function estadoRecepcion(o: OrdenCompra): { estado: 'sin-datos' | 'parcial' | 'completa'; recibido: number | null; pedido: number | null; faltante: number } {
+  const pedido = numero(o.cantidad), recibido = numero(o.cantidadRecibida);
+  if (recibido === null || pedido === null) return { estado: 'sin-datos', recibido, pedido, faltante: 0 };
+  if (recibido >= pedido) return { estado: 'completa', recibido, pedido, faltante: 0 };
+  return { estado: 'parcial', recibido, pedido, faltante: pedido - recibido };
 }
 
 // ---------- Contratos (Sección 7) + alertas de vencimiento ----------

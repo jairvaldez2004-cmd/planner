@@ -26,7 +26,9 @@ import { indiceRecursos, costearProceso, indiceCosto } from '@/domain/costeo';
 import { costosDeProductos, costosDeEmbarques } from '@/domain/proyeccion';
 import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque, normalizarEmbarque, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista, planArranque } from '@/domain/recursos';
 import type { Transportista, Importacion } from '@/domain/recursos';
-import { importacionVacia, desgloseAduana, costoAduana } from '@/domain/recursos';
+import { importacionVacia, desgloseAduana, costoAduana, estadoRecepcion } from '@/domain/recursos';
+import { RIESGOS_LOGISTICA, contingenciaDesdePlantilla, contingenciasDeProceso, normalizarContingencia } from '@/domain/contingencia';
+import type { Contingencia } from '@/domain/contingencia';
 import type { Embarque } from '@/domain/recursos';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
@@ -587,6 +589,28 @@ check('Un embarque NO importación no genera costo de aduana', costoAduana({ ...
 // Ese costo de aduana entra al landed cost vía el campo `aduana` del embarque.
 const embImp = { ...embarqueVacio('EI'), importacion: impMX, aduana: '4358.40', flete: '650' };
 check('Landed cost incluye la aduana (flete 650 + aduana 4358.4 = 5008.4)', Math.abs(costoLogisticoEmbarque(embImp) - 5008.4) < 0.001);
+
+// ============================================================
+// 25) CONTINGENCIAS (manuales de emergencia) + recepción parcial (F5)
+// ============================================================
+h('25) Manuales de emergencia por riesgo anclados al workflow + recepción parcial');
+// Hay plantillas para los riesgos que pidió el propietario.
+const titulos = RIESGOS_LOGISTICA.map((r) => r.titulo);
+check('Plantilla: "el pedido no llega a tiempo"', titulos.some((t) => t.includes('no llega a tiempo')));
+check('Plantilla: "roban la mercancía"', titulos.some((t) => t.includes('Roban')));
+check('Plantilla: "no viene asegurada"', titulos.some((t) => t.includes('no viene asegurada')));
+const plRobo = RIESGOS_LOGISTICA.find((r) => r.id === 'robo')!;
+const cRobo = contingenciaDesdePlantilla('C1', plRobo, 'PROC-recepcion');
+check('La contingencia hereda pasos y gravedad de la plantilla', cRobo.gravedad === 'critica' && cRobo.pasos.includes('seguro'));
+check('Se ancla al proceso indicado (workflow)', cRobo.procesoId === 'PROC-recepcion');
+const lista: Contingencia[] = [cRobo, normalizarContingencia({ id: 'C2', titulo: 'X', procesoId: 'OTRO' }), normalizarContingencia({ id: 'C3', titulo: 'Y', procesoId: 'PROC-recepcion' })];
+check('contingenciasDeProceso filtra por proceso (2 en PROC-recepcion)', contingenciasDeProceso(lista, 'PROC-recepcion').length === 2);
+check('Contingencia libre inválida cae a gravedad media', normalizarContingencia({ id: 'C4', gravedad: 'apocalíptica' }).gravedad === 'media');
+
+// Recepción parcial (F5): recibido vs pedido.
+check('Recepción parcial: pedí 10, llegaron 6 → faltan 4', (() => { const r = estadoRecepcion({ ...ordenVacia("X"), cantidad: '10', cantidadRecibida: '6' }); return r.estado === 'parcial' && r.faltante === 4; })());
+check('Recepción completa: pedí 10, llegaron 10', estadoRecepcion({ ...ordenVacia("X"), cantidad: '10', cantidadRecibida: '10' }).estado === 'completa');
+check('Sin cantidad recibida → sin-datos', estadoRecepcion({ ...ordenVacia("X"), cantidad: '10', cantidadRecibida: '' }).estado === 'sin-datos');
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

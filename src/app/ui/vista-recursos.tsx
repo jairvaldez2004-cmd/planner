@@ -30,7 +30,7 @@ import {
   recursoVacio, proveedorVacio, productoVacio, vinculoVacio, ordenVacia, contratoVacio,
   subtotalRecurso, formatoMoneda, numero, precioVigente, registrarCambioPrecio, vinculosDeProducto, proveedorMasBarato,
   planearCompra, ACCIONES_COMPRA,
-  ETAPAS_COMPRA_INFO, etapaCompraInfo, siguienteEtapaCompra, totalOrden,
+  ETAPAS_COMPRA_INFO, etapaCompraInfo, siguienteEtapaCompra, totalOrden, estadoRecepcion,
   estadoContrato, ESTADOS_CONTRATO, solicitudDesdeProducto,
   CRITERIOS_EVAL, RIESGOS, DEPENDENCIAS, TIPOS_INCIDENCIA, incidenciaVacia, scoreProveedor, NIVELES_SCORE,
   ESTADOS_RELACION, TIPOS_INTERACCION, interaccionesDeProveedor, ultimoContacto, seguimientosPendientes,
@@ -600,6 +600,20 @@ function OrdenEditor({ o, provs, prods, onPatch, onClose, onDelete }: {
         {F('Fecha solicitud', 'fechaSolicitud')}{F('Fecha requerida', 'fechaRequerida')}
         {F('Aprobada por', 'aprobadaPor')}{F('Evaluación final', 'evaluacion')}
       </div>
+      {/* Recepción parcial */}
+      {(() => {
+        const rec = estadoRecepcion(o);
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', alignItems: 'end', marginTop: '0.3rem' }}>
+            {F('📥 Cantidad recibida', 'cantidadRecibida')}
+            <div style={{ fontSize: 12, paddingBottom: 6 }}>
+              {rec.estado === 'parcial' && <span style={{ color: '#c0392b', fontWeight: 'bold' }}>⚠ Parcial: faltan {rec.faltante} {o.unidad}</span>}
+              {rec.estado === 'completa' && <span style={{ color: '#2e9e63', fontWeight: 'bold' }}>✅ Completa</span>}
+              {rec.estado === 'sin-datos' && <span style={{ color: '#999' }}>—</span>}
+            </div>
+          </div>
+        );
+      })()}
       <label style={{ fontSize: 12, color: '#2e7a4d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
         <input type="checkbox" checked={o.recibidoOk} onChange={(e) => set('recibidoOk', e.target.checked)} /> 🔍 Pasó inspección
       </label>

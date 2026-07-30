@@ -4,6 +4,7 @@
 // Correr: DATABASE_URL=<public> npx tsx scripts/seed-altercing.ts
 import { PrismaClient } from '@prisma/client';
 import { construirBlueprint } from '@/app/seleccion/selection-engine';
+import { RIESGOS_LOGISTICA, contingenciaDesdePlantilla } from '@/domain/contingencia';
 
 const prisma = new PrismaClient();
 const PID = 'WS-GIRLY-ZONE--ALTERCING-STUDIO';
@@ -360,7 +361,7 @@ async function main() {
   const ORDENES = [
     { id: 'oc-guantes-rfq', folio: 'OC-0001', etapa: 'cotizacion', productoId: 'prod-guantes', proveedorId: 'prv-insumos', descripcion: 'Guantes de nitrilo (caja 100)', cantidad: '10', unidad: 'caja', precioUnitario: '180', moneda: 'MXN', fechaSolicitud: d(-3), fechaRequerida: d(4), aprobadaPor: '', recibidoOk: false, evaluacion: '', notas: 'RFQ enviada; esperando confirmación de precio por volumen.' },
     { id: 'oc-aguja', folio: 'OC-0002', etapa: 'orden', productoId: 'prod-aguja', proveedorId: 'prv-insumos', descripcion: 'Aguja estéril 16G', cantidad: '300', unidad: 'pza', precioUnitario: '8', moneda: 'MXN', fechaSolicitud: d(-6), fechaRequerida: d(1), aprobadaPor: 'Suzet', recibidoOk: false, evaluacion: '', notas: 'Urgente: stock bajo el mínimo.' },
-    { id: 'oc-joya', folio: 'OC-0003', etapa: 'recepcion', productoId: 'prod-joya', proveedorId: 'prv-titanio', descripcion: 'Joyería de titanio (surtido)', cantidad: '30', unidad: 'pza', precioUnitario: '120', moneda: 'MXN', fechaSolicitud: d(-14), fechaRequerida: d(-2), aprobadaPor: 'Suzet', recibidoOk: false, evaluacion: '', notas: 'En tránsito desde CDMX.' },
+    { id: 'oc-joya', folio: 'OC-0003', etapa: 'recepcion', productoId: 'prod-joya', proveedorId: 'prv-titanio', descripcion: 'Joyería de titanio (surtido)', cantidad: '30', cantidadRecibida: '18', unidad: 'pza', precioUnitario: '120', moneda: 'MXN', fechaSolicitud: d(-14), fechaRequerida: d(-2), aprobadaPor: 'Suzet', recibidoOk: false, evaluacion: '', notas: 'Recepción PARCIAL: llegaron 18 de 30; faltan 12 por surtir.' },
     { id: 'oc-tinta-cerrada', folio: 'OC-0004', etapa: 'cerrada', productoId: 'prod-tinta', proveedorId: 'prv-tattoo', descripcion: 'Tinta de tatuaje negra', cantidad: '10', unidad: 'bote', precioUnitario: '250', moneda: 'MXN', fechaSolicitud: d(-40), fechaRequerida: d(-33), aprobadaPor: 'Francisco', recibidoOk: true, evaluacion: 'Entrega a tiempo, buena calidad.', notas: 'Ciclo completo.' },
   ];
   const CONTRATOS = [
@@ -407,6 +408,16 @@ async function main() {
   await up('embarques', EMBARQUES);
   await up('transportistas', TRANSPORTISTAS);
   console.log(`✅ Abastecimiento: ${PRODUCTOS.length} productos, ${VINCULOS.length} vínculos, ${ORDENES.length} órdenes, ${CONTRATOS.length} contratos, ${INCIDENCIAS.length} incidencias, ${INTERACCIONES.length} interacciones, ${EMBARQUES.length} embarques, ${TRANSPORTISTAS.length} transportistas.`);
+
+  // 7d) Contingencias / manuales de emergencia por riesgo, anclados al workflow del mapa.
+  const procsAncla = await prisma.proceso.findMany({ where: { proyectoId: PID } });
+  const anclaPrep = procsAncla.find((p) => /prepar|cabina|asepsia|cargar cat/i.test(p.nombre))?.id ?? '';
+  const CONTINGENCIAS = RIESGOS_LOGISTICA.map((pl) => ({
+    ...contingenciaDesdePlantilla(`con-${pl.id}`, pl, (pl.id === 'retraso' || pl.id === 'faltante') ? anclaPrep : ''),
+    responsable: 'Suzet (Dirección)',
+  }));
+  await up('contingencias', CONTINGENCIAS);
+  console.log(`✅ Contingencias: ${CONTINGENCIAS.length} manuales de emergencia${anclaPrep ? ' (2 anclados a un proceso del mapa)' : ' (generales)'}.`);
 
   // 7c) RH: marca algunos procesos como AUTOMATIZADOS → alimentan los planos IA y Tecnológico.
   const procesosTodos = await prisma.proceso.findMany({ where: { proyectoId: PID } });

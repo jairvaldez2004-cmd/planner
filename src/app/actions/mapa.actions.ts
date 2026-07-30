@@ -12,6 +12,8 @@ import type { EtapaObjetivo } from '@/domain/etapas';
 import { ETAPAS_OBJETIVO } from '@/domain/etapas';
 import type { FasePaso } from '@/domain/oferta';
 import { parseDuracion, repartirDuracion } from '@/domain/duracion';
+import { normalizarContingencia } from '@/domain/contingencia';
+import type { Contingencia } from '@/domain/contingencia';
 
 function etapa(v: unknown, fallback?: EtapaObjetivo): EtapaObjetivo | undefined {
   return ETAPAS_OBJETIVO.some((x) => x.id === v) ? v as EtapaObjetivo : fallback;
@@ -263,6 +265,34 @@ export async function eliminarProceso(id: string): Promise<void> {
     }
   }
   await prisma.proceso.deleteMany({ where: { id: { in: Array.from(aBorrar) } } });
+}
+
+// =================== CONTINGENCIAS (manuales de emergencia del Mapa) ===================
+export async function listarContingencias(proyectoId: string): Promise<Contingencia[]> {
+  const r = await prisma.tablaProyecto.findUnique({ where: { proyectoId_tablaRef: { proyectoId, tablaRef: 'contingencias' } } });
+  const filas = r && Array.isArray(r.filas) ? (r.filas as unknown[]) : [];
+  return filas.map(normalizarContingencia);
+}
+export async function guardarContingencia(proyectoId: string, c: Contingencia): Promise<Contingencia> {
+  const lista = await listarContingencias(proyectoId);
+  const id = c.id?.trim() || nid('CON');
+  const norm = normalizarContingencia({ ...c, id });
+  const i = lista.findIndex((x) => x.id === id);
+  if (i >= 0) lista[i] = norm; else lista.push(norm);
+  await prisma.tablaProyecto.upsert({
+    where: { proyectoId_tablaRef: { proyectoId, tablaRef: 'contingencias' } },
+    create: { proyectoId, tablaRef: 'contingencias', filas: toJson(lista), actualizadoEn: new Date().toISOString() },
+    update: { filas: toJson(lista), actualizadoEn: new Date().toISOString() },
+  });
+  return norm;
+}
+export async function eliminarContingencia(proyectoId: string, id: string): Promise<void> {
+  const lista = (await listarContingencias(proyectoId)).filter((x) => x.id !== id);
+  await prisma.tablaProyecto.upsert({
+    where: { proyectoId_tablaRef: { proyectoId, tablaRef: 'contingencias' } },
+    create: { proyectoId, tablaRef: 'contingencias', filas: toJson(lista), actualizadoEn: new Date().toISOString() },
+    update: { filas: toJson(lista), actualizadoEn: new Date().toISOString() },
+  });
 }
 
 // =================== SEMBRAR DESDE EL CATÁLOGO ===================
