@@ -24,7 +24,7 @@ import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProvee
 import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from '@/domain/recursos';
 import { indiceRecursos, costearProceso, indiceCosto } from '@/domain/costeo';
 import { costosDeProductos, costosDeEmbarques } from '@/domain/proyeccion';
-import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque, normalizarEmbarque, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista } from '@/domain/recursos';
+import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque, normalizarEmbarque, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista, planArranque } from '@/domain/recursos';
 import type { Transportista } from '@/domain/recursos';
 import type { Embarque } from '@/domain/recursos';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
@@ -554,6 +554,23 @@ check('Mejor a 1kg = Estafeta', mejorTransportista([estafeta, dhl], 'paqueteria'
 // Carga: base + $/viaje (no depende del peso). 500 + 1500 = 2000.
 check('Carga = base + por viaje = 2000', cotizarFlete(fletes, 'carga', 'Bajío', 999) === 2000);
 check('Un transportista de carga NO cotiza paquetería', cotizarFlete(fletes, 'paqueteria', 'Bajío', 5) === null);
+
+// ============================================================
+// 23) ARRANQUE DEL NEGOCIO: checklist de apertura (activos + inventario inicial)
+// ============================================================
+h('23) Plan de arranque: qué comprar para abrir y cuánto cuesta');
+const recAct1 = { ...recursoVacio('rA'), nombre: 'Autoclave', categoria: 'equipo' as const, costo: '25000', cantidad: '1', existe: false };
+const recYa = { ...recursoVacio('rB'), nombre: 'Camilla', categoria: 'mueble' as const, costo: '8000', cantidad: '2', existe: true }; // ya se tiene → no cuenta
+const prodInv = { ...productoVacio('pA'), nombre: 'Guantes', unidad: 'caja', stockActual: '2', stockMaximo: '20' }; // faltan 18
+const vA = { ...vinculoVacio('vA', 'pA', 'prv'), precio: '180', moneda: 'MXN' };
+const planA = planArranque([recAct1, recYa], [prodInv], [vA]);
+check('Activos por adquirir: solo el que NO existe (autoclave)', planA.activos.length === 1 && planA.activos[0]!.nombre === 'Autoclave');
+check('Total de activos = 25000', planA.totalActivos === 25000);
+check('Inventario inicial: llenar de 2 a 20 = 18 cajas', planA.insumos.length === 1 && planA.insumos[0]!.cantidad === 18);
+check('Costo del inventario inicial = 18 × 180 = 3240', planA.totalInsumos === 3240);
+check('Inversión de apertura total = 25000 + 3240 = 28240', planA.total === 28240);
+check('El insumo trae proveedor sugerido (el del vínculo)', planA.insumos[0]!.proveedorId === 'prv');
+check('Un producto ya en su máximo NO entra al arranque', planArranque([], [{ ...productoVacio('pB'), nombre: 'X', stockActual: '20', stockMaximo: '20' }], []).insumos.length === 0);
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

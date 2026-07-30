@@ -12,7 +12,7 @@ import {
   solicitudDesdeProducto, incidenciaVacia, ordenVacia, redactarSolicitudCotizacion,
   interaccionVacia, vinculoVacio, registrarCambioPrecio, seguimientosPendientes, ultimoContacto,
   embarqueVacio, landedCostEmbarque, embarqueRetrasado, estadoEmbarqueInfo, modalidadEnvioInfo,
-  cotizarFlete, mejorTransportista,
+  cotizarFlete, mejorTransportista, planArranque,
 } from '@/domain/recursos';
 import { enviarCorreo } from '@/adapters/email/enviar';
 import { correrCentroAbastecimiento } from '@/adapters/ai/arquitecto-agent';
@@ -158,6 +158,31 @@ export async function guardarEmbarque(proyectoId: string, e: Embarque): Promise<
 }
 export async function eliminarEmbarque(proyectoId: string, id: string): Promise<void> {
   await guardarLista(proyectoId, 'embarques', (await listarEmbarques(proyectoId)).filter((x) => x.id !== id));
+}
+
+// --- Arranque del negocio: genera las órdenes de compra iniciales (idempotente) ---
+export async function generarOrdenesArranque(proyectoId: string): Promise<{ creados: number; omitidos: number }> {
+  const [recs, prods, vinc, ocs] = await Promise.all([
+    listarRecursos(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId), listarOrdenes(proyectoId),
+  ]);
+  const plan = planArranque(recs, prods, vinc);
+  const hoy = new Date().toISOString().slice(0, 10);
+  // Evita duplicar: no recrea una orden abierta con la misma descripción.
+  const abiertas = new Set(ocs.filter((o) => o.etapa !== 'cerrada').map((o) => o.descripcion.trim().toLowerCase()));
+  let creados = 0, omitidos = 0;
+  const nuevas: OrdenCompra[] = [];
+  for (const it of [...plan.insumos, ...plan.activos]) {
+    if (abiertas.has(it.nombre.trim().toLowerCase())) { omitidos++; continue; }
+    nuevas.push(normalizarOrden({
+      id: nid('OC'), etapa: 'solicitud', productoId: it.productoId ?? '', proveedorId: it.proveedorId ?? '',
+      descripcion: it.nombre, cantidad: String(it.cantidad), unidad: it.unidad,
+      precioUnitario: it.costoUnit !== null ? String(it.costoUnit) : '', fechaSolicitud: hoy,
+      notas: `Compra de arranque (${it.tipo === 'activo' ? 'activo/equipo' : 'inventario inicial'}).`,
+    }));
+    creados++;
+  }
+  if (nuevas.length) await guardarLista(proyectoId, 'ordenes_compra', [...ocs, ...nuevas]);
+  return { creados, omitidos };
 }
 
 // --- Transportistas (directorio de fletes + tarifas) ---

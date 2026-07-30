@@ -775,6 +775,51 @@ export function mejorTransportista(ts: Transportista[], modalidad: string, zona:
   return cot.reduce((min, x) => x.costo < min.costo ? x : min);
 }
 
+// ---------- ARRANQUE del negocio: checklist de apertura ----------
+// Todo lo que hace falta ADQUIRIR para abrir: activos por comprar (Recursos con existe=false)
+// + inventario inicial (Productos: llenar de stockActual a su objetivo). Con costo total.
+export interface ItemArranque {
+  tipo: 'activo' | 'insumo';
+  nombre: string;
+  grupo: string;
+  cantidad: number;
+  unidad: string;
+  costoUnit: number | null;
+  subtotal: number | null;
+  productoId?: string;      // si viene de un Producto
+  proveedorId?: string;     // proveedor sugerido (más barato)
+  proveedorNombre?: string; // nombre del proveedor (activos: texto del recurso)
+}
+export interface PlanArranque {
+  activos: ItemArranque[];
+  insumos: ItemArranque[];
+  totalActivos: number;
+  totalInsumos: number;
+  total: number;
+}
+export function planArranque(recursos: Recurso[], productos: Producto[], vinculos: ProductoProveedor[]): PlanArranque {
+  const activos: ItemArranque[] = recursos.filter((r) => !r.existe && r.nombre.trim()).map((r) => {
+    const cantidad = numero(r.cantidad) ?? 1;
+    const costoUnit = numero(r.costo);
+    return { tipo: 'activo' as const, nombre: r.nombre, grupo: r.grupo || categoriaRecurso(r.categoria).label, cantidad, unidad: r.unidad, costoUnit, subtotal: costoUnit !== null ? costoUnit * cantidad : null, ...(r.proveedor ? { proveedorNombre: r.proveedor } : {}) };
+  });
+  const insumos: ItemArranque[] = [];
+  for (const p of productos) {
+    if (!p.nombre.trim()) continue;
+    const objetivo = numero(p.stockMaximo) ?? numero(p.puntoReorden) ?? numero(p.stockMinimo);
+    if (objetivo === null) continue;
+    const actual = numero(p.stockActual) ?? 0;
+    const cantidad = Math.max(0, objetivo - actual);
+    if (cantidad <= 0) continue;
+    const barato = proveedorMasBarato(vinculos, p.id);
+    const costoUnit = barato ? numero(precioVigente(barato)) : null;
+    insumos.push({ tipo: 'insumo', nombre: p.nombre, grupo: p.categoria || 'Insumos', cantidad, unidad: p.unidad, costoUnit, subtotal: costoUnit !== null ? costoUnit * cantidad : null, productoId: p.id, ...(barato ? { proveedorId: barato.proveedorId } : {}) });
+  }
+  const suma = (xs: ItemArranque[]) => xs.reduce((s2, x) => s2 + (x.subtotal ?? 0), 0);
+  const totalActivos = suma(activos), totalInsumos = suma(insumos);
+  return { activos, insumos, totalActivos, totalInsumos, total: totalActivos + totalInsumos };
+}
+
 // ---------- Calidad (Sección 8): incidencias del proveedor ----------
 export type GravedadIncidencia = 'leve' | 'media' | 'grave';
 export interface Incidencia {

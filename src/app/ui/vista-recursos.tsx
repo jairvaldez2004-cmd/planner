@@ -21,6 +21,7 @@ import {
   listarInteracciones, guardarInteraccion, eliminarInteraccion,
   listarEmbarques, guardarEmbarque, eliminarEmbarque,
   listarTransportistas, guardarTransportista, eliminarTransportista,
+  generarOrdenesArranque,
   conversarCentroAbastecimiento, cargarChatAbastecimiento,
 } from '@/app/actions/recursos.actions';
 import { ChatArquitecto } from './chat-arquitecto';
@@ -34,7 +35,7 @@ import {
   CRITERIOS_EVAL, RIESGOS, DEPENDENCIAS, TIPOS_INCIDENCIA, incidenciaVacia, scoreProveedor, NIVELES_SCORE,
   ESTADOS_RELACION, TIPOS_INTERACCION, interaccionesDeProveedor, ultimoContacto, seguimientosPendientes,
   ESTADOS_EMBARQUE, estadoEmbarqueInfo, siguienteEstadoEmbarque, embarqueVacio, costoLogisticoEmbarque, landedCostEmbarque, prorrateoLanded, embarqueRetrasado,
-  MODALIDADES_ENVIO, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista,
+  MODALIDADES_ENVIO, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista, planArranque,
 } from '@/domain/recursos';
 import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia, Interaccion, Embarque, Transportista, Tarifa } from '@/domain/recursos';
 import { useEsMovil } from './use-movil';
@@ -63,6 +64,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   const [trps, setTrps] = useState<Transportista[]>([]);
   const [selTrp, setSelTrp] = useState<string | null>(null);
   const [logiSub, setLogiSub] = useState<'embarques' | 'transportistas'>('embarques');
+  const [comprasSub, setComprasSub] = useState<'flujo' | 'arranque'>('flujo');
   const [selOC, setSelOC] = useState<string | null>(null);
   const [selCtr, setSelCtr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('recursos');
@@ -363,10 +365,19 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
         </>
       )}
 
-      {/* ======= COMPRAS (flujo) ======= */}
+      {/* ======= COMPRAS (flujo + arranque) ======= */}
       {tab === 'compras' && (
-        <ComprasFlujo ocs={ocs} sel={selOC} onSel={setSelOC} provNombre={provNombre} prodNombre={prodNombre}
-          provs={provs} prods={prods} onPatch={patchOC} onDelete={borrarOC} movil={movil} />
+        <>
+          <div style={{ display: 'flex', gap: '0.4rem', margin: '0 0 0.6rem' }}>
+            {([['flujo', '🛒 Flujo de compras'], ['arranque', '🚀 Arranque del negocio']] as const).map(([id, label]) => (
+              <button key={id} onClick={() => { setComprasSub(id); setSelOC(null); }}
+                style={{ ...btnSm, background: comprasSub === id ? '#a9720f' : '#fff', color: comprasSub === id ? '#fff' : '#6b5320', borderColor: comprasSub === id ? '#a9720f' : '#e0d3b0', fontWeight: 'bold' }}>{label}</button>
+            ))}
+          </div>
+          {comprasSub === 'flujo'
+            ? <ComprasFlujo ocs={ocs} sel={selOC} onSel={setSelOC} provNombre={provNombre} prodNombre={prodNombre} provs={provs} prods={prods} onPatch={patchOC} onDelete={borrarOC} movil={movil} />
+            : <ArranquePanel recs={recs} prods={prods} vinc={vinc} provNombre={provNombre} onGenerar={async () => { const r = await generarOrdenesArranque(proyectoId); cargar(); return r; }} onIrFlujo={() => setComprasSub('flujo')} />}
+        </>
       )}
 
       {/* ======= LOGÍSTICA (embarques + transportistas) ======= */}
@@ -432,6 +443,70 @@ function CentroIA({ proyectoId, prods, provs, ctrs, incs, hoy, movil, onCambio }
         onCambio={onCambio}
         altura={movil ? 340 : 480}
       />
+    </div>
+  );
+}
+
+// ===== ARRANQUE DEL NEGOCIO: checklist de apertura + generar órdenes iniciales =====
+function ArranquePanel({ recs, prods, vinc, provNombre, onGenerar, onIrFlujo }: {
+  recs: Recurso[]; prods: Producto[]; vinc: ProductoProveedor[]; provNombre: (id: string) => string;
+  onGenerar: () => Promise<{ creados: number; omitidos: number }>; onIrFlujo: () => void;
+}) {
+  const [msg, setMsg] = useState('');
+  const [gen, setGen] = useState(false);
+  const plan = planArranque(recs, prods, vinc);
+  const nItems = plan.activos.length + plan.insumos.length;
+
+  async function generar() {
+    if (!window.confirm(`¿Generar ${nItems} orden(es) de compra de arranque (etapa Solicitud)?`)) return;
+    setGen(true);
+    try { const r = await onGenerar(); setMsg(`✅ ${r.creados} orden(es) creadas${r.omitidos ? ` · ${r.omitidos} ya existían` : ''}. Míralas en 🛒 Flujo de compras.`); }
+    finally { setGen(false); }
+  }
+
+  const stat: CSSProperties = { border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.5rem 0.7rem', background: '#fff', textAlign: 'center' };
+  const secc = (titulo: string, items: typeof plan.activos, total: number) => (
+    <div style={{ marginBottom: '0.8rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 'bold', color: '#6b5320', borderBottom: '2px solid #e0d3b0', padding: '2px 2px 3px' }}>
+        <span>{titulo} <span style={{ color: '#aaa', fontWeight: 'normal' }}>({items.length})</span></span>
+        <span>{formatoMoneda(total)}</span>
+      </div>
+      {items.map((it, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.35rem 0.4rem', borderBottom: '1px solid #f0ead9' }}>
+          <span>{it.tipo === 'activo' ? '🛠️' : '🧴'}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 'bold' }}>{it.nombre}</div>
+            <div style={{ fontSize: 11, color: '#888' }}>{it.cantidad} {it.unidad} · {it.grupo}{it.proveedorId ? ` · 🏭 ${provNombre(it.proveedorId)}` : it.proveedorNombre ? ` · 🏭 ${it.proveedorNombre}` : ''}</div>
+          </div>
+          <div style={{ fontSize: 12.5, color: '#6b5320', textAlign: 'right' }}>
+            {it.costoUnit !== null ? <div>{formatoMoneda(it.costoUnit)}/{it.unidad}</div> : <div style={{ color: '#c60' }}>sin costo</div>}
+            {it.subtotal !== null ? <div style={{ fontSize: 11, color: '#999' }}>= {formatoMoneda(it.subtotal)}</div> : null}
+          </div>
+        </div>
+      ))}
+      {items.length === 0 && <p style={{ fontSize: 12, color: '#999', margin: '4px 2px' }}>Nada pendiente aquí.</p>}
+    </div>
+  );
+
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.6rem' }}>
+        Todo lo que hace falta <strong>adquirir para abrir</strong>: activos/equipo por comprar (Recursos marcados “por adquirir”) e <strong>inventario inicial</strong> (llenar cada Producto de su stock actual a su máximo). Con un clic genero las órdenes de compra.
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.5rem', marginBottom: '0.7rem' }}>
+        <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#6b5320' }}>{formatoMoneda(plan.totalActivos)}</div><div style={{ fontSize: 11, color: '#888' }}>activos/equipo</div></div>
+        <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#6b5320' }}>{formatoMoneda(plan.totalInsumos)}</div><div style={{ fontSize: 11, color: '#888' }}>inventario inicial</div></div>
+        <div style={{ ...stat, background: '#fdf6e3', borderColor: '#a9720f' }}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#a9720f' }}>{formatoMoneda(plan.total)}</div><div style={{ fontSize: 11, color: '#888' }}>💰 inversión de apertura</div></div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
+        <button style={{ ...btn, background: '#a9720f', color: '#fff', borderColor: '#a9720f', fontWeight: 'bold', opacity: nItems ? 1 : 0.5 }} disabled={!nItems || gen} onClick={() => void generar()}>{gen ? 'Generando…' : `🚀 Generar ${nItems} órdenes de arranque`}</button>
+        {msg && <span style={{ fontSize: 12.5, color: '#2e7a4d' }}>{msg} <button style={{ ...btnSm, marginLeft: 4 }} onClick={onIrFlujo}>Ver flujo →</button></span>}
+      </div>
+
+      {nItems === 0 && <p style={{ color: '#2e9e63', fontSize: 13 }}>✅ No hay nada pendiente por adquirir para abrir. Marca activos como “por adquirir” (📦 Recursos) o define stock objetivo en 🏷️ Productos.</p>}
+      {secc('🛠️ Activos y equipo por adquirir', plan.activos, plan.totalActivos)}
+      {secc('🧴 Inventario inicial (insumos)', plan.insumos, plan.totalInsumos)}
     </div>
   );
 }
