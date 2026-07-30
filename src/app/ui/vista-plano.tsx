@@ -9,10 +9,11 @@ import type { CSSProperties } from 'react';
 import { ChatEspecialista } from './chat-especialista';
 import { useEsMovil } from './use-movil';
 import {
-  obtenerDetallePlano, plantillaCSV, importarCSV, guardarCampo, generarDocumentoDePlano,
+  obtenerDetallePlano, plantillaCSV, importarCSV, guardarCampo, generarDocumentoDePlano, guardarFilasTabla,
 } from '@/app/actions/especialista.actions';
 import type { DetallePlano } from '@/app/actions/especialista.actions';
-import type { DocumentoPlano } from '@/domain/plano-doc';
+import type { DocumentoPlano, Fila } from '@/domain/plano-doc';
+import type { Columna } from '@/domain/tablas';
 import { superficiesDePlano, LABEL_SUPERFICIE } from '@/domain/proyeccion';
 import type { Readiness } from '@/app/readiness/readiness-engine';
 import { COLOR_ESTADO, LABEL_ESTADO } from '@/app/readiness/readiness-engine';
@@ -58,6 +59,11 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
 
   async function editarCampo(campoId: string, valor: string) {
     await guardarCampo(proyectoId, planoId, campoId, valor);
+    cargar();
+  }
+
+  async function guardarFilas(tablaRef: string, filas: Fila[]) {
+    await guardarFilasTabla(proyectoId, tablaRef, filas);
     cargar();
   }
 
@@ -159,35 +165,29 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
                 </div>
               ))}
 
-              {det.tablas.length > 0 && <h3 style={{ margin: '0.75rem 0 0.25rem' }}>Tablas (datos repetitivos · CSV)</h3>}
+              {det.tablas.length > 0 && <h3 style={{ margin: '0.75rem 0 0.25rem' }}>Tablas (edítalas aquí o por CSV)</h3>}
               {msgCsv && <p style={{ fontSize: 13, color: '#06c' }}>{msgCsv}</p>}
               {det.tablas.map((t) => (
                 <div key={t.tablaRef} style={card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
-                    <strong style={{ fontSize: 13 }}>{t.etiqueta} <span style={{ color: '#888', fontWeight: 'normal' }}>({t.filas.length} filas{t.proyectadas > 0 ? ` · ${t.proyectadas} 🔗 desde superficies` : ''})</span></strong>
+                    <strong style={{ fontSize: 13 }}>{t.etiqueta} <span style={{ color: '#888', fontWeight: 'normal' }}>({t.filas.length} filas{t.proyectadas > 0 ? ` · ${t.proyectadas} 🔗 auto` : ''})</span></strong>
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
-                      <button style={btn} onClick={() => void descargar(t.tablaRef)}>⬇ Plantilla CSV</button>
-                      <button style={btn} onClick={() => fileRefs.current[t.tablaRef]?.click()}>⬆ Subir CSV</button>
+                      <button style={btn} onClick={() => void descargar(t.tablaRef)}>⬇ CSV</button>
+                      <button style={btn} onClick={() => fileRefs.current[t.tablaRef]?.click()}>⬆ CSV</button>
                       <input ref={(el) => { fileRefs.current[t.tablaRef] = el; }} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
                         onChange={(e) => { const f = e.target.files?.[0]; if (f) void subir(t.tablaRef, f); e.target.value = ''; }} />
                     </div>
                   </div>
-                  <p style={{ fontSize: 12, color: '#777', margin: '0.25rem 0' }}>
-                    Columnas: {t.columnas.map((c) => c.etiqueta).join(', ')}. {t.filas.length >= t.disparadorCSV ? '' : `Sugerido CSV si esperas ≥${t.disparadorCSV} filas.`}
-                  </p>
-                  {t.filas.length > 0 && (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%' }}>
-                        <thead><tr>{t.columnas.map((c) => <th key={c.id} style={{ border: '1px solid #ddd', padding: '2px 6px', background: '#f0f0f0', textAlign: 'left' }}>{c.etiqueta}</th>)}</tr></thead>
-                        <tbody>
-                          {t.filas.slice(0, 8).map((f, i) => (
-                            <tr key={i}>{t.columnas.map((c) => <td key={c.id} style={{ border: '1px solid #eee', padding: '2px 6px' }}>{f[c.id] ?? ''}</td>)}</tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {t.filas.length > 8 && <p style={{ fontSize: 11, color: '#999' }}>…{t.filas.length - 8} filas más</p>}
+                  {/* Derivadas de superficies: solo lectura (se actualizan solas) */}
+                  {t.derivadas.length > 0 && (
+                    <div style={{ margin: '0.3rem 0', fontSize: 11.5, color: '#2f6b4d', background: '#f2faf5', border: '1px solid #cfe8d8', borderRadius: 6, padding: '0.3rem 0.5rem' }}>
+                      🔗 <strong>{t.derivadas.length}</strong> fila(s) automáticas desde superficies (no se editan aquí):{' '}
+                      {t.derivadas.slice(0, 4).map((f) => f[t.columnas[0]!.id]).filter(Boolean).join(' · ')}{t.derivadas.length > 4 ? '…' : ''}
                     </div>
                   )}
+                  {/* Editor inline de filas manuales */}
+                  <TablaEditor columnas={t.columnas} manuales={t.manuales}
+                    onGuardar={(fs) => void guardarFilas(t.tablaRef, fs)} />
                 </div>
               ))}
 
@@ -204,5 +204,49 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
         </>
       )}
     </section>
+  );
+}
+
+// Editor inline de las filas MANUALES de una tabla (las derivadas de superficies no se tocan).
+function TablaEditor({ columnas, manuales, onGuardar }: {
+  columnas: Columna[]; manuales: Fila[]; onGuardar: (filas: Fila[]) => void;
+}) {
+  const [rows, setRows] = useState<Fila[]>(manuales);
+  useEffect(() => { setRows(manuales); /* resync al recargar */ }, [manuales]);
+  const setCell = (i: number, colId: string, val: string) => setRows((rs) => rs.map((r, j) => j === i ? { ...r, [colId]: val } : r));
+  const addRow = () => setRows((rs) => [...rs, {}]);
+  const delRow = (i: number) => { const rs = rows.filter((_, j) => j !== i); setRows(rs); onGuardar(rs); };
+  const td: CSSProperties = { border: '1px solid #eee', padding: '1px 2px' };
+  const cell: CSSProperties = { width: '100%', fontSize: 12, padding: '0.2rem 0.3rem', border: 'none', boxSizing: 'border-box', background: 'transparent' };
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%' }}>
+        <thead><tr>
+          {columnas.map((c) => <th key={c.id} style={{ border: '1px solid #ddd', padding: '2px 6px', background: '#f0f0f0', textAlign: 'left', fontSize: 11.5 }}>{c.etiqueta}{c.requerido ? ' *' : ''}</th>)}
+          <th style={{ width: 22 }} />
+        </tr></thead>
+        <tbody>
+          {rows.map((f, i) => (
+            <tr key={i}>
+              {columnas.map((c) => (
+                <td key={c.id} style={td}>
+                  {c.tipo === 'opcion' && c.opciones ? (
+                    <select style={cell} value={String(f[c.id] ?? '')} onChange={(e) => { setCell(i, c.id, e.target.value); }} onBlur={() => onGuardar(rows)}>
+                      <option value=""></option>{c.opciones.map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  ) : (
+                    <input style={cell} value={String(f[c.id] ?? '')} placeholder={c.requerido ? '(requerido)' : ''}
+                      onChange={(e) => setCell(i, c.id, e.target.value)} onBlur={() => onGuardar(rows)} />
+                  )}
+                </td>
+              ))}
+              <td style={{ ...td, textAlign: 'center' }}><span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => delRow(i)}>×</span></td>
+            </tr>
+          ))}
+          {rows.length === 0 && <tr><td colSpan={columnas.length + 1} style={{ ...td, color: '#999', padding: '4px 6px' }}>Sin filas manuales. Pulsa “＋ Fila” para agregar.</td></tr>}
+        </tbody>
+      </table>
+      <button style={{ marginTop: 4, padding: '0.15rem 0.5rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 12 }} onClick={addRow}>＋ Fila</button>
+    </div>
   );
 }

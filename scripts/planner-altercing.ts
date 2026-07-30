@@ -23,7 +23,7 @@ import { costosDeRecursos, componentesDeEquipo, proveedoresATabla, agentesDeProc
 import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra, siguienteEtapaCompra, totalOrden, ordenVacia, solicitudDesdeProducto, contratoVacio, estadoContrato, scoreProveedor, incidenciaVacia, redactarSolicitudCotizacion, normalizarInteraccion, interaccionesDeProveedor, ultimoContacto, requiereSeguimiento, seguimientosPendientes } from '@/domain/recursos';
 import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from '@/domain/recursos';
 import { indiceRecursos, costearProceso, indiceCosto } from '@/domain/costeo';
-import { costosDeProductos, costosDeEmbarques } from '@/domain/proyeccion';
+import { costosDeProductos, costosDeEmbarques, ingresosDeOfertas, kpisDeProcesos, legalesDeContratos, unidadesDeUCs } from '@/domain/proyeccion';
 import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque, normalizarEmbarque, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista, planArranque } from '@/domain/recursos';
 import type { Transportista, Importacion } from '@/domain/recursos';
 import { importacionVacia, desgloseAduana, costoAduana, estadoRecepcion } from '@/domain/recursos';
@@ -611,6 +611,29 @@ check('Contingencia libre inválida cae a gravedad media', normalizarContingenci
 check('Recepción parcial: pedí 10, llegaron 6 → faltan 4', (() => { const r = estadoRecepcion({ ...ordenVacia("X"), cantidad: '10', cantidadRecibida: '6' }); return r.estado === 'parcial' && r.faltante === 4; })());
 check('Recepción completa: pedí 10, llegaron 10', estadoRecepcion({ ...ordenVacia("X"), cantidad: '10', cantidadRecibida: '10' }).estado === 'completa');
 check('Sin cantidad recibida → sin-datos', estadoRecepcion({ ...ordenVacia("X"), cantidad: '10', cantidadRecibida: '' }).estado === 'sin-datos');
+
+// ============================================================
+// 26) PROYECCIONES NUEVAS: FIN←ingresos · CTR←kpis · JUR←legales · ESC←unidades
+// ============================================================
+h('26) Los planos se autollenan sin recapturar (nuevas proyecciones)');
+// FIN ← ingresos (de las ofertas/unidades).
+const ingr = ingresosDeOfertas([{ nombre: 'Perforación de oreja', centro: 'Piercings' }, { nombre: 'Tatuaje pequeño', centro: 'Tatuajes', precio: '$500' }, { nombre: '', centro: 'X' }]);
+check('ingresosDeOfertas: 2 fuentes (ignora la vacía)', ingr.length === 2);
+check('Precio ausente → PENDIENTE; presente se conserva', ingr[0]!.precio === 'PENDIENTE' && ingr[1]!.precio === '$500' && ingr[0]!.centro === 'Piercings');
+// CTR ← kpis (procesos con tiempo).
+const kp = kpisDeProcesos([
+  { nombre: 'Perforar', roles: ['Perforador'], tiempoMin: 15 },
+  { nombre: 'Sin tiempo', roles: [] },
+  { nombre: 'Sub', roles: [], padreProcesoId: 'X', tiempoMin: 5 },
+]);
+check('kpisDeProcesos: solo procesos raíz con tiempo (1)', kp.length === 1 && String(kp[0]!.kpi).includes('Perforar'));
+check('El KPI lleva dueño (roles) y objetivo de tiempo', kp[0]!.dueno === 'Perforador' && String(kp[0]!.fuente).includes('15 min'));
+// JUR ← legales (de contratos).
+const leg = legalesDeContratos([{ ...contratoVacio('C1'), titulo: 'Arrendamiento Girly Zone', responsables: 'Suzet' } as never]);
+check('legalesDeContratos: cada contrato → documento tipo contrato', leg.length === 1 && leg[0]!.documento === 'Arrendamiento Girly Zone' && leg[0]!.tipo === 'contrato');
+// ESC ← unidades (de las UCs).
+const uni = unidadesDeUCs([{ nombre: 'Piercings' }, { nombre: 'Tatuajes' }, { nombre: '' }]);
+check('unidadesDeUCs: cada UC → unidad de escala (2)', uni.length === 2 && uni[0]!.unidad === 'Piercings');
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

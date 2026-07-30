@@ -23,11 +23,11 @@ import type { Fila } from '@/app/captura/csv';
 import { modeloActual } from '@/app/actions/config.actions';
 import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { DocumentoPlano } from '@/domain/plano-doc';
-import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, costosDeProductos, costosDeEmbarques, componentesDeEquipo, componentesDeAutomatizacion, agentesDeProcesos, proveedoresATabla } from '@/domain/proyeccion';
+import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, costosDeProductos, costosDeEmbarques, componentesDeEquipo, componentesDeAutomatizacion, agentesDeProcesos, proveedoresATabla, ingresosDeOfertas, kpisDeProcesos, legalesDeContratos, unidadesDeUCs } from '@/domain/proyeccion';
 import { listarSedes, listarEspacios } from '@/app/actions/espacios.actions';
 import { listarProcesos } from '@/app/actions/mapa.actions';
 import { listarEmpleados } from '@/app/actions/rh.actions';
-import { listarRecursos, listarProveedores, listarProductos, listarVinculos, listarEmbarques } from '@/app/actions/recursos.actions';
+import { listarRecursos, listarProveedores, listarProductos, listarVinculos, listarEmbarques, listarContratos } from '@/app/actions/recursos.actions';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nowISO(): string { return new Date().toISOString(); }
@@ -69,6 +69,20 @@ async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<R
   const getVinculos = async () => { if (!vinculos) vinculos = await listarVinculos(proyectoId); return vinculos; };
   let embarques: Awaited<ReturnType<typeof listarEmbarques>> | null = null;
   const getEmbarques = async () => { if (!embarques) embarques = await listarEmbarques(proyectoId); return embarques; };
+  let contratos: Awaited<ReturnType<typeof listarContratos>> | null = null;
+  const getContratos = async () => { if (!contratos) contratos = await listarContratos(proyectoId); return contratos; };
+  // Ofertas (fuentes de ingreso) y Unidades Comerciales, con el nombre de su UC.
+  let ofertas: { nombre: string; centro: string }[] | null = null;
+  const getOfertas = async () => {
+    if (!ofertas) {
+      const [ofs, ucs] = await Promise.all([prisma.oferta.findMany({ where: { proyectoId } }), prisma.unidadComercial.findMany({ where: { proyectoId } })]);
+      const ucNombre = new Map(ucs.map((u) => [u.id, u.nombre]));
+      ofertas = ofs.map((o) => ({ nombre: o.nombre, centro: ucNombre.get(o.ucId) ?? '' }));
+    }
+    return ofertas;
+  };
+  let ucs: { nombre: string }[] | null = null;
+  const getUCs = async () => { if (!ucs) ucs = (await prisma.unidadComercial.findMany({ where: { proyectoId } })).map((u) => ({ nombre: u.nombre })); return ucs; };
   if (refs.has('ambientes')) out['ambientes'] = ambientesDeEspacios(await getEspacios());
   if (refs.has('procesos')) out['procesos'] = procesosDeMapa(await getProcesos());
   if (refs.has('puestos')) out['puestos'] = puestosDeEmpleados(await getEmpleados());
@@ -80,6 +94,11 @@ async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<R
   // Fichas de agente = procesos que el Organizador (IA) decidió automatizar con IA.
   if (refs.has('agentes')) out['agentes'] = agentesDeProcesos(await getProcesos());
   if (refs.has('proveedores')) out['proveedores'] = proveedoresATabla(await getProveedores());
+  // Proyecciones nuevas: ingresos (FIN) · kpis (CTR) · legales (JUR) · unidades (ESC).
+  if (refs.has('ingresos')) out['ingresos'] = ingresosDeOfertas(await getOfertas());
+  if (refs.has('kpis')) out['kpis'] = kpisDeProcesos(await getProcesos());
+  if (refs.has('legales')) out['legales'] = legalesDeContratos(await getContratos());
+  if (refs.has('unidades')) out['unidades'] = unidadesDeUCs(await getUCs());
   return out;
 }
 
@@ -159,7 +178,7 @@ export async function obtenerGrafoPlanos(proyectoId: string): Promise<GrafoPlano
 }
 
 // --- detalle de un plano (para la Vista de Plano) ---
-export interface TablaResumen { tablaRef: string; etiqueta: string; columnas: Columna[]; filas: Fila[]; disparadorCSV: number; proyectadas: number }
+export interface TablaResumen { tablaRef: string; etiqueta: string; columnas: Columna[]; filas: Fila[]; manuales: Fila[]; derivadas: Fila[]; llave: string; disparadorCSV: number; proyectadas: number }
 export interface DetallePlano {
   planoId: string;
   nombre: string;
@@ -192,7 +211,7 @@ export async function obtenerDetallePlano(proyectoId: string, planoId: string): 
     const derivadas = proj[ref] ?? [];
     const filas = fusionarProyeccion(derivadas, manuales, ref);
     const bloque = cfg.bloques.find((b) => b.tabla?.tablaRef === ref)!;
-    tablas.push({ tablaRef: ref, etiqueta: bloque.tabla!.etiqueta ?? TABLAS_BASE[ref]?.nombre ?? ref, columnas, filas, disparadorCSV: bloque.tabla!.disparadorCSV, proyectadas: derivadas.length });
+    tablas.push({ tablaRef: ref, etiqueta: bloque.tabla!.etiqueta ?? TABLAS_BASE[ref]?.nombre ?? ref, columnas, filas, manuales, derivadas, llave: TABLAS_BASE[ref]?.llave ?? 'id', disparadorCSV: bloque.tabla!.disparadorCSV, proyectadas: derivadas.length });
   }
 
   // readiness contando las filas efectivas (manuales + derivadas de superficies)
@@ -272,6 +291,18 @@ export async function guardarCampo(proyectoId: string, planoId: string, campoId:
     where: { proyectoId_planoId: { proyectoId, planoId } },
     create: { proyectoId, planoId, campos: toJson(campos), actualizadoEn: nowISO() },
     update: { campos: toJson(campos), actualizadoEn: nowISO() },
+  });
+}
+
+// --- Edición inline de filas MANUALES de una tabla (sin CSV) ---
+// Reemplaza la capa manual de la tabla (las derivadas de superficies NO se tocan: se
+// fusionan al leer). Filtra filas totalmente vacías. Guarda desde la Vista de Plano.
+export async function guardarFilasTabla(proyectoId: string, tablaRef: string, filas: Fila[]): Promise<void> {
+  const limpias = (filas ?? []).filter((f) => Object.values(f).some((v) => String(v ?? '').trim()));
+  await prisma.tablaProyecto.upsert({
+    where: { proyectoId_tablaRef: { proyectoId, tablaRef } },
+    create: { proyectoId, tablaRef, filas: toJson(limpias), actualizadoEn: nowISO() },
+    update: { filas: toJson(limpias), actualizadoEn: nowISO() },
   });
 }
 

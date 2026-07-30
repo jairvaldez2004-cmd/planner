@@ -9,7 +9,7 @@
 import type { Fila } from './plano-doc';
 import type { Empleado } from './rh';
 import type { Automatizacion } from './mapa';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, Embarque } from './recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, Embarque, Contrato } from './recursos';
 import { subtotalRecurso, formatoMoneda, categoriaRecurso, numero, proveedorMasBarato, precioVigente, costoLogisticoEmbarque } from './recursos';
 
 // ---------- Registro declarativo: qué planos enriquece cada superficie (para UI) ----------
@@ -33,14 +33,15 @@ export const ENRIQUECE: Record<Superficie, Aporte[]> = {
     { planoId: 'PRO', tablaRef: 'procesos', nota: 'cada nodo → un proceso con entrada/salida/responsable' },
     { planoId: 'ORG', tablaRef: 'personas', nota: 'roles que ejecutan cada proceso' },
     { planoId: 'OPE', nota: 'ciclo, ejecutores y handoffs' },
-    { planoId: 'CTR', nota: 'tiempos y KPIs por proceso' },
+    { planoId: 'CTR', tablaRef: 'kpis', nota: 'tiempo de cada proceso → KPI (dueño = sus roles)' },
     { planoId: 'IA', tablaRef: 'agentes', nota: 'procesos automatizados con IA → fichas de agente' },
     { planoId: 'TEC', tablaRef: 'componentes', nota: 'automatizaciones (n8n/software) → componentes técnicos' },
   ],
   uc: [
     { planoId: 'COM', nota: 'catálogo y oferta de la unidad' },
     { planoId: 'MKT', nota: 'campañas por unidad' },
-    { planoId: 'FIN', nota: 'ingresos por unidad' },
+    { planoId: 'FIN', tablaRef: 'ingresos', nota: 'cada oferta/unidad → una fuente de ingreso' },
+    { planoId: 'ESC', tablaRef: 'unidades', nota: 'cada unidad comercial → una unidad de escala replicable' },
   ],
   personas: [
     { planoId: 'RH', tablaRef: 'puestos', nota: 'cada persona → puesto, competencias, KPIs, nómina' },
@@ -53,6 +54,7 @@ export const ENRIQUECE: Record<Superficie, Aporte[]> = {
     { planoId: 'FIN', tablaRef: 'costos', nota: 'costo de insumos, herramientas, equipo y muebles' },
     { planoId: 'TEC', tablaRef: 'componentes', nota: 'inventario de equipo / tecnología' },
     { planoId: 'COM', tablaRef: 'proveedores', nota: 'proveedores de todo' },
+    { planoId: 'JUR', tablaRef: 'legales', nota: 'cada contrato de proveedor → un documento legal' },
   ],
 };
 
@@ -237,6 +239,41 @@ export function componentesDeAutomatizacion(procesos: ProcesoSrc[]): Fila[] {
       sustitucion: `Reemplaza el trabajo manual de "${p.nombre}"`,
       entradaSalida: p.automatizacion!.nota || '',
     }));
+}
+
+// Ofertas / unidades comerciales → filas de `ingresos` (plano Financiero) = fuentes de ingreso.
+export interface OfertaSrc { nombre: string; centro: string; precio?: string | undefined }
+export function ingresosDeOfertas(ofertas: OfertaSrc[]): Fila[] {
+  return ofertas.filter((o) => o.nombre.trim()).map((o): Fila => ({
+    fuente: o.nombre, centro: o.centro || '', precio: o.precio && o.precio.trim() ? o.precio : 'PENDIENTE',
+  }));
+}
+
+// Procesos del Mapa con tiempo → filas de `kpis` (plano Control) = un KPI de tiempo por proceso.
+export function kpisDeProcesos(procesos: ProcesoSrc[]): Fila[] {
+  return procesos.filter((p) => !p.padreProcesoId && p.nombre.trim() && p.tiempoMin).map((p): Fila => ({
+    kpi: `Tiempo de "${p.nombre}"`,
+    dueno: p.roles.join(', '),
+    frecuencia: 'por servicio',
+    fuente: `Mapa Operativo (objetivo ≤ ${p.tiempoMin} min)`,
+  }));
+}
+
+// Contratos (abastecimiento) → filas de `legales` (plano Jurídico) = documentos/actos legales.
+export function legalesDeContratos(contratos: Contrato[]): Fila[] {
+  return contratos.filter((c) => c.titulo.trim()).map((c): Fila => ({
+    documento: c.titulo,
+    tipo: 'contrato',
+    responsable: c.responsables || '',
+  }));
+}
+
+// Unidades Comerciales → filas de `unidades` (plano Escalamiento) = unidades replicables.
+export interface UnidadSrc { nombre: string }
+export function unidadesDeUCs(ucs: UnidadSrc[]): Fila[] {
+  return ucs.filter((u) => u.nombre.trim()).map((u): Fila => ({
+    unidad: u.nombre, disparador: '', limite: '',
+  }));
 }
 
 // Directorio de proveedores → filas de `proveedores` (plano Comercial).
