@@ -304,16 +304,18 @@ async function main() {
   }
 
   // 7) Catálogo de Recursos & Proveedores (alimenta FIN/TEC/COM)
+  // fecha relativa a hoy (YYYY-MM-DD) para vencimientos y seguimientos realistas
+  const d = (n: number) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
   const PROVEEDORES = [
-    { id: 'prv-insumos', nombre: 'Insumos Médicos MX', tipo: 'insumos', contacto: 'ventas', telefono: '', email: 'ventas@insumosmx.com', rfc: '', notas: 'Agujas, gasas, guantes, solución.' },
-    { id: 'prv-titanio', nombre: 'Titanio Body MX', tipo: 'insumos', contacto: '', telefono: '', email: '', rfc: '', notas: 'Joyería de titanio grado implante.' },
-    { id: 'prv-equipmed', nombre: 'EquipMed', tipo: 'equipo', contacto: '', telefono: '', email: '', rfc: '', notas: 'Autoclave y equipo de esterilización.' },
-    { id: 'prv-constructora', nombre: 'Constructora externa', tipo: 'materiales / construcción', contacto: '', telefono: '', email: '', rfc: '', notas: 'Acondicionamiento del local.' },
-    { id: 'prv-diseno', nombre: 'Estudio de interiores', tipo: 'diseño de interiores', contacto: '', telefono: '', email: '', rfc: '', notas: 'Diseño y mobiliario de las cabinas.' },
-    { id: 'prv-girly', nombre: 'Girly Zone', tipo: 'servicios', contacto: '', telefono: '', email: '', rfc: '', notas: 'Contabilidad del grupo (tercerizado hacia arriba).' },
-    { id: 'prv-tattoo', nombre: 'Tattoo Supply MX', tipo: 'insumos', contacto: '', telefono: '', email: '', rfc: '', notas: 'Tintas, agujas y máquinas de tatuaje.' },
-    { id: 'prv-nails', nombre: 'Beauty Nails MX', tipo: 'insumos', contacto: '', telefono: '', email: '', rfc: '', notas: 'Geles, limas y lámparas UV.' },
-    { id: 'prv-clima', nombre: 'ClimaMX', tipo: 'equipo', contacto: '', telefono: '', email: '', rfc: '', notas: 'Minisplits y mantenimiento.' },
+    { id: 'prv-insumos', nombre: 'Insumos Médicos MX', razonSocial: 'Insumos Médicos de México S.A. de C.V.', rfc: 'IMM120304AB1', pais: 'México', estado: 'Querétaro', ciudad: 'Querétaro', direccion: 'Av. 5 de Febrero 210', gps: '20.5888,-100.3899', zonas: ['Bajío', 'Centro'], contacto: 'Laura Méndez', puesto: 'Ejecutiva de ventas', telefono: '442-111-2233', whatsapp: '442-111-2233', email: 'ventas@insumosmx.com', sitioWeb: 'https://insumosmx.com', idiomas: ['español'], horario: 'L-V 9-18', moneda: 'MXN', incoterms: ['DAP'], aniosMercado: '12', tamano: 'pyme', certificaciones: ['ISO 9001', 'ISO 13485'], categorias: ['insumos', 'materia prima'], tipo: 'insumos', cumplimiento: '96%', tiempoPromedio: '3 días', evaluacion: { calidad: 90, precio: 75, tiempo: 80, comunicacion: 80, servicio: 85, confiabilidad: 85 }, proveedorUnico: false, dependencia: 'media', riesgos: [], planB: 'Tattoo Supply MX para guantes', proveedorAlternativo: 'Tattoo Supply MX', estadoRelacion: 'preferente', proximoSeguimiento: d(-2), responsable: 'Suzet', notas: 'Agujas, gasas, guantes, solución.' },
+    { id: 'prv-titanio', nombre: 'Titanio Body MX', razonSocial: 'Titanio Body MX S. de R.L.', rfc: 'TBM150607CD2', pais: 'México', estado: 'CDMX', ciudad: 'Ciudad de México', direccion: 'Roma Norte', gps: '', zonas: ['Nacional'], contacto: 'Iván Ruiz', puesto: 'Dueño', telefono: '55-222-3344', whatsapp: '55-222-3344', email: 'hola@titaniobody.mx', sitioWeb: '', idiomas: ['español', 'inglés'], horario: 'L-V 10-19', moneda: 'MXN', incoterms: ['EXW'], aniosMercado: '8', tamano: 'micro', certificaciones: ['ASTM F-136'], categorias: ['insumos', 'materia prima'], tipo: 'insumos', cumplimiento: '90%', tiempoPromedio: '7 días', evaluacion: { calidad: 95, precio: 60, tiempo: 70, servicio: 80, confiabilidad: 75 }, proveedorUnico: true, dependencia: 'alta', riesgos: ['logístico', 'cambiario'], planB: '', proveedorAlternativo: '', estadoRelacion: 'activo', proximoSeguimiento: d(6), responsable: 'Suzet', notas: 'Joyería de titanio grado implante. ÚNICO proveedor: riesgo.' },
+    { id: 'prv-equipmed', nombre: 'EquipMed', tipo: 'equipo', categorias: ['equipo', 'maquinaria', 'mantenimiento'], contacto: 'Servicio', email: 'servicio@equipmed.mx', telefono: '442-333-4455', rfc: '', ciudad: 'Querétaro', pais: 'México', estadoRelacion: 'activo', responsable: 'Suzet', notas: 'Autoclave y equipo de esterilización.' },
+    { id: 'prv-constructora', nombre: 'Constructora externa', tipo: 'materiales / construcción', categorias: ['construcción', 'materia prima'], contacto: '', email: '', rfc: '', notas: 'Acondicionamiento del local.' },
+    { id: 'prv-diseno', nombre: 'Estudio de interiores', tipo: 'diseño de interiores', categorias: ['diseño de interiores', 'muebles'], contacto: '', email: 'contacto@estudiodi.mx', rfc: '', notas: 'Diseño y mobiliario de las cabinas.' },
+    { id: 'prv-girly', nombre: 'Girly Zone', tipo: 'servicios', categorias: ['servicios', 'consultoría'], contacto: 'Administración', email: 'admin@girlyzone.mx', rfc: '', estadoRelacion: 'preferente', responsable: 'Suzet', notas: 'Contabilidad del grupo y arrendamiento (tercerizado hacia arriba).' },
+    { id: 'prv-tattoo', nombre: 'Tattoo Supply MX', tipo: 'insumos', categorias: ['insumos', 'equipo'], contacto: 'Pedro', email: 'ventas@tattoosupply.mx', telefono: '33-444-5566', rfc: '', ciudad: 'Guadalajara', pais: 'México', evaluacion: { calidad: 80, precio: 85, tiempo: 70, servicio: 70 }, estadoRelacion: 'activo', proximoSeguimiento: d(4), responsable: 'Francisco', notas: 'Tintas, agujas y máquinas de tatuaje.' },
+    { id: 'prv-nails', nombre: 'Beauty Nails MX', tipo: 'insumos', categorias: ['insumos'], contacto: '', email: 'hola@beautynails.mx', rfc: '', estadoRelacion: 'prospecto', notas: 'Geles, limas y lámparas UV.' },
+    { id: 'prv-clima', nombre: 'ClimaMX', tipo: 'equipo', categorias: ['equipo', 'mantenimiento'], contacto: 'Soporte', email: 'soporte@climamx.mx', telefono: '442-555-6677', rfc: '', estadoRelacion: 'inactivo', proximoSeguimiento: d(-1), responsable: 'Suzet', notas: 'Minisplits y mantenimiento.' },
   ];
   const RECURSOS = [
     { id: 'rec-aguja', nombre: 'Aguja estéril 16G', categoria: 'insumo', grupo: 'Cabina de perforación', proveedor: 'Insumos Médicos MX', unidad: 'pza', costo: '8', cantidad: '200', impuesto: '16% IVA', logistica: 'Pedido semanal', notas: 'Un solo uso.' },
@@ -341,6 +343,69 @@ async function main() {
   await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: 'proveedores_dir' } }, create: { proyectoId: PID, tablaRef: 'proveedores_dir', filas: J(PROVEEDORES), actualizadoEn: now() }, update: { filas: J(PROVEEDORES), actualizadoEn: now() } });
   await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: 'recursos' } }, create: { proyectoId: PID, tablaRef: 'recursos', filas: J(RECURSOS_EX), actualizadoEn: now() }, update: { filas: J(RECURSOS_EX), actualizadoEn: now() } });
   console.log(`✅ Catálogo: ${RECURSOS.length} recursos (${YA_EXISTE.size} ya existentes), ${PROVEEDORES.length} proveedores.`);
+
+  // 7b) ABASTECIMIENTO avanzado: productos con inventario, vínculos m:n con historial de precios,
+  //     órdenes de compra por etapa, contratos con vencimiento, incidencias y bitácora de relación.
+  const PRODUCTOS = [
+    { id: 'prod-guantes', nombre: 'Guantes de nitrilo (caja 100)', skuInterno: 'GNT-100', codigoFabricante: 'AMB-NIT-M', marca: 'Ambiderm', modelo: 'Nitrilo M', categoria: 'insumos', unidad: 'caja', presentacion: 'Caja 100 pzas', empaque: 'Caja', cantidadPorCaja: '100', vidaUtil: '3 años', almacenamiento: 'Seco, fresco', stockActual: '2', stockMinimo: '3', stockMaximo: '20', puntoReorden: '5', stockSeguridad: '3', ubicacion: 'Rincón Servicios', consumoMensual: '12', frecuenciaCompra: 'mensual', leadTimeDias: '5', notas: 'Talla M.' },
+    { id: 'prod-aguja', nombre: 'Aguja estéril 16G', skuInterno: 'AGJ-16G', marca: '', modelo: '16G', categoria: 'insumos', unidad: 'pza', presentacion: 'Sobre individual estéril', vidaUtil: '5 años', almacenamiento: 'Seco', stockActual: '40', stockMinimo: '50', stockMaximo: '400', puntoReorden: '80', stockSeguridad: '50', ubicacion: 'Cabina de perforación', consumoMensual: '200', frecuenciaCompra: 'semanal', leadTimeDias: '7', notas: 'Un solo uso.' },
+    { id: 'prod-joya', nombre: 'Joyería de titanio ASTM F-136', skuInterno: 'JOY-TI', marca: 'Titanio Body', categoria: 'insumos', unidad: 'pza', presentacion: 'Bolsa individual', stockActual: '45', stockMinimo: '20', stockMaximo: '60', puntoReorden: '30', stockSeguridad: '15', ubicacion: 'Recepción (vitrina)', consumoMensual: '20', frecuenciaCompra: 'mensual', leadTimeDias: '10', notas: 'Varios calibres.' },
+    { id: 'prod-gasas', nombre: 'Gasas estériles', skuInterno: 'GAS-EST', categoria: 'insumos', unidad: 'pza', stockActual: '120', stockMinimo: '100', stockMaximo: '800', puntoReorden: '200', stockSeguridad: '80', ubicacion: 'Cabina de perforación', consumoMensual: '500', frecuenciaCompra: 'semanal', leadTimeDias: '4', notas: '' },
+    { id: 'prod-tinta', nombre: 'Tinta de tatuaje negra', skuInterno: 'TNT-NEG', marca: 'Eternal', categoria: 'insumos', unidad: 'bote', stockActual: '8', stockMinimo: '4', stockMaximo: '30', puntoReorden: '10', stockSeguridad: '3', ubicacion: 'Cabina 2', consumoMensual: '6', frecuenciaCompra: 'mensual', leadTimeDias: '6', notas: '' },
+  ];
+  const VINCULOS = [
+    // Guantes: dos proveedores → el sistema detecta el más barato; con historial de precios.
+    { id: 'pp-guantes-insumos', productoId: 'prod-guantes', proveedorId: 'prv-insumos', skuProveedor: 'IMM-GNT-M', precio: '180', moneda: 'MXN', tiempoEntrega: '3 días', cantidadMinima: '5', formaPago: 'Transferencia', credito: true, diasCredito: '15', incoterms: 'DAP', lugarEntrega: 'Girly Zone', historial: [{ fecha: d(-120), precio: '160', moneda: 'MXN', quien: 'compras', motivo: 'precio inicial', documento: '' }, { fecha: d(-20), precio: '180', moneda: 'MXN', quien: 'compras', motivo: 'ajuste por inflación', documento: '' }], notas: '' },
+    { id: 'pp-guantes-tattoo', productoId: 'prod-guantes', proveedorId: 'prv-tattoo', skuProveedor: 'TS-GNT', precio: '165', moneda: 'MXN', tiempoEntrega: '5 días', cantidadMinima: '10', formaPago: 'Contado', credito: false, historial: [], notas: 'Más barato pero pedido mínimo mayor.' },
+    { id: 'pp-aguja-insumos', productoId: 'prod-aguja', proveedorId: 'prv-insumos', skuProveedor: 'IMM-16G', precio: '8', moneda: 'MXN', tiempoEntrega: '3 días', cantidadMinima: '100', credito: true, diasCredito: '15', historial: [{ fecha: d(-60), precio: '8', moneda: 'MXN', quien: 'compras', motivo: 'precio vigente', documento: '' }], notas: '' },
+    { id: 'pp-joya-titanio', productoId: 'prod-joya', proveedorId: 'prv-titanio', skuProveedor: 'TB-TI', precio: '120', moneda: 'MXN', tiempoEntrega: '10 días', cantidadMinima: '20', credito: false, incoterms: 'EXW', lugarRecoleccion: 'CDMX', historial: [{ fecha: d(-90), precio: '110', moneda: 'MXN', quien: 'compras', motivo: 'inicial', documento: '' }, { fecha: d(-15), precio: '120', moneda: 'MXN', quien: 'proveedor', motivo: 'alza de titanio', documento: '' }], notas: 'Proveedor único.' },
+    { id: 'pp-gasas-insumos', productoId: 'prod-gasas', proveedorId: 'prv-insumos', skuProveedor: 'IMM-GAS', precio: '2', moneda: 'MXN', tiempoEntrega: '3 días', cantidadMinima: '200', credito: true, diasCredito: '15', historial: [], notas: '' },
+    { id: 'pp-tinta-tattoo', productoId: 'prod-tinta', proveedorId: 'prv-tattoo', skuProveedor: 'TS-TNT', precio: '250', moneda: 'MXN', tiempoEntrega: '6 días', cantidadMinima: '5', credito: false, historial: [], notas: '' },
+  ];
+  const ORDENES = [
+    { id: 'oc-guantes-rfq', folio: 'OC-0001', etapa: 'cotizacion', productoId: 'prod-guantes', proveedorId: 'prv-insumos', descripcion: 'Guantes de nitrilo (caja 100)', cantidad: '10', unidad: 'caja', precioUnitario: '180', moneda: 'MXN', fechaSolicitud: d(-3), fechaRequerida: d(4), aprobadaPor: '', recibidoOk: false, evaluacion: '', notas: 'RFQ enviada; esperando confirmación de precio por volumen.' },
+    { id: 'oc-aguja', folio: 'OC-0002', etapa: 'orden', productoId: 'prod-aguja', proveedorId: 'prv-insumos', descripcion: 'Aguja estéril 16G', cantidad: '300', unidad: 'pza', precioUnitario: '8', moneda: 'MXN', fechaSolicitud: d(-6), fechaRequerida: d(1), aprobadaPor: 'Suzet', recibidoOk: false, evaluacion: '', notas: 'Urgente: stock bajo el mínimo.' },
+    { id: 'oc-joya', folio: 'OC-0003', etapa: 'recepcion', productoId: 'prod-joya', proveedorId: 'prv-titanio', descripcion: 'Joyería de titanio (surtido)', cantidad: '30', unidad: 'pza', precioUnitario: '120', moneda: 'MXN', fechaSolicitud: d(-14), fechaRequerida: d(-2), aprobadaPor: 'Suzet', recibidoOk: false, evaluacion: '', notas: 'En tránsito desde CDMX.' },
+    { id: 'oc-tinta-cerrada', folio: 'OC-0004', etapa: 'cerrada', productoId: 'prod-tinta', proveedorId: 'prv-tattoo', descripcion: 'Tinta de tatuaje negra', cantidad: '10', unidad: 'bote', precioUnitario: '250', moneda: 'MXN', fechaSolicitud: d(-40), fechaRequerida: d(-33), aprobadaPor: 'Francisco', recibidoOk: true, evaluacion: 'Entrega a tiempo, buena calidad.', notas: 'Ciclo completo.' },
+  ];
+  const CONTRATOS = [
+    { id: 'ctr-arrendamiento', titulo: 'Arrendamiento local (Girly Zone)', proveedorId: 'prv-girly', tipo: 'arrendamiento', fechaInicio: d(-345), fechaVencimiento: d(20), renovacionAutomatica: false, monto: 'PENDIENTE', moneda: 'MXN', responsables: 'Suzet', clausulas: 'Renta mensual, servicios incluidos, uso exclusivo del local de 2ª planta.', multas: '1 mes de renta por terminación anticipada', exclusividad: false, confidencialidad: false, garantias: 'Depósito 1 mes', alertaDias: '30', documento: '', notas: 'Renovar o renegociar pronto.' },
+    { id: 'ctr-rpbi', titulo: 'Gestión de RPBI', proveedorId: '', tipo: 'servicio', fechaInicio: d(-200), fechaVencimiento: d(160), renovacionAutomatica: true, monto: '1200', moneda: 'MXN', responsables: 'Suzet', clausulas: 'Recolección quincenal de residuos peligrosos biológico-infecciosos con manifiesto.', multas: '', exclusividad: false, confidencialidad: false, garantias: 'Manifiestos de disposición', alertaDias: '45', documento: '', notas: 'Obligatorio por normativa sanitaria.' },
+    { id: 'ctr-titanio', titulo: 'Suministro joyería titanio', proveedorId: 'prv-titanio', tipo: 'suministro', fechaInicio: d(-400), fechaVencimiento: d(-10), renovacionAutomatica: false, monto: '', moneda: 'MXN', responsables: 'Suzet', clausulas: 'Precios preferentes por volumen anual.', multas: '', exclusividad: true, confidencialidad: false, garantias: '', alertaDias: '30', documento: '', notas: 'VENCIDO: renegociar (proveedor único).' },
+  ];
+  const INCIDENCIAS = [
+    { id: 'inc-1', proveedorId: 'prv-insumos', tipo: 'retraso', gravedad: 'media', fecha: d(-25), descripcion: 'Entrega de guantes llegó 4 días tarde.', ordenId: '', evidencia: '' },
+    { id: 'inc-2', proveedorId: 'prv-tattoo', tipo: 'defecto', gravedad: 'leve', fecha: d(-50), descripcion: 'Un bote de tinta llegó mal sellado.', ordenId: 'oc-tinta-cerrada', evidencia: '' },
+  ];
+  const INTERACCIONES = [
+    { id: 'int-1', proveedorId: 'prv-insumos', tipo: 'cotización', canal: 'correo', direccion: 'saliente', fecha: d(-6), resumen: 'RFQ de guantes y agujas.', ordenId: 'oc-guantes-rfq' },
+    { id: 'int-2', proveedorId: 'prv-insumos', tipo: 'respuesta', canal: 'correo', direccion: 'entrante', fecha: d(-4), resumen: 'Confirmó precio 180/caja, ofrece 170 por 15+ cajas.', ordenId: '' },
+    { id: 'int-3', proveedorId: 'prv-titanio', tipo: 'llamada', canal: 'teléfono', direccion: 'saliente', fecha: d(-12), resumen: 'Avisó alza de precio del titanio.', ordenId: '' },
+    { id: 'int-4', proveedorId: 'prv-clima', tipo: 'nota', canal: '', direccion: 'saliente', fecha: d(-40), resumen: 'Mantenimiento de minisplits pendiente de reagendar.', ordenId: '' },
+  ];
+  const up = async (ref: string, filas: unknown[]) => {
+    await prisma.tablaProyecto.upsert({ where: { proyectoId_tablaRef: { proyectoId: PID, tablaRef: ref } }, create: { proyectoId: PID, tablaRef: ref, filas: J(filas), actualizadoEn: now() }, update: { filas: J(filas), actualizadoEn: now() } });
+  };
+  await up('productos', PRODUCTOS);
+  await up('producto_proveedor', VINCULOS);
+  await up('ordenes_compra', ORDENES);
+  await up('contratos', CONTRATOS);
+  await up('incidencias', INCIDENCIAS);
+  await up('interacciones_prov', INTERACCIONES);
+  console.log(`✅ Abastecimiento: ${PRODUCTOS.length} productos, ${VINCULOS.length} vínculos, ${ORDENES.length} órdenes, ${CONTRATOS.length} contratos, ${INCIDENCIAS.length} incidencias, ${INTERACCIONES.length} interacciones.`);
+
+  // 7c) RH: marca algunos procesos como AUTOMATIZADOS → alimentan los planos IA y Tecnológico.
+  const procesosTodos = await prisma.proceso.findMany({ where: { proyectoId: PID } });
+  let autos = 0;
+  for (const pr of procesosTodos) {
+    const n = pr.nombre.toLowerCase();
+    let auto: { con: string; herramienta: string; nota: string } | null = null;
+    if (n.includes('catálogo') || n.includes('catalogo')) auto = { con: 'ia', herramienta: 'Agente de catálogo', nota: 'Publica y actualiza el catálogo desde una lista.' };
+    else if (n.includes('cita') || n.includes('agenda') || n.includes('recordatorio')) auto = { con: 'n8n', herramienta: 'n8n: recordatorio de cita', nota: 'Envía recordatorio por WhatsApp antes de la cita.' };
+    else if (n.includes('cobro') || n.includes('factura') || n.includes('caja')) auto = { con: 'software', herramienta: 'POS + facturación', nota: 'Cobro y CFDI desde el punto de venta.' };
+    if (auto) { const dd = (pr.data as Record<string, unknown>) ?? {}; await prisma.proceso.update({ where: { id: pr.id }, data: { data: J({ ...dd, automatizacion: auto }) } }); autos++; }
+  }
+  console.log(`✅ RH: ${autos} procesos marcados como automatizados (alimentan IA/Tecnológico).`);
 
   // 8) Insumos por proceso (con cantidad) enlazados al catálogo → costeo automático.
   const INSUMOS_PROC: Record<string, { insumos: string[]; cantidades: Record<string, string> }> = {
