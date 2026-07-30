@@ -5,8 +5,8 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
-import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor } from '@/domain/recursos';
+import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato } from '@/domain/recursos';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nowISO(): string { return new Date().toISOString(); }
@@ -86,4 +86,34 @@ export async function guardarVinculo(proyectoId: string, v: ProductoProveedor): 
 }
 export async function eliminarVinculo(proyectoId: string, id: string): Promise<void> {
   await guardarLista(proyectoId, 'producto_proveedor', (await listarVinculos(proyectoId)).filter((x) => x.id !== id));
+}
+
+// --- Órdenes de compra (flujo de compras, Sección 13) ---
+export async function listarOrdenes(proyectoId: string): Promise<OrdenCompra[]> { return listar(proyectoId, 'ordenes_compra', normalizarOrden); }
+export async function guardarOrden(proyectoId: string, o: OrdenCompra): Promise<OrdenCompra> {
+  const lista = await listarOrdenes(proyectoId);
+  const id = o.id?.trim() || nid('OC');
+  const norm = normalizarOrden({ ...o, id });
+  const i = lista.findIndex((x) => x.id === id);
+  if (i >= 0) lista[i] = norm; else lista.push(norm);
+  await guardarLista(proyectoId, 'ordenes_compra', lista);
+  return norm;
+}
+export async function eliminarOrden(proyectoId: string, id: string): Promise<void> {
+  await guardarLista(proyectoId, 'ordenes_compra', (await listarOrdenes(proyectoId)).filter((x) => x.id !== id));
+}
+
+// --- Contratos (Sección 7) ---
+export async function listarContratos(proyectoId: string): Promise<Contrato[]> { return listar(proyectoId, 'contratos', normalizarContrato); }
+export async function guardarContrato(proyectoId: string, c: Contrato): Promise<Contrato> {
+  const lista = await listarContratos(proyectoId);
+  const id = c.id?.trim() || nid('CTR');
+  const norm = normalizarContrato({ ...c, id });
+  const i = lista.findIndex((x) => x.id === id);
+  if (i >= 0) lista[i] = norm; else lista.push(norm);
+  await guardarLista(proyectoId, 'contratos', lista);
+  return norm;
+}
+export async function eliminarContrato(proyectoId: string, id: string): Promise<void> {
+  await guardarLista(proyectoId, 'contratos', (await listarContratos(proyectoId)).filter((x) => x.id !== id));
 }

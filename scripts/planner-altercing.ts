@@ -20,8 +20,8 @@ import { empleadoVacio } from '@/domain/rh';
 import type { Empleado } from '@/domain/rh';
 import { personaHaceProceso, flujoDePersona, flujoDeRol, indiceRoles, flujoInterEmpresa, flujoDeSubprocesos } from '@/domain/flujo-persona';
 import { costosDeRecursos, componentesDeEquipo, proveedoresATabla, agentesDeProcesos, componentesDeAutomatizacion } from '@/domain/proyeccion';
-import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra } from '@/domain/recursos';
-import type { Recurso, ProductoProveedor, Producto } from '@/domain/recursos';
+import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProveedor, vinculoVacio, registrarCambioPrecio, precioVigente, proveedorMasBarato, vinculosDeProducto, productoVacio, planearCompra, siguienteEtapaCompra, totalOrden, ordenVacia, solicitudDesdeProducto, contratoVacio, estadoContrato } from '@/domain/recursos';
+import type { Recurso, ProductoProveedor, Producto, Contrato } from '@/domain/recursos';
 import { indiceRecursos, costearProceso } from '@/domain/costeo';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
@@ -405,6 +405,33 @@ check('Cobertura (~10d) < lead time (15d) → comprar-hoy', plLead.accion === 'c
 
 // Sin datos → sin-datos.
 check('Producto sin stock/consumo → sin-datos', planearCompra(productoVacio('P0'), HOY).accion === 'sin-datos');
+
+// ============================================================
+// 16) COMPRAS (flujo por etapas) + CONTRATOS (alertas de vencimiento)
+// ============================================================
+h('16) Flujo de compras, total de la orden y alertas de contrato');
+// Flujo de etapas: avanza en orden y se detiene en "cerrada".
+check('solicitud → cotizacion', siguienteEtapaCompra('solicitud') === 'cotizacion');
+check('evaluacion → cerrada', siguienteEtapaCompra('evaluacion') === 'cerrada');
+check('cerrada se queda en cerrada', siguienteEtapaCompra('cerrada') === 'cerrada');
+
+// Total de la orden = precio × cantidad.
+const oc = { ...ordenVacia('OC1'), precioUnitario: '25', cantidad: '4' };
+check('Total de la orden = 100', totalOrden(oc) === 100);
+
+// Solicitud automática desde un producto bajo mínimo (Sección 17).
+const prodBajo = { ...productoVacio('PROD-z'), nombre: 'Guantes', unidad: 'caja', stockMaximo: '50', stockActual: '3' };
+const sol = solicitudDesdeProducto('OC-auto', prodBajo, 47, 'PRV-9', HOY);
+check('Solicitud automática nace en etapa solicitud', sol.etapa === 'solicitud');
+check('Solicitud toma producto, cantidad y proveedor sugeridos', sol.productoId === 'PROD-z' && sol.cantidad === '47' && sol.proveedorId === 'PRV-9');
+
+// Contratos: alertas según fecha de vencimiento (HOY = 2026-07-29).
+const ctr = (venc: string, o: Partial<Contrato> = {}): Contrato => ({ ...contratoVacio('C'), fechaVencimiento: venc, alertaDias: '30', ...o });
+check('Contrato a 200 días → vigente, sin alerta', estadoContrato(ctr('2027-02-15'), HOY).estado === 'vigente');
+check('Contrato a 10 días → por-vencer con alerta', (() => { const i = estadoContrato(ctr('2026-08-08'), HOY); return i.estado === 'por-vencer' && i.alerta; })());
+check('Contrato pasado → vencido', estadoContrato(ctr('2026-06-01'), HOY).estado === 'vencido');
+check('Renovación automática NO dispara alerta aunque esté por vencer', estadoContrato(ctr('2026-08-08', { renovacionAutomatica: true }), HOY).alerta === false);
+check('Sin fecha de vencimiento → sin-fecha', estadoContrato(ctr(''), HOY).estado === 'sin-fecha');
 
 // ============================================================
 // MUESTRA — extracto del documento de Marketing generado

@@ -379,3 +379,144 @@ export function planearCompra(p: Producto, hoyISO: string): PlanCompra {
   }
   return { accion, etiqueta: ACCIONES_COMPRA[accion].label, ...base, motivo };
 }
+
+// ---------- Flujo de compras (Sección 13) ----------
+// Una orden recorre el ciclo: solicitud → cotización → comparación → aprobación → OC →
+// confirmación → envío → recepción → inspección → pago → evaluación → cerrada.
+export const ETAPAS_COMPRA_INFO = [
+  { id: 'solicitud', label: 'Solicitud', emoji: '📝' },
+  { id: 'cotizacion', label: 'Cotización', emoji: '💬' },
+  { id: 'comparacion', label: 'Comparación', emoji: '⚖️' },
+  { id: 'aprobacion', label: 'Aprobación', emoji: '✅' },
+  { id: 'orden', label: 'Orden de compra', emoji: '🧾' },
+  { id: 'confirmacion', label: 'Confirmación', emoji: '📨' },
+  { id: 'envio', label: 'Envío', emoji: '🚚' },
+  { id: 'recepcion', label: 'Recepción', emoji: '📦' },
+  { id: 'inspeccion', label: 'Inspección', emoji: '🔍' },
+  { id: 'pago', label: 'Pago', emoji: '💵' },
+  { id: 'evaluacion', label: 'Evaluación', emoji: '⭐' },
+  { id: 'cerrada', label: 'Cerrada', emoji: '🏁' },
+] as const;
+export type EtapaCompra = typeof ETAPAS_COMPRA_INFO[number]['id'];
+export function etapaCompraInfo(id: string) {
+  return ETAPAS_COMPRA_INFO.find((e) => e.id === id) ?? ETAPAS_COMPRA_INFO[0];
+}
+export function siguienteEtapaCompra(id: EtapaCompra): EtapaCompra {
+  const i = ETAPAS_COMPRA_INFO.findIndex((e) => e.id === id);
+  return ETAPAS_COMPRA_INFO[Math.min(i + 1, ETAPAS_COMPRA_INFO.length - 1)]!.id;
+}
+
+export interface OrdenCompra {
+  id: string;
+  folio: string;
+  etapa: EtapaCompra;
+  productoId: string;   // opcional: producto del catálogo
+  proveedorId: string;  // opcional: proveedor elegido
+  descripcion: string;  // qué se compra (libre si no es un producto del catálogo)
+  cantidad: string;
+  unidad: string;
+  precioUnitario: string;
+  moneda: string;
+  fechaSolicitud: string;
+  fechaRequerida: string;
+  aprobadaPor: string;
+  recibidoOk: boolean;  // pasó inspección
+  evaluacion: string;   // nota final al proveedor/compra
+  notas: string;
+}
+export function ordenVacia(id: string): OrdenCompra {
+  return {
+    id, folio: '', etapa: 'solicitud', productoId: '', proveedorId: '', descripcion: '', cantidad: '', unidad: '',
+    precioUnitario: '', moneda: '', fechaSolicitud: '', fechaRequerida: '', aprobadaPor: '', recibidoOk: false, evaluacion: '', notas: '',
+  };
+}
+export function normalizarOrden(v: unknown): OrdenCompra {
+  const d = (v && typeof v === 'object') ? v as Record<string, unknown> : {};
+  const etapa = (ETAPAS_COMPRA_INFO.some((e) => e.id === d.etapa) ? d.etapa : 'solicitud') as EtapaCompra;
+  return {
+    id: s(d.id) || `OC-${Math.random().toString(36).slice(2, 8)}`, folio: s(d.folio), etapa,
+    productoId: s(d.productoId), proveedorId: s(d.proveedorId), descripcion: s(d.descripcion), cantidad: s(d.cantidad),
+    unidad: s(d.unidad), precioUnitario: s(d.precioUnitario), moneda: s(d.moneda), fechaSolicitud: s(d.fechaSolicitud),
+    fechaRequerida: s(d.fechaRequerida), aprobadaPor: s(d.aprobadaPor), recibidoOk: d.recibidoOk === true, evaluacion: s(d.evaluacion), notas: s(d.notas),
+  };
+}
+export function totalOrden(o: OrdenCompra): number | null {
+  const c = numero(o.precioUnitario), q = numero(o.cantidad);
+  if (c === null) return null;
+  return q === null ? c : c * q;
+}
+
+// ---------- Contratos (Sección 7) + alertas de vencimiento ----------
+export interface Contrato {
+  id: string;
+  titulo: string;
+  proveedorId: string;
+  tipo: string;                 // suministro / servicio / arrendamiento…
+  fechaInicio: string;
+  fechaVencimiento: string;
+  renovacionAutomatica: boolean;
+  monto: string;
+  moneda: string;
+  responsables: string;
+  clausulas: string;            // cláusulas importantes
+  multas: string;
+  exclusividad: boolean;
+  confidencialidad: boolean;
+  garantias: string;
+  alertaDias: string;           // avisar N días antes del vencimiento (default 30)
+  documento: string;            // URL del PDF
+  notas: string;
+}
+export function contratoVacio(id: string): Contrato {
+  return {
+    id, titulo: '', proveedorId: '', tipo: '', fechaInicio: '', fechaVencimiento: '', renovacionAutomatica: false,
+    monto: '', moneda: '', responsables: '', clausulas: '', multas: '', exclusividad: false, confidencialidad: false,
+    garantias: '', alertaDias: '30', documento: '', notas: '',
+  };
+}
+export function normalizarContrato(v: unknown): Contrato {
+  const d = (v && typeof v === 'object') ? v as Record<string, unknown> : {};
+  return {
+    id: s(d.id) || `CTR-${Math.random().toString(36).slice(2, 8)}`, titulo: s(d.titulo), proveedorId: s(d.proveedorId),
+    tipo: s(d.tipo), fechaInicio: s(d.fechaInicio), fechaVencimiento: s(d.fechaVencimiento), renovacionAutomatica: d.renovacionAutomatica === true,
+    monto: s(d.monto), moneda: s(d.moneda), responsables: s(d.responsables), clausulas: s(d.clausulas), multas: s(d.multas),
+    exclusividad: d.exclusividad === true, confidencialidad: d.confidencialidad === true, garantias: s(d.garantias),
+    alertaDias: s(d.alertaDias) || '30', documento: s(d.documento), notas: s(d.notas),
+  };
+}
+
+export type EstadoContrato = 'vigente' | 'por-vencer' | 'vencido' | 'sin-fecha';
+export const ESTADOS_CONTRATO: Record<EstadoContrato, { label: string; color: string; emoji: string }> = {
+  'vigente': { label: 'Vigente', color: '#2e9e63', emoji: '🟢' },
+  'por-vencer': { label: 'Por vencer', color: '#d9781f', emoji: '🟠' },
+  'vencido': { label: 'Vencido', color: '#c0392b', emoji: '🔴' },
+  'sin-fecha': { label: 'Sin fecha', color: '#8a93a8', emoji: '⚪' },
+};
+export interface InfoContrato { estado: EstadoContrato; diasRestantes: number | null; alerta: boolean }
+
+// Días entre dos fechas ISO (b - a). null si alguna no es válida.
+function diffDias(aIso: string, bIso: string): number | null {
+  if (!aIso || !bIso) return null;
+  const a = new Date(aIso.length <= 10 ? `${aIso}T00:00:00` : aIso);
+  const b = new Date(bIso.length <= 10 ? `${bIso}T00:00:00` : bIso);
+  if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+export function estadoContrato(c: Contrato, hoyISO: string): InfoContrato {
+  if (!c.fechaVencimiento) return { estado: 'sin-fecha', diasRestantes: null, alerta: false };
+  const dias = diffDias(hoyISO, c.fechaVencimiento);
+  if (dias === null) return { estado: 'sin-fecha', diasRestantes: null, alerta: false };
+  if (dias < 0) return { estado: 'vencido', diasRestantes: dias, alerta: !c.renovacionAutomatica };
+  const alertaDias = numero(c.alertaDias) ?? 30;
+  if (dias <= alertaDias) return { estado: 'por-vencer', diasRestantes: dias, alerta: !c.renovacionAutomatica };
+  return { estado: 'vigente', diasRestantes: dias, alerta: false };
+}
+
+// Automatización (Sección 17): genera una SOLICITUD de compra desde un producto bajo mínimo.
+export function solicitudDesdeProducto(id: string, p: Producto, cantidad: number | null, proveedorId: string, fechaSolicitud: string): OrdenCompra {
+  return {
+    ...ordenVacia(id), etapa: 'solicitud', productoId: p.id, proveedorId,
+    descripcion: p.nombre, cantidad: cantidad !== null ? String(cantidad) : '', unidad: p.unidad,
+    fechaSolicitud, notas: 'Generada automáticamente por stock bajo.',
+  };
+}

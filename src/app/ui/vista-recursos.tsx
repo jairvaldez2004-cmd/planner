@@ -15,14 +15,18 @@ import {
   listarProveedores, guardarProveedor, eliminarProveedor,
   listarProductos, guardarProducto, eliminarProducto,
   listarVinculos, guardarVinculo, eliminarVinculo,
+  listarOrdenes, guardarOrden, eliminarOrden,
+  listarContratos, guardarContrato, eliminarContrato,
 } from '@/app/actions/recursos.actions';
 import {
   CATEGORIAS_RECURSO, categoriaRecurso, TIPOS_PROVEEDOR, CATEGORIAS_PROVEEDOR,
-  recursoVacio, proveedorVacio, productoVacio, vinculoVacio,
+  recursoVacio, proveedorVacio, productoVacio, vinculoVacio, ordenVacia, contratoVacio,
   subtotalRecurso, formatoMoneda, precioVigente, registrarCambioPrecio, vinculosDeProducto, proveedorMasBarato,
   planearCompra, ACCIONES_COMPRA,
+  ETAPAS_COMPRA_INFO, etapaCompraInfo, siguienteEtapaCompra, totalOrden,
+  estadoContrato, ESTADOS_CONTRATO, solicitudDesdeProducto,
 } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra } from '@/domain/recursos';
 import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
@@ -33,13 +37,17 @@ const chip: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap:
 const sum: CSSProperties = { cursor: 'pointer', fontSize: 12, fontWeight: 'bold', color: '#6b5320', marginTop: '0.6rem' };
 
 type Agrupar = 'categoria' | 'grupo' | 'proveedor' | 'ninguno';
-type Tab = 'recursos' | 'proveedores' | 'productos';
+type Tab = 'recursos' | 'proveedores' | 'productos' | 'compras' | 'contratos';
 
 export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   const [recs, setRecs] = useState<Recurso[]>([]);
   const [provs, setProvs] = useState<Proveedor[]>([]);
   const [prods, setProds] = useState<Producto[]>([]);
   const [vinc, setVinc] = useState<ProductoProveedor[]>([]);
+  const [ocs, setOcs] = useState<OrdenCompra[]>([]);
+  const [ctrs, setCtrs] = useState<Contrato[]>([]);
+  const [selOC, setSelOC] = useState<string | null>(null);
+  const [selCtr, setSelCtr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('recursos');
   const [agrupar, setAgrupar] = useState<Agrupar>('categoria');
   const [selR, setSelR] = useState<string | null>(null);
@@ -52,8 +60,8 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
 
   const cargar = () => {
     setLoading(true);
-    Promise.all([listarRecursos(proyectoId), listarProveedores(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId)])
-      .then(([r, p, pr, v]) => { setRecs(r); setProvs(p); setProds(pr); setVinc(v); }).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([listarRecursos(proyectoId), listarProveedores(proyectoId), listarProductos(proyectoId), listarVinculos(proyectoId), listarOrdenes(proyectoId), listarContratos(proyectoId)])
+      .then(([r, p, pr, v, o, c]) => { setRecs(r); setProvs(p); setProds(pr); setVinc(v); setOcs(o); setCtrs(c); }).catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
 
@@ -61,6 +69,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   const pSel = provs.find((x) => x.id === selP) ?? null;
   const prodSel = prods.find((x) => x.id === selProd) ?? null;
   const provNombre = (id: string) => provs.find((p) => p.id === id)?.nombre ?? '(proveedor)';
+  const prodNombre = (id: string) => prods.find((p) => p.id === id)?.nombre ?? '';
 
   async function nuevoRec() { const n = await guardarRecurso(proyectoId, { ...recursoVacio(''), nombre: 'Nuevo recurso' }); setRecs((l) => [...l, n]); setSelR(n.id); }
   async function patchRec(partial: Partial<Recurso>) { if (!rSel) return; const u = { ...rSel, ...partial }; setRecs((l) => l.map((x) => x.id === u.id ? u : x)); await guardarRecurso(proyectoId, u); }
@@ -82,6 +91,23 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   async function patchVinculo(v: ProductoProveedor) { setVinc((l) => l.map((x) => x.id === v.id ? v : x)); await guardarVinculo(proyectoId, v); }
   async function borrarVinculo(id: string) { setVinc((l) => l.filter((x) => x.id !== id)); await eliminarVinculo(proyectoId, id); }
 
+  // Órdenes de compra
+  async function nuevaOC() { const n = await guardarOrden(proyectoId, { ...ordenVacia(''), descripcion: 'Nueva compra', fechaSolicitud: hoy }); setOcs((l) => [...l, n]); setSelOC(n.id); }
+  async function patchOC(o: OrdenCompra) { setOcs((l) => l.map((x) => x.id === o.id ? o : x)); await guardarOrden(proyectoId, o); }
+  async function borrarOC(id: string) { if (!window.confirm('¿Eliminar esta orden de compra?')) return; setOcs((l) => l.filter((x) => x.id !== id)); setSelOC(null); await eliminarOrden(proyectoId, id); }
+  // Automatización (Sección 17): genera una solicitud desde un producto bajo mínimo.
+  async function generarSolicitud(prod: Producto) {
+    const plan = planearCompra(prod, hoy);
+    const barato = proveedorMasBarato(vinc, prod.id);
+    const n = await guardarOrden(proyectoId, solicitudDesdeProducto('', prod, plan.cantidadSugerida, barato?.proveedorId ?? '', hoy));
+    setOcs((l) => [...l, n]); setTab('compras'); setSelOC(n.id);
+  }
+
+  // Contratos
+  async function nuevoCtr() { const n = await guardarContrato(proyectoId, { ...contratoVacio(''), titulo: 'Nuevo contrato' }); setCtrs((l) => [...l, n]); setSelCtr(n.id); }
+  async function patchCtr(c: Contrato) { setCtrs((l) => l.map((x) => x.id === c.id ? c : x)); await guardarContrato(proyectoId, c); }
+  async function borrarCtr(id: string) { if (!window.confirm('¿Eliminar este contrato?')) return; setCtrs((l) => l.filter((x) => x.id !== id)); setSelCtr(null); await eliminarContrato(proyectoId, id); }
+
   // Agrupación libre de recursos + subtotales
   const claveGrupo = (r: Recurso) => agrupar === 'categoria' ? categoriaRecurso(r.categoria).label : agrupar === 'grupo' ? (r.grupo || '(sin grupo)') : agrupar === 'proveedor' ? (r.proveedor || '(sin proveedor)') : 'Todos';
   const grupos = new Map<string, Recurso[]>();
@@ -100,11 +126,13 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
         {tab === 'recursos' && <button style={btn} onClick={() => void nuevoRec()}>＋ Recurso</button>}
         {tab === 'proveedores' && <button style={btn} onClick={() => void nuevoProv()}>＋ Proveedor</button>}
         {tab === 'productos' && <button style={btn} onClick={() => void nuevoProd()}>＋ Producto</button>}
+        {tab === 'compras' && <button style={btn} onClick={() => void nuevaOC()}>＋ Orden de compra</button>}
+        {tab === 'contratos' && <button style={btn} onClick={() => void nuevoCtr()}>＋ Contrato</button>}
       </div>
 
       <div style={{ display: 'flex', gap: '0.4rem', margin: '0.5rem 0 0.4rem', flexWrap: 'wrap' }}>
-        {([['recursos', '📦 Recursos'], ['proveedores', '🏭 Proveedores'], ['productos', '🏷️ Productos']] as const).map(([id, label]) => (
-          <button key={id} onClick={() => { setTab(id); setSelR(null); setSelP(null); setSelProd(null); }}
+        {([['recursos', '📦 Recursos'], ['proveedores', '🏭 Proveedores'], ['productos', '🏷️ Productos'], ['compras', '🛒 Compras'], ['contratos', '📄 Contratos']] as const).map(([id, label]) => (
+          <button key={id} onClick={() => { setTab(id); setSelR(null); setSelP(null); setSelProd(null); setSelOC(null); setSelCtr(null); }}
             style={{ ...btn, background: tab === id ? '#a9720f' : '#fff', color: tab === id ? '#fff' : '#6b5320', borderColor: tab === id ? '#a9720f' : '#e0d3b0', fontWeight: 'bold' }}>{label}</button>
         ))}
       </div>
@@ -270,12 +298,214 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
                 prod={prodSel} provs={provs} vinculos={vinculosDeProducto(vinc, prodSel.id)} provNombre={provNombre} hoy={hoy}
                 onPatch={patchProd} onClose={() => setSelProd(null)} onDelete={borrarProd}
                 onAgregar={(provId) => void agregarVinculo(prodSel.id, provId)} onGuardarVinculo={patchVinculo} onBorrarVinculo={borrarVinculo}
+                onSolicitud={() => void generarSolicitud(prodSel)}
               />
             )}
           </div>
         </>
       )}
+
+      {/* ======= COMPRAS (flujo) ======= */}
+      {tab === 'compras' && (
+        <ComprasFlujo ocs={ocs} sel={selOC} onSel={setSelOC} provNombre={provNombre} prodNombre={prodNombre}
+          provs={provs} prods={prods} onPatch={patchOC} onDelete={borrarOC} movil={movil} />
+      )}
+
+      {/* ======= CONTRATOS ======= */}
+      {tab === 'contratos' && (
+        <ContratosLista ctrs={ctrs} sel={selCtr} onSel={setSelCtr} provs={provs} provNombre={provNombre}
+          hoy={hoy} onPatch={patchCtr} onDelete={borrarCtr} movil={movil} />
+      )}
     </section>
+  );
+}
+
+// ===== COMPRAS: flujo por etapas (solicitud→…→cerrada) =====
+function ComprasFlujo({ ocs, sel, onSel, provNombre, prodNombre, provs, prods, onPatch, onDelete, movil }: {
+  ocs: OrdenCompra[]; sel: string | null; onSel: (id: string | null) => void; provNombre: (id: string) => string; prodNombre: (id: string) => string;
+  provs: Proveedor[]; prods: Producto[]; onPatch: (o: OrdenCompra) => void; onDelete: (id: string) => void; movil: boolean;
+}) {
+  const oSel = ocs.find((o) => o.id === sel) ?? null;
+  const abiertas = ocs.filter((o) => o.etapa !== 'cerrada');
+  return (
+    <>
+      {ocs.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay órdenes. Pulsa <strong>＋ Orden de compra</strong>, o genera solicitudes automáticas desde un producto bajo mínimo (pestaña Productos).</p>}
+      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.5rem' }}>{abiertas.length} orden(es) en curso de {ocs.length}. El flujo va de <strong>Solicitud</strong> a <strong>Evaluación</strong>; avanza cada orden con “Avanzar etapa”.</p>
+      <div style={{ display: 'grid', gridTemplateColumns: movil || !oSel ? '1fr' : 'minmax(0, 1fr) 380px', gap: '0.75rem', alignItems: 'start' }}>
+        {/* Columnas por etapa (kanban) */}
+        <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: 6 }}>
+          {ETAPAS_COMPRA_INFO.map((e) => {
+            const enEtapa = ocs.filter((o) => o.etapa === e.id);
+            if (enEtapa.length === 0) return null;
+            return (
+              <div key={e.id} style={{ minWidth: 180, flexShrink: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 'bold', color: '#6b5320', padding: '2px 4px', borderBottom: '2px solid #e0d3b0' }}>{e.emoji} {e.label} <span style={{ color: '#aaa' }}>({enEtapa.length})</span></div>
+                {enEtapa.map((o) => {
+                  const t = totalOrden(o);
+                  return (
+                    <div key={o.id} onClick={() => onSel(o.id)}
+                      style={{ border: `1px solid ${sel === o.id ? '#a9720f' : '#e0d3b0'}`, borderRadius: 8, padding: '0.4rem 0.5rem', background: sel === o.id ? '#fdf6e3' : '#fff', cursor: 'pointer', marginTop: 5 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 'bold' }}>{o.descripcion || prodNombre(o.productoId) || '(sin descripción)'}</div>
+                      <div style={{ fontSize: 10.5, color: '#888', marginTop: 2 }}>{o.proveedorId ? `🏭 ${provNombre(o.proveedorId)}` : 'sin proveedor'}{o.cantidad ? ` · ${o.cantidad} ${o.unidad}` : ''}</div>
+                      {t !== null && <div style={{ fontSize: 11, color: '#6b5320' }}>{formatoMoneda(t)}{o.moneda ? ` ${o.moneda}` : ''}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+        {oSel && <OrdenEditor o={oSel} provs={provs} prods={prods} onPatch={onPatch} onClose={() => onSel(null)} onDelete={onDelete} />}
+      </div>
+    </>
+  );
+}
+
+// ===== Editor de una orden de compra + stepper de etapas =====
+function OrdenEditor({ o, provs, prods, onPatch, onClose, onDelete }: {
+  o: OrdenCompra; provs: Proveedor[]; prods: Producto[]; onPatch: (o: OrdenCompra) => void; onClose: () => void; onDelete: (id: string) => void;
+}) {
+  const set = (k: keyof OrdenCompra, val: string | boolean) => onPatch({ ...o, [k]: val });
+  const F = (label: string, k: keyof OrdenCompra, ph = '') => (
+    <div><label style={lbl}>{label}</label><input style={inp} defaultValue={String(o[k] ?? '')} key={`${String(k)}-${o.id}`} placeholder={ph} onBlur={(e) => { if (e.target.value !== o[k]) set(k, e.target.value); }} /></div>
+  );
+  const idx = ETAPAS_COMPRA_INFO.findIndex((e) => e.id === o.etapa);
+  const t = totalOrden(o);
+  return (
+    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <strong style={{ fontSize: 14 }}>🛒 Orden de compra</strong>
+        <button style={btnSm} onClick={onClose}>✕</button>
+      </div>
+      {/* Stepper */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, margin: '6px 0' }}>
+        {ETAPAS_COMPRA_INFO.map((e, i) => (
+          <span key={e.id} onClick={() => set('etapa', e.id)} title={e.label}
+            style={{ fontSize: 10, cursor: 'pointer', padding: '1px 5px', borderRadius: 8, background: i <= idx ? '#a9720f' : '#efe6cf', color: i <= idx ? '#fff' : '#8a7a4a' }}>{e.emoji}</span>
+        ))}
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 'bold', color: '#6b5320' }}>{etapaCompraInfo(o.etapa).emoji} {etapaCompraInfo(o.etapa).label}</div>
+      {o.etapa !== 'cerrada' && <button style={{ ...btnSm, marginTop: 4, background: '#eef7ee', borderColor: '#bcd8bc', color: '#2e7a4d', fontWeight: 'bold' }} onClick={() => set('etapa', siguienteEtapaCompra(o.etapa))}>→ Avanzar a «{etapaCompraInfo(siguienteEtapaCompra(o.etapa)).label}»</button>}
+
+      <label style={lbl}>Descripción</label>
+      <input style={inp} defaultValue={o.descripcion} key={`d-${o.id}`} onBlur={(e) => { if (e.target.value !== o.descripcion) set('descripcion', e.target.value); }} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+        <div><label style={lbl}>Producto (catálogo)</label>
+          <select style={inp} value={o.productoId} onChange={(e) => set('productoId', e.target.value)}>
+            <option value="">— libre —</option>{prods.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </select></div>
+        <div><label style={lbl}>Proveedor</label>
+          <select style={inp} value={o.proveedorId} onChange={(e) => set('proveedorId', e.target.value)}>
+            <option value="">— sin asignar —</option>{provs.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </select></div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
+        {F('Cantidad', 'cantidad')}{F('Unidad', 'unidad')}{F('Precio unit.', 'precioUnitario')}
+        {F('Moneda', 'moneda', 'MXN')}{F('Folio', 'folio')}
+        <div><label style={lbl}>Total</label><input style={{ ...inp, background: '#f5efdd' }} value={t !== null ? formatoMoneda(t) : '—'} readOnly /></div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+        {F('Fecha solicitud', 'fechaSolicitud')}{F('Fecha requerida', 'fechaRequerida')}
+        {F('Aprobada por', 'aprobadaPor')}{F('Evaluación final', 'evaluacion')}
+      </div>
+      <label style={{ fontSize: 12, color: '#2e7a4d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
+        <input type="checkbox" checked={o.recibidoOk} onChange={(e) => set('recibidoOk', e.target.checked)} /> 🔍 Pasó inspección
+      </label>
+      <label style={lbl}>Notas</label>
+      <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={o.notas} key={`no-${o.id}`} onBlur={(e) => { if (e.target.value !== o.notas) set('notas', e.target.value); }} />
+      <div style={{ borderTop: '1px solid #e0d3b0', marginTop: '0.6rem', paddingTop: '0.5rem' }}>
+        <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => onDelete(o.id)}>🗑 Eliminar</button>
+      </div>
+    </div>
+  );
+}
+
+// ===== CONTRATOS: lista con alertas de vencimiento + editor =====
+function ContratosLista({ ctrs, sel, onSel, provs, provNombre, hoy, onPatch, onDelete, movil }: {
+  ctrs: Contrato[]; sel: string | null; onSel: (id: string | null) => void; provs: Proveedor[]; provNombre: (id: string) => string;
+  hoy: string; onPatch: (c: Contrato) => void; onDelete: (id: string) => void; movil: boolean;
+}) {
+  const cSel = ctrs.find((c) => c.id === sel) ?? null;
+  const infos = ctrs.map((c) => ({ c, info: estadoContrato(c, hoy) }));
+  const alertas = infos.filter((x) => x.info.alerta);
+  return (
+    <>
+      {alertas.length > 0 && (
+        <div style={{ background: '#fdecea', border: '1px solid #f0c9c2', borderRadius: 9, padding: '0.45rem 0.7rem', marginBottom: '0.5rem' }}>
+          <strong style={{ fontSize: 12.5, color: '#c0392b' }}>🔔 {alertas.length} contrato(s) requieren atención:</strong>
+          <span style={{ fontSize: 12, color: '#a33', marginLeft: 6 }}>{alertas.map((x) => `${x.c.titulo || '(sin título)'} (${x.info.diasRestantes! < 0 ? 'vencido' : `${x.info.diasRestantes}d`})`).join(' · ')}</span>
+        </div>
+      )}
+      {ctrs.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay contratos. Pulsa <strong>＋ Contrato</strong> para registrar fechas, montos, cláusulas y alertas de vencimiento.</p>}
+      <div style={{ display: 'grid', gridTemplateColumns: movil || !cSel ? '1fr' : 'minmax(0, 1fr) 400px', gap: '0.75rem', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
+          {infos.map(({ c, info }) => {
+            const est = ESTADOS_CONTRATO[info.estado];
+            return (
+              <div key={c.id} onClick={() => onSel(c.id)}
+                style={{ border: `1px solid ${sel === c.id ? '#a9720f' : '#e0d3b0'}`, borderLeft: `4px solid ${est.color}`, borderRadius: 9, padding: '0.5rem 0.6rem', background: sel === c.id ? '#fdf6e3' : '#fff', cursor: 'pointer' }}>
+                <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>📄 {c.titulo || '(sin título)'}</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{c.proveedorId ? provNombre(c.proveedorId) : c.tipo || '—'}</div>
+                <div style={{ fontSize: 11, color: est.color, marginTop: 2, fontWeight: 'bold' }}>
+                  {est.emoji} {est.label}{info.diasRestantes !== null ? (info.diasRestantes < 0 ? ` (hace ${-info.diasRestantes}d)` : ` · ${info.diasRestantes}d`) : ''}{c.renovacionAutomatica ? ' · 🔄 auto' : ''}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {cSel && <ContratoEditor c={cSel} provs={provs} info={estadoContrato(cSel, hoy)} onPatch={onPatch} onClose={() => onSel(null)} onDelete={onDelete} />}
+      </div>
+    </>
+  );
+}
+
+function ContratoEditor({ c, provs, info, onPatch, onClose, onDelete }: {
+  c: Contrato; provs: Proveedor[]; info: { estado: string; diasRestantes: number | null }; onPatch: (c: Contrato) => void; onClose: () => void; onDelete: (id: string) => void;
+}) {
+  const set = (k: keyof Contrato, val: string | boolean) => onPatch({ ...c, [k]: val });
+  const F = (label: string, k: keyof Contrato, ph = '', type = 'text') => (
+    <div><label style={lbl}>{label}</label><input style={inp} type={type} defaultValue={String(c[k] ?? '')} key={`${String(k)}-${c.id}`} placeholder={ph} onBlur={(e) => { if (e.target.value !== c[k]) set(k, e.target.value); }} /></div>
+  );
+  const est = ESTADOS_CONTRATO[info.estado as keyof typeof ESTADOS_CONTRATO];
+  return (
+    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <strong style={{ fontSize: 14 }}>📄 Contrato</strong>
+        <button style={btnSm} onClick={onClose}>✕</button>
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 'bold', color: est.color, margin: '4px 0' }}>{est.emoji} {est.label}{info.diasRestantes !== null ? (info.diasRestantes < 0 ? ` — venció hace ${-info.diasRestantes} días` : ` — vence en ${info.diasRestantes} días`) : ''}</div>
+      <label style={lbl}>Título</label>
+      <input style={inp} defaultValue={c.titulo} key={`t-${c.id}`} onBlur={(e) => { if (e.target.value !== c.titulo) set('titulo', e.target.value); }} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+        <div><label style={lbl}>Proveedor</label>
+          <select style={inp} value={c.proveedorId} onChange={(e) => set('proveedorId', e.target.value)}>
+            <option value="">— sin asignar —</option>{provs.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </select></div>
+        {F('Tipo', 'tipo', 'suministro / servicio…')}
+        {F('Fecha inicio', 'fechaInicio', '', 'date')}{F('Fecha vencimiento', 'fechaVencimiento', '', 'date')}
+        {F('Monto', 'monto')}{F('Moneda', 'moneda', 'MXN')}
+        {F('Alertar (días antes)', 'alertaDias', '30')}{F('Responsables', 'responsables')}
+      </div>
+      <label style={{ fontSize: 12, color: '#2e7a4d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
+        <input type="checkbox" checked={c.renovacionAutomatica} onChange={(e) => set('renovacionAutomatica', e.target.checked)} /> 🔄 Renovación automática
+      </label>
+      <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+        <label style={{ fontSize: 12, color: '#555', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}><input type="checkbox" checked={c.exclusividad} onChange={(e) => set('exclusividad', e.target.checked)} /> Exclusividad</label>
+        <label style={{ fontSize: 12, color: '#555', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}><input type="checkbox" checked={c.confidencialidad} onChange={(e) => set('confidencialidad', e.target.checked)} /> Confidencialidad</label>
+      </div>
+      <label style={lbl}>Cláusulas importantes</label>
+      <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={c.clausulas} key={`cl-${c.id}`} onBlur={(e) => set('clausulas', e.target.value)} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+        {F('Multas', 'multas')}{F('Garantías', 'garantias')}
+      </div>
+      <label style={lbl}>📎 Documento (URL del PDF)</label>
+      <input style={inp} defaultValue={c.documento} key={`doc-${c.id}`} placeholder="https://…" onBlur={(e) => set('documento', e.target.value)} />
+      <label style={lbl}>Notas</label>
+      <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={c.notas} key={`cno-${c.id}`} onBlur={(e) => set('notas', e.target.value)} />
+      <div style={{ borderTop: '1px solid #e0d3b0', marginTop: '0.6rem', paddingTop: '0.5rem' }}>
+        <button style={{ ...btnSm, color: '#b33', borderColor: '#d99' }} onClick={() => onDelete(c.id)}>🗑 Eliminar</button>
+      </div>
+    </div>
   );
 }
 
@@ -344,10 +574,11 @@ function ProveedorEditor({ prov, onPatch, onClose, onDelete }: {
 }
 
 // ===== Editor de PRODUCTO (rico) + vínculos con proveedores =====
-function ProductoEditor({ prod, provs, vinculos, provNombre, hoy, onPatch, onClose, onDelete, onAgregar, onGuardarVinculo, onBorrarVinculo }: {
+function ProductoEditor({ prod, provs, vinculos, provNombre, hoy, onPatch, onClose, onDelete, onAgregar, onGuardarVinculo, onBorrarVinculo, onSolicitud }: {
   prod: Producto; provs: Proveedor[]; vinculos: ProductoProveedor[]; provNombre: (id: string) => string; hoy: string;
   onPatch: (p: Partial<Producto>) => void; onClose: () => void; onDelete: () => void;
   onAgregar: (proveedorId: string) => void; onGuardarVinculo: (v: ProductoProveedor) => void; onBorrarVinculo: (id: string) => void;
+  onSolicitud: () => void;
 }) {
   const [addSel, setAddSel] = useState('');
   const T = (label: string, k: keyof Producto, ph = '') => (
@@ -417,6 +648,9 @@ function ProductoEditor({ prod, provs, vinculos, provNombre, hoy, onPatch, onClo
             {plan.seAgotaEn !== '—' ? `Se agota ~${plan.seAgotaEn}` : 'Sin pronóstico (falta consumo)'}
             {plan.cantidadSugerida !== null ? ` · sugerido pedir: ${plan.cantidadSugerida} ${prod.unidad}`.trimEnd() : ''}
           </div>
+          {(plan.accion === 'comprar-urgente' || plan.accion === 'comprar-hoy' || plan.accion === 'comprar-pronto') && (
+            <button style={{ ...btnSm, marginTop: 6, background: '#fff3e6', borderColor: ac.color, color: ac.color, fontWeight: 'bold' }} onClick={onSolicitud}>🛒 Generar solicitud de compra</button>
+          )}
         </div>
       </div>
 
