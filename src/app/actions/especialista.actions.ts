@@ -24,6 +24,8 @@ import type { Fila } from '@/app/captura/csv';
 import { modeloActual } from '@/app/actions/config.actions';
 import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { DocumentoPlano } from '@/domain/plano-doc';
+import { normalizarCatalogo } from '@/domain/mkt-catalogo';
+import type { CatalogoMkt } from '@/domain/mkt-catalogo';
 import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, costosDeProductos, costosDeEmbarques, componentesDeEquipo, componentesDeAutomatizacion, agentesDeProcesos, proveedoresATabla, ingresosDeOfertas, kpisDeProcesos, legalesDeContratos, legalesDeEmpleados, unidadesDeUCs, rondasDeRuta } from '@/domain/proyeccion';
 import { listarSedes, listarEspacios } from '@/app/actions/espacios.actions';
 import { listarProcesos, listarContingencias } from '@/app/actions/mapa.actions';
@@ -323,11 +325,21 @@ export interface DocumentoPaquete {
   totalRequerido: number;
   planos: { planoId: string; nombre: string; pendientes: number; total: number }[];
 }
+// Catálogo de Marketing anidado (árbol producto→campaña→formato→guion/minuta). Vive como
+// árbol JSON en TablaProyecto 'mkt_catalogo'; es aditivo y NO altera la tabla plana 'campanas'.
+export async function obtenerCatalogoMkt(proyectoId: string): Promise<CatalogoMkt> {
+  const r = await prisma.tablaProyecto.findUnique({ where: { proyectoId_tablaRef: { proyectoId, tablaRef: 'mkt_catalogo' } } });
+  return normalizarCatalogo(r?.filas ?? []);
+}
+
 // Paquete DETALLADO (para la vista de libro estilizada): metadatos + el DetallePlano de cada
 // plano del paquete (campos + tablas completas), listo para rendir con índice y docs anidados.
+// Los paquetes que incluyen Marketing ('marketing' y 'maestro') además traen el catálogo
+// anidado para rendirlo en cascada.
 export interface PaqueteDetalladoDTO {
   paqueteId: string; nombre: string; icono: string; descripcion: string; empresa: string;
   planos: NonNullable<Awaited<ReturnType<typeof obtenerDetallePlano>>>[];
+  catalogoMkt?: CatalogoMkt | undefined;
 }
 export async function obtenerPaqueteDetallado(proyectoId: string, paqueteId: string): Promise<PaqueteDetalladoDTO | null> {
   const pq = paquete(paqueteId);
@@ -339,7 +351,9 @@ export async function obtenerPaqueteDetallado(proyectoId: string, paqueteId: str
     const d = await obtenerDetallePlano(proyectoId, planoId);
     if (d) planos.push(d);
   }
-  return { paqueteId, nombre: pq.nombre, icono: pq.icono, descripcion: pq.descripcion, empresa: det.nombre, planos };
+  const incluyeMkt = pq.planos.includes('MKT');
+  const catalogoMkt = incluyeMkt ? await obtenerCatalogoMkt(proyectoId) : undefined;
+  return { paqueteId, nombre: pq.nombre, icono: pq.icono, descripcion: pq.descripcion, empresa: det.nombre, planos, catalogoMkt };
 }
 
 export async function generarPaqueteEntregables(proyectoId: string, paqueteId: string): Promise<DocumentoPaquete | null> {

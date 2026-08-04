@@ -5,9 +5,12 @@
 // cada TABLA como un sub-libro (índice de entradas + cada entrada como ficha completa).
 // Solo presentación: lee DetallePlano (campos + tablas completas). Reusable por plano y paquete.
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { DetallePlano } from '@/app/actions/especialista.actions';
+import type { CatalogoMkt } from '@/domain/mkt-catalogo';
+import { CatalogoMktCascada } from './catalogo-mkt-view';
+import { exportarElementoPDF } from './pdf';
 
 const ENTREGA_ICON: Record<string, string> = { documento: '📄', tabla: '📊', diagrama: '🔀', dashboard: '📈' };
 
@@ -20,6 +23,16 @@ function irA(id: string) { document.getElementById(id)?.scrollIntoView({ behavio
 function pctListo(d: DetallePlano): number { return d.readiness.totalRequerido ? Math.round((d.readiness.cumplidoRequerido / d.readiness.totalRequerido) * 100) : 100; }
 
 const printStyle = `@media print { .no-print { display: none !important; } body { background: #fff; } }`;
+
+// Botón "⬇ PDF" que captura un elemento por su id (una parte indexada) o el ref dado.
+function BotonPDFdoc({ getEl, titulo, label }: { getEl: () => HTMLElement | null; titulo: string; label: string }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button className="no-print no-pdf" style={{ ...btn, borderColor: '#b39', color: '#8a1c6b' }}
+      onClick={async () => { setBusy(true); try { await exportarElementoPDF(getEl(), titulo); } finally { setBusy(false); } }}
+    >{busy ? '…' : label}</button>
+  );
+}
 
 // ---------- Vista de UN plano ----------
 export function DocumentoPlanoView({ det, onCerrar, onExportar, exportando }: {
@@ -158,7 +171,7 @@ function TablaLibro({ idPrefix, etiqueta, columnas, filas, llave, derivadas }: {
 }
 
 // ---------- Vista de un PAQUETE (libro con capítulos = planos) ----------
-export interface PaqueteDetallado { paqueteId: string; nombre: string; icono: string; descripcion: string; empresa: string; planos: DetallePlano[] }
+export interface PaqueteDetallado { paqueteId: string; nombre: string; icono: string; descripcion: string; empresa: string; planos: DetallePlano[]; catalogoMkt?: CatalogoMkt | undefined }
 
 export function DocumentoPaqueteView({ pkg, onCerrar, onExportar, exportando }: {
   pkg: PaqueteDetallado; onCerrar: () => void; onExportar: () => void; exportando: boolean;
@@ -166,19 +179,22 @@ export function DocumentoPaqueteView({ pkg, onCerrar, onExportar, exportando }: 
   const pend = pkg.planos.reduce((s, d) => s + (d.readiness.totalRequerido - d.readiness.cumplidoRequerido), 0);
   const req = pkg.planos.reduce((s, d) => s + d.readiness.totalRequerido, 0);
   const listo = req ? Math.round((1 - pend / req) * 100) : 100;
+  const articleRef = useRef<HTMLElement>(null);
+  const hayCatalogo = !!pkg.catalogoMkt && pkg.catalogoMkt.length > 0;
 
   return (
     <section>
       <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem', fontFamily: sans }}>
         <h2 style={{ margin: 0 }}>{pkg.icono} {pkg.nombre}</h2>
-        <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={btn} onClick={() => window.print()}>🖨️ Imprimir / PDF</button>
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <BotonPDFdoc getEl={() => articleRef.current} titulo={`${pkg.nombre}-${pkg.empresa}`} label={'⬇ PDF completo'} />
+          <button style={btn} onClick={() => window.print()}>🖨️ Imprimir</button>
           <button style={btn} onClick={onExportar}>{exportando ? '…' : '⬇ Markdown'}</button>
           <button style={btn} onClick={onCerrar}>← Paquetes</button>
         </div>
       </div>
 
-      <article style={wrap}>
+      <article ref={articleRef} style={wrap}>
         {/* Portada del libro */}
         <header style={{ textAlign: 'center', borderBottom: '3px double #333', paddingBottom: '1rem', marginBottom: '1.2rem' }}>
           <div style={{ fontSize: 40 }}>{pkg.icono}</div>
@@ -198,15 +214,27 @@ export function DocumentoPaqueteView({ pkg, onCerrar, onExportar, exportando }: 
                 <span style={{ color: '#aaa', fontSize: 12.5, fontFamily: sans }}> — {pctListo(d)}% · {d.tablas.length} tabla(s)</span>
               </li>
             ))}
+            {hayCatalogo && (
+              <li style={{ margin: '3px 0' }}>
+                <a href="#" onClick={(e) => { e.preventDefault(); irA('mkt-catalogo'); }} style={{ color: '#8a1c6b', textDecoration: 'none', fontWeight: 600 }}>🗂️ Catálogo de Marketing (contenido por producto)</a>
+                <span style={{ color: '#aaa', fontSize: 12.5, fontFamily: sans }}> — {pkg.catalogoMkt!.length} producto(s) en cascada</span>
+              </li>
+            )}
           </ol>
         </nav>
 
         {/* Capítulos */}
         {pkg.planos.map((d, i) => (
           <section key={d.planoId} id={`cap-${d.planoId}`} style={{ borderTop: '4px double #333', paddingTop: '1rem', marginTop: '1.5rem' }}>
+            <div className="no-print no-pdf" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: -8 }}>
+              <BotonPDFdoc getEl={() => document.getElementById(`cap-${d.planoId}`)} titulo={`${d.nombre}-${pkg.empresa}`} label="⬇ PDF capítulo" />
+            </div>
             <PlanoDocBody det={d} idPrefix={d.planoId} capitulo={i + 1} />
           </section>
         ))}
+
+        {/* Catálogo de Marketing en cascada (producto→campaña→formato→guion/minuta) */}
+        {hayCatalogo && <CatalogoMktCascada cat={pkg.catalogoMkt!} idPrefix="mkt" empresa={pkg.empresa} />}
       </article>
       <style>{printStyle}</style>
     </section>
