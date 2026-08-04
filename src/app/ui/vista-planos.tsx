@@ -274,7 +274,7 @@ function PanelEntregables({ proyectoId, onVolver }: { proyectoId: string; onVolv
     } catch { /* noop */ } finally { setExportando(false); }
   }
 
-  if (pkg) return <DocumentoPaqueteView pkg={pkg} onCerrar={() => setPkg(null)} onExportar={() => void exportarMd()} exportando={exportando} />;
+  if (pkg) return <DocumentoPaqueteView pkg={pkg} proyectoId={proyectoId} onCerrar={() => setPkg(null)} onExportar={() => void exportarMd()} exportando={exportando} />;
 
   return (
     <section>

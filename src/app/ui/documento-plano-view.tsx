@@ -10,6 +10,7 @@ import type { CSSProperties } from 'react';
 import type { DetallePlano } from '@/app/actions/especialista.actions';
 import type { CatalogoMkt } from '@/domain/mkt-catalogo';
 import { CatalogoMktCascada } from './catalogo-mkt-view';
+import { ArqPlanoSection } from './arq-plano-section';
 import { exportarElementoPDF } from './pdf';
 import { Logo, BRAND } from './brand';
 
@@ -59,8 +60,8 @@ function BotonPDFdoc({ getEl, titulo, label, small }: { getEl: () => HTMLElement
 }
 
 // ---------- Vista de UN plano ----------
-export function DocumentoPlanoView({ det, onCerrar, onExportar, exportando }: {
-  det: DetallePlano; onCerrar: () => void; onExportar: () => void; exportando: boolean;
+export function DocumentoPlanoView({ det, proyectoId, onCerrar, onExportar, exportando }: {
+  det: DetallePlano; proyectoId: string; onCerrar: () => void; onExportar: () => void; exportando: boolean;
 }) {
   const pdf = usePdfExport();
   const articleRef = useRef<HTMLElement>(null);
@@ -76,7 +77,10 @@ export function DocumentoPlanoView({ det, onCerrar, onExportar, exportando }: {
           <button style={btn} onClick={onCerrar}>← Volver</button>
         </div>
       </div>
-      <article ref={articleRef} style={wrap}><PlanoDocBody det={det} idPrefix={det.planoId} portada /></article>
+      <article ref={articleRef} style={wrap}>
+        <PlanoDocBody det={det} idPrefix={det.planoId} portada />
+        {det.planoId === 'ARQ' && <ArqPlanoSection proyectoId={proyectoId} idPrefix={det.planoId} />}
+      </article>
       <style>{printStyle}</style>
     </section>
     </PdfCtx.Provider>
@@ -206,8 +210,8 @@ function TablaLibro({ idPrefix, etiqueta, columnas, filas, llave, derivadas }: {
 // ---------- Vista de un PAQUETE (libro con capítulos = planos) ----------
 export interface PaqueteDetallado { paqueteId: string; nombre: string; icono: string; descripcion: string; empresa: string; planos: DetallePlano[]; catalogoMkt?: CatalogoMkt | undefined }
 
-export function DocumentoPaqueteView({ pkg, onCerrar, onExportar, exportando }: {
-  pkg: PaqueteDetallado; onCerrar: () => void; onExportar: () => void; exportando: boolean;
+export function DocumentoPaqueteView({ pkg, proyectoId, onCerrar, onExportar, exportando }: {
+  pkg: PaqueteDetallado; proyectoId: string; onCerrar: () => void; onExportar: () => void; exportando: boolean;
 }) {
   const pend = pkg.planos.reduce((s, d) => s + (d.readiness.totalRequerido - d.readiness.cumplidoRequerido), 0);
   const req = pkg.planos.reduce((s, d) => s + d.readiness.totalRequerido, 0);
@@ -215,6 +219,7 @@ export function DocumentoPaqueteView({ pkg, onCerrar, onExportar, exportando }: 
   const pdf = usePdfExport();
   const articleRef = useRef<HTMLElement>(null);
   const hayCatalogo = !!pkg.catalogoMkt && pkg.catalogoMkt.length > 0;
+  const hayArq = pkg.planos.some((d) => d.planoId === 'ARQ');
 
   return (
     <PdfCtx.Provider value={pdf}>
@@ -250,6 +255,12 @@ export function DocumentoPaqueteView({ pkg, onCerrar, onExportar, exportando }: 
                 <span style={{ color: 'var(--bp-faint)', fontSize: 12.5, fontFamily: sans }}> — {pctListo(d)}% · {d.tablas.length} tabla(s)</span>
               </li>
             ))}
+            {hayArq && (
+              <li style={{ margin: '3px 0' }}>
+                <a href="#" onClick={(e) => { e.preventDefault(); irA('arq-planos'); }} style={{ color: 'var(--bp-gold)', textDecoration: 'none', fontWeight: 600 }}>📐 Planos de la sede — 2D y 3D</a>
+                <span style={{ color: 'var(--bp-faint)', fontSize: 12.5, fontFamily: sans }}> — visor 3D + descarga .glb</span>
+              </li>
+            )}
             {hayCatalogo && (
               <li style={{ margin: '3px 0' }}>
                 <a href="#" onClick={(e) => { e.preventDefault(); irA('mkt-catalogo'); }} style={{ color: 'var(--bp-gold)', textDecoration: 'none', fontWeight: 600 }}>🗂️ Catálogo de Marketing (contenido por producto)</a>
@@ -268,6 +279,9 @@ export function DocumentoPaqueteView({ pkg, onCerrar, onExportar, exportando }: 
             <PlanoDocBody det={d} idPrefix={d.planoId} capitulo={i + 1} />
           </section>
         ))}
+
+        {/* Planos de la sede (2D + 3D) para el paquete de Arquitectura */}
+        {hayArq && <ArqPlanoSection proyectoId={proyectoId} idPrefix="arq" />}
 
         {/* Catálogo de Marketing en cascada (producto→campaña→formato→guion/minuta) */}
         {hayCatalogo && <CatalogoMktCascada cat={pkg.catalogoMkt!} idPrefix="mkt" empresa={pkg.empresa} />}

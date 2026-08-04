@@ -91,7 +91,7 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
   const estado = r?.estado ?? 'LOCKED';
 
   // Vista de DOCUMENTO estilizado (índice + docs anidados por tabla).
-  if (verDoc && det) return <DocumentoPlanoView det={det} onCerrar={() => setVerDoc(false)} onExportar={() => void exportarMarkdown()} exportando={genLoading} />;
+  if (verDoc && det) return <DocumentoPlanoView det={det} proyectoId={proyectoId} onCerrar={() => setVerDoc(false)} onExportar={() => void exportarMarkdown()} exportando={genLoading} />;
 
   return (
     <section>

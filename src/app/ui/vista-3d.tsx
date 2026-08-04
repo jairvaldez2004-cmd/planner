@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { alturaObjeto, normalizarGrados } from '@/domain/espacios';
 import type { Espacio, ObjetoFisico, Sede, ElementoArq } from '@/domain/espacios';
@@ -71,6 +72,7 @@ interface Props {
 
 export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlto, proyectoId, capa, onCambio, onCerrar }: Props) {
   const montRef = useRef<HTMLDivElement | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
   const [muroAlt, setMuroAlt] = useState(2.6);
   const [modo, setModo] = useState<'orbita' | 'primera'>('orbita');
   const fpKeys = useRef<Set<string>>(new Set());
@@ -153,6 +155,7 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
     // --- escena / cámara / renderer ---
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x14141a);
+    sceneRef.current = scene;
     const camera = new THREE.PerspectiveCamera(45, 4 / 3, 0.1, 200);
     camera.position.set(W * 0.9, Math.max(W, D) * 0.85, D * 2.2);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -576,11 +579,36 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
     void eliminarObjeto(o.id).then(onCambio);
   }
 
+  // Exporta la escena 3D actual como .glb (binario), reutilizable en el editor de planos 3D
+  // (se puede re-subir como escaneo de nivel) y en cualquier visor glTF.
+  function descargarGLB() {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const exporter = new GLTFExporter();
+    exporter.parse(
+      scene,
+      (result) => {
+        const blob = new Blob([result as ArrayBuffer], { type: 'model/gltf-binary' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `plano-3d-${(sede.nombre || 'sede').replace(/[^\p{L}\p{N}]+/gu, '-').toLowerCase()}-nivel-${capa}.glb`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      (err) => console.error('Export GLB falló:', err),
+      { binary: true },
+    );
+  }
+
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h3 style={{ margin: 0 }}>🧊 Vista 3D <span style={{ fontSize: 12.5, color: 'var(--bp-muted)' }}>· {sede.nombre} · arrastra para orbitar · rueda/pellizco = zoom</span></h3>
-        {onCerrar && <button style={btn} onClick={onCerrar}>← Editor 2D</button>}
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button style={{ ...btn, borderColor: '#E8A93C', color: '#E8A93C' }} title="Descarga el plano 3D como .glb (reutilizable en este editor y en cualquier visor 3D)" onClick={descargarGLB}>⬇ .glb</button>
+          {onCerrar && <button style={btn} onClick={onCerrar}>← Editor 2D</button>}
+        </div>
       </div>
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', margin: '0.5rem 0' }}>
         <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>Altura de muro</span>
