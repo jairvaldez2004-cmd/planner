@@ -5,12 +5,30 @@
 // cada TABLA como un sub-libro (índice de entradas + cada entrada como ficha completa).
 // Solo presentación: lee DetallePlano (campos + tablas completas). Reusable por plano y paquete.
 
-import { useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { DetallePlano } from '@/app/actions/especialista.actions';
 import type { CatalogoMkt } from '@/domain/mkt-catalogo';
 import { CatalogoMktCascada } from './catalogo-mkt-view';
 import { exportarElementoPDF } from './pdf';
+
+// Contexto de exportación a PDF. `forced` fuerza a expandir TODO lo colapsable antes de
+// capturar, para que el PDF salga en cascada sin dejar nada oculto dentro de las anidaciones.
+// `exportPDF` hace: forzar-expandir → esperar re-render → capturar el nodo → restaurar.
+interface PdfCtxVal { forced: boolean; exportPDF: (getEl: () => HTMLElement | null, titulo: string) => Promise<void> }
+const PdfCtx = createContext<PdfCtxVal>({ forced: false, exportPDF: async () => {} });
+
+// Valor del contexto de PDF, memoizado (no recrea Provider → no remonta el árbol).
+function usePdfExport(): PdfCtxVal {
+  const [forced, setForced] = useState(false);
+  const exportPDF = useCallback(async (getEl: () => HTMLElement | null, titulo: string) => {
+    setForced(true);
+    // dos frames para asegurar que React re-renderizó todo lo forzado a abierto
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    try { await exportarElementoPDF(getEl(), titulo); } finally { setForced(false); }
+  }, []);
+  return useMemo(() => ({ forced, exportPDF }), [forced, exportPDF]);
+}
 
 const ENTREGA_ICON: Record<string, string> = { documento: '📄', tabla: '📊', diagrama: '🔀', dashboard: '📈' };
 
@@ -25,11 +43,16 @@ function pctListo(d: DetallePlano): number { return d.readiness.totalRequerido ?
 const printStyle = `@media print { .no-print { display: none !important; } body { background: #fff; } }`;
 
 // Botón "⬇ PDF" que captura un elemento por su id (una parte indexada) o el ref dado.
-function BotonPDFdoc({ getEl, titulo, label }: { getEl: () => HTMLElement | null; titulo: string; label: string }) {
+// Usa el contexto para forzar-expandir todo antes de capturar (cascada sin nada oculto).
+function BotonPDFdoc({ getEl, titulo, label, small }: { getEl: () => HTMLElement | null; titulo: string; label: string; small?: boolean }) {
+  const { exportPDF } = useContext(PdfCtx);
   const [busy, setBusy] = useState(false);
+  const st: CSSProperties = small
+    ? { padding: '0.15rem 0.55rem', borderRadius: 6, border: '1px solid #b39', background: '#fff', color: '#8a1c6b', cursor: 'pointer', fontSize: 12, fontFamily: sans, whiteSpace: 'nowrap' }
+    : { ...btn, borderColor: '#b39', color: '#8a1c6b' };
   return (
-    <button className="no-print no-pdf" style={{ ...btn, borderColor: '#b39', color: '#8a1c6b' }}
-      onClick={async () => { setBusy(true); try { await exportarElementoPDF(getEl(), titulo); } finally { setBusy(false); } }}
+    <button className="no-print no-pdf" style={st}
+      onClick={async () => { setBusy(true); try { await exportPDF(getEl, titulo); } finally { setBusy(false); } }}
     >{busy ? '…' : label}</button>
   );
 }
@@ -38,19 +61,24 @@ function BotonPDFdoc({ getEl, titulo, label }: { getEl: () => HTMLElement | null
 export function DocumentoPlanoView({ det, onCerrar, onExportar, exportando }: {
   det: DetallePlano; onCerrar: () => void; onExportar: () => void; exportando: boolean;
 }) {
+  const pdf = usePdfExport();
+  const articleRef = useRef<HTMLElement>(null);
   return (
+    <PdfCtx.Provider value={pdf}>
     <section>
       <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem', fontFamily: sans }}>
         <h2 style={{ margin: 0 }}>{ENTREGA_ICON[det.entrega.tipo] ?? '📄'} Documento · {det.nombre}</h2>
-        <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={btn} onClick={() => window.print()}>🖨️ Imprimir / PDF</button>
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <BotonPDFdoc getEl={() => articleRef.current} titulo={det.nombre} label="⬇ PDF completo" />
+          <button style={btn} onClick={() => window.print()}>🖨️ Imprimir</button>
           <button style={btn} onClick={onExportar}>{exportando ? '…' : '⬇ Markdown'}</button>
           <button style={btn} onClick={onCerrar}>← Volver</button>
         </div>
       </div>
-      <article style={wrap}><PlanoDocBody det={det} idPrefix={det.planoId} portada /></article>
+      <article ref={articleRef} style={wrap}><PlanoDocBody det={det} idPrefix={det.planoId} portada /></article>
       <style>{printStyle}</style>
     </section>
+    </PdfCtx.Provider>
   );
 }
 
@@ -124,22 +152,25 @@ export function PlanoDocBody({ det, idPrefix, portada, capitulo }: {
 function TablaLibro({ idPrefix, etiqueta, columnas, filas, llave, derivadas }: {
   idPrefix: string; etiqueta: string; columnas: { id: string; etiqueta: string }[]; filas: Record<string, string>[]; llave: string; derivadas: number;
 }) {
+  const { forced } = useContext(PdfCtx);
   const [abierto, setAbierto] = useState(true);
+  const open = abierto || forced; // en PDF (forced) SIEMPRE abierto → nada oculto
   const keyCol = columnas.find((c) => c.id === llave) ?? columnas[0]!;
   const tituloDe = (f: Record<string, string>, i: number) => (f[keyCol.id] ?? '').trim() || `Entrada ${i + 1}`;
   const idSec = slug(idPrefix, etiqueta);
 
   return (
     <section id={idSec} style={{ marginBottom: '1.7rem', borderTop: '3px double #333', paddingTop: '0.8rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => setAbierto((a) => !a)}>
-        <h2 style={{ fontSize: 22, margin: 0, flex: 1 }}>📖 {etiqueta}</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <h2 style={{ fontSize: 22, margin: 0, flex: 1, cursor: 'pointer' }} onClick={() => setAbierto((a) => !a)}>📖 {etiqueta}</h2>
         <span style={{ fontSize: 12.5, color: '#888', fontFamily: sans }}>{filas.length} entrada(s){derivadas > 0 ? ` · ${derivadas} 🔗 auto` : ''}</span>
-        <span style={{ color: '#999' }}>{abierto ? '▾' : '▸'}</span>
+        <BotonPDFdoc getEl={() => document.getElementById(idSec)} titulo={`${etiqueta}`} label="⬇ PDF" small />
+        <span style={{ color: '#999', cursor: 'pointer' }} onClick={() => setAbierto((a) => !a)}>{abierto ? '▾' : '▸'}</span>
       </div>
 
-      {abierto && filas.length === 0 && <p style={{ color: '#999', fontStyle: 'italic' }}>Sin entradas todavía.</p>}
+      {open && filas.length === 0 && <p style={{ color: '#999', fontStyle: 'italic' }}>Sin entradas todavía.</p>}
 
-      {abierto && filas.length > 0 && (
+      {open && filas.length > 0 && (
         <>
           <nav style={{ background: '#f7f9ff', border: '1px solid #dfe6f4', borderRadius: 8, padding: '0.5rem 0.8rem', margin: '0.6rem 0 1rem', columns: filas.length > 6 ? 2 : 1, columnGap: '1.5rem' }}>
             <ol style={{ margin: 0, paddingLeft: '1.4rem', fontSize: 13.5 }}>
@@ -179,10 +210,12 @@ export function DocumentoPaqueteView({ pkg, onCerrar, onExportar, exportando }: 
   const pend = pkg.planos.reduce((s, d) => s + (d.readiness.totalRequerido - d.readiness.cumplidoRequerido), 0);
   const req = pkg.planos.reduce((s, d) => s + d.readiness.totalRequerido, 0);
   const listo = req ? Math.round((1 - pend / req) * 100) : 100;
+  const pdf = usePdfExport();
   const articleRef = useRef<HTMLElement>(null);
   const hayCatalogo = !!pkg.catalogoMkt && pkg.catalogoMkt.length > 0;
 
   return (
+    <PdfCtx.Provider value={pdf}>
     <section>
       <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem', fontFamily: sans }}>
         <h2 style={{ margin: 0 }}>{pkg.icono} {pkg.nombre}</h2>
@@ -238,5 +271,6 @@ export function DocumentoPaqueteView({ pkg, onCerrar, onExportar, exportando }: 
       </article>
       <style>{printStyle}</style>
     </section>
+    </PdfCtx.Provider>
   );
 }
