@@ -91,7 +91,7 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
                 {/* aristas workspace → proyecto */}
                 {nodos.map((n) => {
                   const p = posById.get(n.proyectoId)!;
-                  return <line key={`e-${n.proyectoId}`} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke={hover === n.proyectoId ? '#888' : '#d5d5d5'} strokeWidth={hover === n.proyectoId ? 2 : 1} />;
+                  return <line key={`e-${n.proyectoId}`} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke={hover === n.proyectoId ? '#E8A93C' : '#3A3A45'} strokeWidth={hover === n.proyectoId ? 2 : 1} />;
                 })}
                 {/* aristas proyecto ↔ proyecto (relaciones del Curador) */}
                 {relaciones.map((r) => {
@@ -106,7 +106,7 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
                   );
                 })}
                 {/* workspace central */}
-                <circle cx={cx} cy={cy} r={44} fill="#1a1a1a" />
+                <circle cx={cx} cy={cy} r={44} fill="#1E1E25" stroke="#E8A93C" strokeWidth={2} />
                 <text x={cx} y={cy + 4} textAnchor="middle" fill="#fff" fontSize={13} fontWeight="bold">{workspace.nombre.slice(0, 14)}</text>
                 {/* proyectos */}
                 {nodos.map((n) => {
@@ -120,7 +120,7 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
                       <circle cx={p.x} cy={p.y} r={activo ? 38 : 32} fill={c} opacity={activo ? 1 : 0.9} stroke="#fff" strokeWidth={2} />
                       {n.comExp && <text x={p.x} y={p.y - 42} textAnchor="middle" fontSize={11} fill="#a60">COM-EXP</text>}
                       <text x={p.x} y={p.y + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight="bold">{n.totalPlanos}p</text>
-                      <text x={p.x} y={p.y + 52} textAnchor="middle" fill="#333" fontSize={12}>{n.nombre.slice(0, 18)}</text>
+                      <text x={p.x} y={p.y + 52} textAnchor="middle" fill="#EDEDED" fontSize={12}>{n.nombre.slice(0, 18)}</text>
                     </g>
                   );
                 })}

@@ -152,7 +152,7 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
 
     // --- escena / cámara / renderer ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xe8edf4);
+    scene.background = new THREE.Color(0x14141a);
     const camera = new THREE.PerspectiveCamera(45, 4 / 3, 0.1, 200);
     camera.position.set(W * 0.9, Math.max(W, D) * 0.85, D * 2.2);
     const renderer = new THREE.WebGLRenderer({ antialias: true });

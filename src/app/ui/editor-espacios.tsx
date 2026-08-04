@@ -40,8 +40,8 @@ function Etiqueta({ x, y, text }: { x: number; y: number; text: string }) {
   const w = text.length * 6.2 + 8;
   return (
     <g style={{ pointerEvents: 'none' }}>
-      <rect x={x - 2} y={y - 11} width={w} height={14} rx={3} fill="#fff" fillOpacity={0.85} stroke="#e0e0e0" />
-      <text x={x + 2} y={y} fontSize={11} fill="#333">{text}</text>
+      <rect x={x - 2} y={y - 11} width={w} height={14} rx={3} fill="#1E1E25" fillOpacity={0.92} stroke="#2A2A33" />
+      <text x={x + 2} y={y} fontSize={11} fill="#EDEDED">{text}</text>
     </g>
   );
 }
@@ -264,11 +264,11 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h3 style={{ margin: 0 }}>🏢 {sede?.nombre ?? 'Sede'} · editor 2D</h3>
         <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={{ ...btn, background: panel === '3d' ? '#33415c' : '#fff', color: panel === '3d' ? '#fff' : '#333', borderColor: panel === '3d' ? '#33415c' : '#999', fontWeight: 'bold' }}
+          <button style={{ ...btn, background: panel === '3d' ? '#33415c' : 'var(--bp-panel-alt)', color: panel === '3d' ? '#fff' : 'var(--bp-text)', borderColor: panel === '3d' ? '#33415c' : '#999', fontWeight: 'bold' }}
             onClick={() => setPanel(panel === '3d' ? '2d' : '3d')} title="Escena 3D con luces y materiales">🧊 {panel === '3d' ? 'Ver 2D' : 'Ver 3D'}</button>
-          <button style={{ ...btn, background: panel === 'renders' ? '#33415c' : '#fff', color: panel === 'renders' ? '#fff' : '#333', borderColor: panel === 'renders' ? '#33415c' : '#999', fontWeight: 'bold' }}
+          <button style={{ ...btn, background: panel === 'renders' ? '#33415c' : 'var(--bp-panel-alt)', color: panel === 'renders' ? '#fff' : 'var(--bp-text)', borderColor: panel === 'renders' ? '#33415c' : '#999', fontWeight: 'bold' }}
             onClick={() => setPanel(panel === 'renders' ? '2d' : 'renders')} title="Sube tu render/plano/foto y únelo al modelo">🖼 Renders</button>
-          <button style={{ ...btn, background: panel === 'reporte' ? '#33415c' : '#fff', color: panel === 'reporte' ? '#fff' : '#333', borderColor: panel === 'reporte' ? '#33415c' : '#999', fontWeight: 'bold' }}
+          <button style={{ ...btn, background: panel === 'reporte' ? '#33415c' : 'var(--bp-panel-alt)', color: panel === 'reporte' ? '#fff' : 'var(--bp-text)', borderColor: panel === 'reporte' ? '#33415c' : '#999', fontWeight: 'bold' }}
             onClick={() => setPanel(panel === 'reporte' ? '2d' : 'reporte')} title="Reporte de medidas estilo MAKE.PLAN (áreas, m², muros)">📐 Reporte</button>
           <button style={btn} onClick={onVolver}>← Sedes</button>
         </div>
@@ -289,13 +289,13 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
       {/* Lentes */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', margin: '0.5rem 0' }}>
         <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>Alimentando:</span>
-        {LENTES.map((l) => (<button key={l.id} onClick={() => setLenteId(l.id)} style={{ ...btn, borderColor: l.color, background: lenteId === l.id ? l.color : '#fff', color: lenteId === l.id ? '#fff' : '#333', fontWeight: lenteId === l.id ? 'bold' : 'normal' }}>{l.etiqueta}</button>))}
+        {LENTES.map((l) => (<button key={l.id} onClick={() => setLenteId(l.id)} style={{ ...btn, borderColor: l.color, background: lenteId === l.id ? l.color : 'var(--bp-panel-alt)', color: lenteId === l.id ? '#fff' : 'var(--bp-text)', fontWeight: lenteId === l.id ? 'bold' : 'normal' }}>{l.etiqueta}</button>))}
       </div>
 
       {/* Herramienta */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.4rem' }}>
         <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>Herramienta:</span>
-        {MODOS.map((m) => (<button key={m.id} onClick={() => { setModo(m.id); setPend(null); setRoomPts([]); }} style={{ ...btn, background: modo === m.id ? '#1a1a1a' : '#fff', color: modo === m.id ? '#fff' : '#333', fontWeight: modo === m.id ? 'bold' : 'normal' }}>{m.label}</button>))}
+        {MODOS.map((m) => (<button key={m.id} onClick={() => { setModo(m.id); setPend(null); setRoomPts([]); }} style={{ ...btn, background: modo === m.id ? '#E8A93C' : 'var(--bp-panel-alt)', color: modo === m.id ? '#fff' : 'var(--bp-text)', fontWeight: modo === m.id ? 'bold' : 'normal' }}>{m.label}</button>))}
         {(modo === 'muro' || modo === 'puerta' || modo === 'ventana') && <span style={{ fontSize: 12, color: '#a60' }}>Clic inicio → clic fin. {pend ? '(inicio puesto)' : ''}</span>}
         {modo === 'habitacion' && <>
           <span style={{ fontSize: 12, color: '#a60' }}>Clic por cada esquina ({roomPts.length}).</span>
@@ -307,7 +307,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
       {/* Nivel + agregar */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.5rem' }}>
         <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>Nivel:</span>
-        {capas.map((c) => <button key={c} style={{ ...btn, background: capa === c ? '#1a1a1a' : '#fff', color: capa === c ? '#fff' : '#333' }} onClick={() => setCapa(c)}>{etiquetaNivel(c)}</button>)}
+        {capas.map((c) => <button key={c} style={{ ...btn, background: capa === c ? '#E8A93C' : 'var(--bp-panel-alt)', color: capa === c ? '#fff' : 'var(--bp-text)' }} onClick={() => setCapa(c)}>{etiquetaNivel(c)}</button>)}
         <button style={btn} onClick={() => setCapa(Math.max(...capas) + 1)}>＋ piso</button>
         <button style={btn} onClick={() => setCapa(Math.min(...capas) - 1)}>＋ sótano</button>
         <span style={{ marginLeft: 'auto' }} />
@@ -320,11 +320,11 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
         <div style={{ border: '1px solid var(--bp-border)', borderRadius: 10, background: 'var(--bp-panel-alt)' }}>
           <svg ref={svgRef} viewBox={`0 0 ${VBW} ${VBH}`} style={{ width: '100%', height: 'auto', display: 'block', cursor: modo !== 'sel' ? 'crosshair' : (drag || dragEl ? 'grabbing' : 'default') }}
             onMouseMove={moverDrag} onMouseUp={() => void soltarDrag()} onMouseLeave={() => void soltarDrag()}>
-            <rect x={0} y={0} width={VBW} height={VBH} fill="#f2f2f2" onMouseDown={() => modo === 'sel' && setSel(null)} />
-            {poly ? <polygon points={polyPts} fill="#fcfcfc" stroke="#e6dcc8" strokeWidth={1} onMouseDown={() => modo === 'sel' && setSel(null)} /> : <rect x={0} y={0} width={footAncho * scale} height={footAlto * scale} fill="#fcfcfc" stroke="#e6dcc8" strokeWidth={1} onMouseDown={() => modo === 'sel' && setSel(null)} />}
-            {Array.from({ length: Math.floor(footAncho) + 1 }).map((_, i) => <line key={`v${i}`} x1={i * scale} y1={0} x2={i * scale} y2={footAlto * scale} stroke="#eee" style={{ pointerEvents: 'none' }} />)}
-            {Array.from({ length: Math.floor(footAlto) + 1 }).map((_, i) => <line key={`h${i}`} x1={0} y1={i * scale} x2={footAncho * scale} y2={i * scale} stroke="#eee" style={{ pointerEvents: 'none' }} />)}
-            {poly ? <polygon points={polyPts} fill="none" stroke="#333" strokeWidth={gPx(muroExt)} strokeLinejoin="round" style={{ pointerEvents: 'none' }} /> : <rect x={0} y={0} width={footAncho * scale} height={footAlto * scale} fill="none" stroke="#333" strokeWidth={gPx(muroExt)} style={{ pointerEvents: 'none' }} />}
+            <rect x={0} y={0} width={VBW} height={VBH} fill="#14141a" onMouseDown={() => modo === 'sel' && setSel(null)} />
+            {poly ? <polygon points={polyPts} fill="#1E1E25" stroke="#2A2A33" strokeWidth={1} onMouseDown={() => modo === 'sel' && setSel(null)} /> : <rect x={0} y={0} width={footAncho * scale} height={footAlto * scale} fill="#1E1E25" stroke="#2A2A33" strokeWidth={1} onMouseDown={() => modo === 'sel' && setSel(null)} />}
+            {Array.from({ length: Math.floor(footAncho) + 1 }).map((_, i) => <line key={`v${i}`} x1={i * scale} y1={0} x2={i * scale} y2={footAlto * scale} stroke="#2A2A33" style={{ pointerEvents: 'none' }} />)}
+            {Array.from({ length: Math.floor(footAlto) + 1 }).map((_, i) => <line key={`h${i}`} x1={0} y1={i * scale} x2={footAncho * scale} y2={i * scale} stroke="#2A2A33" style={{ pointerEvents: 'none' }} />)}
+            {poly ? <polygon points={polyPts} fill="none" stroke="#D8CBA8" strokeWidth={gPx(muroExt)} strokeLinejoin="round" style={{ pointerEvents: 'none' }} /> : <rect x={0} y={0} width={footAncho * scale} height={footAlto * scale} fill="none" stroke="#D8CBA8" strokeWidth={gPx(muroExt)} style={{ pointerEvents: 'none' }} />}
 
             {/* habitaciones (rect o polígono) */}
             {espCapa.map((e) => {
@@ -364,8 +364,8 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
               const leafX = X1 + px * L, leafY = Y1 + py * L;
               return (
                 <g key={el.id}>
-                  {el.tipo === 'muro' && <line x1={X1} y1={Y1} x2={X2} y2={Y2} stroke={activo ? '#e0795b' : '#333'} strokeWidth={gPx(el.grosor ?? muroInt)} strokeLinecap="round" style={{ pointerEvents: 'none' }} />}
-                  {el.tipo !== 'muro' && <line x1={X1} y1={Y1} x2={X2} y2={Y2} stroke="#fcfcfc" strokeWidth={gPx(muroExt) + 2} style={{ pointerEvents: 'none' }} />}
+                  {el.tipo === 'muro' && <line x1={X1} y1={Y1} x2={X2} y2={Y2} stroke={activo ? '#e0795b' : 'var(--bp-text)'} strokeWidth={gPx(el.grosor ?? muroInt)} strokeLinecap="round" style={{ pointerEvents: 'none' }} />}
+                  {el.tipo !== 'muro' && <line x1={X1} y1={Y1} x2={X2} y2={Y2} stroke="#14141a" strokeWidth={gPx(muroExt) + 2} style={{ pointerEvents: 'none' }} />}
                   {el.tipo === 'ventana' && <line x1={X1} y1={Y1} x2={X2} y2={Y2} stroke={activo ? '#e0795b' : '#3b86c9'} strokeWidth={3} style={{ pointerEvents: 'none' }} />}
                   {el.tipo === 'puerta' && <>
                     <line x1={X1} y1={Y1} x2={leafX} y2={leafY} stroke={activo ? '#e0795b' : '#b5651d'} strokeWidth={3} style={{ pointerEvents: 'none' }} />

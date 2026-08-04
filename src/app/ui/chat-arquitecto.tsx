@@ -14,7 +14,9 @@ const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: 
 const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--bp-border)' };
 const burbuja = (rol: 'user' | 'assistant'): CSSProperties => ({
   alignSelf: rol === 'user' ? 'flex-end' : 'flex-start',
-  background: rol === 'user' ? '#e8f0fe' : '#f1f1f1',
+  background: rol === 'user' ? 'var(--bp-gold-soft)' : 'var(--bp-panel-alt)',
+  border: rol === 'user' ? '1px solid var(--bp-gold)' : '1px solid var(--bp-border)',
+  color: 'var(--bp-text)',
   borderRadius: 10, padding: '0.5rem 0.75rem', margin: '0.25rem 0', maxWidth: '90%', whiteSpace: 'pre-wrap', fontSize: 14,
 });
 

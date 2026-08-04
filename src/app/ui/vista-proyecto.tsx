@@ -127,7 +127,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
 
   // --- grafo del proyecto ---
   const nodos: NodoGrafo[] = [
-    { key: 'admin', tipo: 'admin', label: 'Planos', color: 'var(--bp-text)' },
+    { key: 'admin', tipo: 'admin', label: 'Planos', color: '#4A4F5C' },
     { key: 'sedes', tipo: 'sedes', label: 'Sedes & Espacios', color: '#e0795b' },
     { key: 'mapa', tipo: 'mapa', label: 'Mapa Operativo', color: '#d9a23b' },
     { key: 'personas', tipo: 'personas', label: 'Personas & RH', color: '#8a4fbf' },
@@ -215,10 +215,10 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
           {/* Grafo */}
           <div style={{ border: '1px solid var(--bp-border)', borderRadius: 10, background: 'var(--bp-panel-alt)' }}>
             <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-              {nodos.map((n, i) => { const p = posOf(i, nodos.length); return <line key={`e-${n.key}`} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke={hover === n.key ? '#888' : '#dcdcdc'} strokeWidth={hover === n.key ? 2 : 1} />; })}
+              {nodos.map((n, i) => { const p = posOf(i, nodos.length); return <line key={`e-${n.key}`} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke={hover === n.key ? '#E8A93C' : '#3A3A45'} strokeWidth={hover === n.key ? 2 : 1} />; })}
               {/* centro */}
-              <circle cx={cx} cy={cy} r={48} fill="#1a1a1a" />
-              <text x={cx} y={cy + 4} textAnchor="middle" fill="#fff" fontSize={12} fontWeight="bold">{(nombre || 'Proyecto').slice(0, 14)}</text>
+              <circle cx={cx} cy={cy} r={48} fill="#1E1E25" stroke="#E8A93C" strokeWidth={2} />
+              <text x={cx} y={cy + 4} textAnchor="middle" fill="#F4F4F6" fontSize={12} fontWeight="bold">{(nombre || 'Proyecto').slice(0, 14)}</text>
               {/* nodos */}
               {nodos.map((n, i) => {
                 const p = posOf(i, nodos.length); const activo = hover === n.key;
@@ -228,7 +228,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
                     onClick={() => abrirNodo(n)}>
                     <circle cx={p.x} cy={p.y} r={activo ? 40 : 34} fill={n.color} stroke="#fff" strokeWidth={2} />
                     <text x={p.x} y={p.y + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight="bold">{abrev(n.tipo)}</text>
-                    <text x={p.x} y={p.y + 52} textAnchor="middle" fill="#333" fontSize={12}>{n.label.slice(0, 18)}</text>
+                    <text x={p.x} y={p.y + 52} textAnchor="middle" fill="#EDEDED" fontSize={12}>{n.label.slice(0, 18)}</text>
                   </g>
                 );
               })}

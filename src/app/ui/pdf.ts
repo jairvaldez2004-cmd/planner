@@ -25,8 +25,9 @@ export async function exportarElementoPDF(el: HTMLElement | null, titulo: string
       ignoreElements: (node: Element) => node.classList?.contains('no-pdf'),
     },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    // Corta por página respetando saltos CSS y evita partir un bloque marcado .pdf-keep.
-    pagebreak: { mode: ['css', 'legacy'], avoid: ['.pdf-keep'] },
+    // 'avoid-all' empuja el bloque completo a la siguiente página en vez de cortarlo a media
+    // línea; así ningún campo/entrada/ficha queda partido entre páginas.
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['.pdf-keep', 'tr', 'dl', 'section', 'li'] },
   };
   await html2pdf().set(opt).from(el).save();
 }
