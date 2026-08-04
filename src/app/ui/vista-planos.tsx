@@ -5,9 +5,11 @@
 
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { obtenerGrafoPlanos, generarPaqueteEntregables, simularEmpresaProyecto } from '@/app/actions/especialista.actions';
-import type { GrafoPlanos, NodoPlano, DocumentoPaquete, ReporteSimulacion } from '@/app/actions/especialista.actions';
+import { obtenerGrafoPlanos, generarPaqueteEntregables, obtenerPaqueteDetallado, simularEmpresaProyecto } from '@/app/actions/especialista.actions';
+import type { GrafoPlanos, NodoPlano, ReporteSimulacion } from '@/app/actions/especialista.actions';
 import { PAQUETES } from '@/domain/entregables';
+import { DocumentoPaqueteView } from './documento-plano-view';
+import type { PaqueteDetallado } from './documento-plano-view';
 import { COLOR_ESTADO, LABEL_ESTADO } from '@/app/readiness/readiness-engine';
 import type { EstadoPlano } from '@/app/readiness/readiness-engine';
 import { etapaInfo, objetivoDe, esFoco } from '@/domain/etapas';
@@ -250,56 +252,50 @@ function PanelSimulacion({ proyectoId, onVolver }: { proyectoId: string; onVolve
   );
 }
 
-// ===== GENERACIÓN DE ENTREGABLES: empaqueta los documentos de los planos =====
+// ===== GENERACIÓN DE ENTREGABLES: cada paquete = un LIBRO estilizado con índice de capítulos =====
 function PanelEntregables({ proyectoId, onVolver }: { proyectoId: string; onVolver: () => void }) {
   const [gen, setGen] = useState<string | null>(null);
-  const [doc, setDoc] = useState<DocumentoPaquete | null>(null);
+  const [pkg, setPkg] = useState<PaqueteDetallado | null>(null);
+  const [exportando, setExportando] = useState(false);
 
-  async function generar(id: string) {
-    setGen(id); setDoc(null);
-    try { setDoc(await generarPaqueteEntregables(proyectoId, id)); } catch { setDoc(null); } finally { setGen(null); }
+  async function abrir(id: string) {
+    setGen(id);
+    try { setPkg(await obtenerPaqueteDetallado(proyectoId, id)); } catch { setPkg(null); } finally { setGen(null); }
   }
-  function descargar() {
-    if (!doc) return;
-    const blob = new Blob([doc.markup], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `${doc.paqueteId}.md`; a.click(); URL.revokeObjectURL(url);
+  async function exportarMd() {
+    if (!pkg) return;
+    setExportando(true);
+    try {
+      const d = await generarPaqueteEntregables(proyectoId, pkg.paqueteId);
+      if (!d) return;
+      const blob = new Blob([d.markup], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `${pkg.paqueteId}.md`; a.click(); URL.revokeObjectURL(url);
+    } catch { /* noop */ } finally { setExportando(false); }
   }
+
+  if (pkg) return <DocumentoPaqueteView pkg={pkg} onCerrar={() => setPkg(null)} onExportar={() => void exportarMd()} exportando={exportando} />;
 
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>📦 Generación de entregables <span style={{ fontSize: 13, color: '#888' }}>· empaqueta los documentos de los planos</span></h2>
+        <h2 style={{ margin: 0 }}>📦 Generación de entregables <span style={{ fontSize: 13, color: '#888' }}>· cada paquete es un libro con índice</span></h2>
         <button style={btn} onClick={onVolver}>← Planos</button>
       </div>
       <p style={{ fontSize: 12, color: '#777', margin: '0.3rem 0 0.7rem' }}>
-        Cada paquete junta los documentos de un grupo de planos en un solo archivo (la <strong>configuración inicial</strong> de la empresa por audiencia). Hereda los <strong>⚠ PENDIENTE</strong>; no inventa.
+        Cada paquete junta los planos de una audiencia como un <strong>libro con índice de capítulos</strong> (la <strong>configuración inicial</strong> de la empresa). Cada capítulo trae sus tablas como docs anidados. Hereda los <strong>⚠ PENDIENTE</strong>; no inventa. Imprimible a PDF y exportable a Markdown.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.6rem', marginBottom: '0.8rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.6rem' }}>
         {PAQUETES.map((p) => (
-          <div key={p.id} style={{ border: '1px solid #ddcdef', borderLeft: '4px solid #8a4fbf', borderRadius: 9, padding: '0.6rem 0.7rem', background: doc?.paqueteId === p.id ? '#faf7ff' : '#fff' }}>
+          <div key={p.id} style={{ border: '1px solid #ddcdef', borderLeft: '4px solid #8a4fbf', borderRadius: 9, padding: '0.6rem 0.7rem', background: '#fff' }}>
             <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{p.icono} {p.nombre}</div>
             <div style={{ fontSize: 11.5, color: '#777', margin: '2px 0 6px' }}>{p.descripcion}</div>
-            <div style={{ fontSize: 11, color: '#999', marginBottom: 6 }}>{p.planos.length} plano(s)</div>
-            <button style={{ ...btn, fontSize: 13, background: '#8a4fbf', color: '#fff', borderColor: '#8a4fbf' }} disabled={gen === p.id} onClick={() => void generar(p.id)}>{gen === p.id ? 'Generando…' : 'Generar'}</button>
+            <div style={{ fontSize: 11, color: '#999', marginBottom: 6 }}>{p.planos.length} capítulo(s)</div>
+            <button style={{ ...btn, fontSize: 13, background: '#8a4fbf', color: '#fff', borderColor: '#8a4fbf' }} disabled={gen === p.id} onClick={() => void abrir(p.id)}>{gen === p.id ? 'Abriendo…' : '📖 Abrir libro'}</button>
           </div>
         ))}
       </div>
-
-      {doc && (
-        <div style={{ border: '1px solid #8a4fbf', borderRadius: 10, background: '#fff', padding: '0.7rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
-            <strong style={{ fontSize: 14 }}>{doc.titulo} <span style={{ color: doc.pendientes ? '#c60' : '#2e9e63', fontWeight: 'normal' }}>({doc.pendientes} pendientes / {doc.totalRequerido} · {doc.totalRequerido ? Math.round((1 - doc.pendientes / doc.totalRequerido) * 100) : 100}% listo)</span></strong>
-            <div style={{ display: 'flex', gap: '0.4rem' }}>
-              <button style={btn} onClick={() => void navigator.clipboard?.writeText(doc.markup)}>Copiar</button>
-              <button style={btn} onClick={descargar}>⬇ Descargar .md</button>
-              <button style={btn} onClick={() => setDoc(null)}>Cerrar</button>
-            </div>
-          </div>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, maxHeight: 480, overflow: 'auto', background: '#fafafa', padding: '0.6rem', borderRadius: 6, marginTop: '0.5rem', lineHeight: 1.5 }}>{doc.markup}</pre>
-        </div>
-      )}
     </section>
   );
 }

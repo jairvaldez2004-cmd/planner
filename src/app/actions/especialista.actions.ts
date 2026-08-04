@@ -303,6 +303,25 @@ export interface DocumentoPaquete {
   totalRequerido: number;
   planos: { planoId: string; nombre: string; pendientes: number; total: number }[];
 }
+// Paquete DETALLADO (para la vista de libro estilizada): metadatos + el DetallePlano de cada
+// plano del paquete (campos + tablas completas), listo para rendir con índice y docs anidados.
+export interface PaqueteDetalladoDTO {
+  paqueteId: string; nombre: string; icono: string; descripcion: string; empresa: string;
+  planos: NonNullable<Awaited<ReturnType<typeof obtenerDetallePlano>>>[];
+}
+export async function obtenerPaqueteDetallado(proyectoId: string, paqueteId: string): Promise<PaqueteDetalladoDTO | null> {
+  const pq = paquete(paqueteId);
+  const det = await obtenerProyecto(proyectoId);
+  if (!pq || !det) return null;
+  const planos: PaqueteDetalladoDTO['planos'] = [];
+  for (const planoId of pq.planos) {
+    if (!especialista(planoId)) continue;
+    const d = await obtenerDetallePlano(proyectoId, planoId);
+    if (d) planos.push(d);
+  }
+  return { paqueteId, nombre: pq.nombre, icono: pq.icono, descripcion: pq.descripcion, empresa: det.nombre, planos };
+}
+
 export async function generarPaqueteEntregables(proyectoId: string, paqueteId: string): Promise<DocumentoPaquete | null> {
   const pq = paquete(paqueteId);
   const det = await obtenerProyecto(proyectoId);
