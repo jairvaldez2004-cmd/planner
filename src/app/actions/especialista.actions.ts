@@ -75,14 +75,34 @@ async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<R
   let contratos: Awaited<ReturnType<typeof listarContratos>> | null = null;
   const getContratos = async () => { if (!contratos) contratos = await listarContratos(proyectoId); return contratos; };
   // Ofertas (fuentes de ingreso) y Unidades Comerciales, con el nombre de su UC.
-  let ofertas: { nombre: string; centro: string }[] | null = null;
+  // El precio de una Oferta es un RANGO derivado de sus Presentaciones (SKUs): así el plano
+  // Financiero muestra "$400–$700" en vez de PENDIENTE cuando el catálogo ya está tarifado.
+  let ofertas: { nombre: string; centro: string; precio?: string }[] | null = null;
   const getOfertas = async () => {
     if (!ofertas) {
-      const [ofs, ucs] = await Promise.all([prisma.oferta.findMany({ where: { proyectoId } }), prisma.unidadComercial.findMany({ where: { proyectoId } })]);
+      const [ofs, ucs, pres] = await Promise.all([
+        prisma.oferta.findMany({ where: { proyectoId } }),
+        prisma.unidadComercial.findMany({ where: { proyectoId } }),
+        prisma.presentacion.findMany({ where: { proyectoId } }),
+      ]);
       const ucNombre = new Map(ucs.map((u) => [u.id, u.nombre]));
-      ofertas = ofs.map((o) => ({ nombre: o.nombre, centro: ucNombre.get(o.ucId) ?? '' }));
+      const preciosPorOferta = new Map<string, number[]>();
+      for (const p of pres) {
+        const raw = (p.data as Record<string, unknown> | null)?.precio;
+        const n = typeof raw === 'number' ? raw : parseFloat(String(raw ?? '').replace(/[^0-9.]/g, ''));
+        if (Number.isFinite(n) && n > 0) { const arr = preciosPorOferta.get(p.ofertaId) ?? []; arr.push(n); preciosPorOferta.set(p.ofertaId, arr); }
+      }
+      const rango = (id: string): string | undefined => {
+        const arr = preciosPorOferta.get(id);
+        if (!arr || !arr.length) return undefined;
+        const min = Math.min(...arr), max = Math.max(...arr);
+        const fmt = (v: number) => `$${v.toLocaleString('es-MX')}`;
+        return min === max ? fmt(min) : `${fmt(min)}–${fmt(max)}`;
+      };
+      const dataPrecio = (o: { data: unknown }) => { const v = (o.data as Record<string, unknown> | null)?.precio; return typeof v === 'string' && v.trim() ? v : undefined; };
+      ofertas = ofs.map((o) => { const precio = dataPrecio(o) ?? rango(o.id); return { nombre: o.nombre, centro: ucNombre.get(o.ucId) ?? '', ...(precio ? { precio } : {}) }; });
     }
-    return ofertas;
+    return ofertas!;
   };
   let ucs: { nombre: string }[] | null = null;
   const getUCs = async () => { if (!ucs) ucs = (await prisma.unidadComercial.findMany({ where: { proyectoId } })).map((u) => ({ nombre: u.nombre })); return ucs; };

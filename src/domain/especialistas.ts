@@ -126,7 +126,7 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
           columnasContexto: [ { id: 'presentacion', etiqueta: 'Presentación/variante', tipo: 'texto' } ] } },
       { id: 'precios', titulo: 'Precios y condiciones', capas: 'C4·C6',
         tabla: { tablaRef: 'productos', etiqueta: 'Lista de precios', requeridoEn: S, disparadorCSV: 5,
-          columnasContexto: [ { id: 'precio', etiqueta: 'Precio (PENDIENTE)', tipo: 'texto' }, { id: 'moneda', etiqueta: 'Moneda', tipo: 'texto' } ] } },
+          columnasContexto: [ { id: 'precio', etiqueta: 'Precio', tipo: 'texto' }, { id: 'moneda', etiqueta: 'Moneda', tipo: 'texto' } ] } },
       { id: 'segmentos', titulo: 'Segmentos y clientes', capas: 'C5',
         tabla: { tablaRef: 'clientes', requeridoEn: S, disparadorCSV: 5,
           columnasContexto: [ { id: 'disposicionPago', etiqueta: 'Disposición a pagar', tipo: 'texto' } ] } },
@@ -279,20 +279,20 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
     planoId: 'FIN', nombre: 'Financiero',
     lenguajeTecnico: 'Produce ESTRUCTURA económica, NO cifras. Toda cifra → PENDIENTE (DATO_REAL / DECISION_PROPIETARIO / ASESOR_FISCAL). Ingresos y costos repetibles. ACL N4 (el más protegido).',
     dependencias: ['META', 'COM'],
-    contratoEntrega: { tipo: 'tabla', descripcion: 'Tablas/modelo financiero (estructura, cifras = PENDIENTE).' },
+    contratoEntrega: { tipo: 'tabla', descripcion: 'Tablas/modelo financiero (estructura y cifras).' },
     bloques: [
       { id: 'modelo', titulo: 'Modelo económico', capas: 'C15', campos: [
         { id: 'modelo', pregunta: '¿Centros de utilidad (externos) vs centros de costo (internos)?', tipo: 'parrafo', requeridoEn: E },
       ] },
       { id: 'ingresos', titulo: 'Ingresos y oferta', capas: 'C6·C15',
-        tabla: { tablaRef: 'ingresos', requeridoEn: E, disparadorCSV: 3, columnasContexto: [ { id: 'precio', etiqueta: 'Precio (PENDIENTE)', tipo: 'texto' } ] } },
+        tabla: { tablaRef: 'ingresos', requeridoEn: E, disparadorCSV: 3, columnasContexto: [ { id: 'precio', etiqueta: 'Precio', tipo: 'texto' } ] } },
       { id: 'costos', titulo: 'Costos y gastos', capas: 'C15',
-        tabla: { tablaRef: 'costos', requeridoEn: E, disparadorCSV: 4, columnasContexto: [ { id: 'monto', etiqueta: 'Monto (PENDIENTE_DATO_REAL)', tipo: 'texto' } ] } },
+        tabla: { tablaRef: 'costos', requeridoEn: E, disparadorCSV: 4, columnasContexto: [ { id: 'monto', etiqueta: 'Monto', tipo: 'texto' } ] } },
       { id: 'margenes', titulo: 'Márgenes y comisiones', capas: 'C4·C15', campos: [
-        { id: 'margenes', pregunta: '¿Margen por actividad y reparto CPF↔operadora? (% → PENDIENTE)', tipo: 'parrafo', requeridoEn: S },
+        { id: 'margenes', pregunta: '¿Margen por actividad y reparto entre socios/operación?', tipo: 'parrafo', requeridoEn: S },
       ] },
       { id: 'fiscal', titulo: 'Transfer pricing y P&L', capas: 'C15', campos: [
-        { id: 'fiscal', pregunta: '¿Política de transfer pricing y estructura P&L? (→ PENDIENTE_ASESOR_FISCAL)', tipo: 'parrafo', requeridoEn: C },
+        { id: 'fiscal', pregunta: '¿Política de precios internos y estructura de resultados (P&L)?', tipo: 'parrafo', requeridoEn: C },
       ] },
     ],
   },
@@ -301,19 +301,19 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
     planoId: 'CTR', nombre: 'Control',
     lenguajeTecnico: 'Produce MODELO de medición, no dashboards reales (KPI-1: el OS publica, CTR no calcula). KPIs/métricas repetibles. Toda meta/umbral → PENDIENTE. ACL N4.',
     dependencias: ['META', 'OPE'],
-    contratoEntrega: { tipo: 'dashboard', descripcion: 'Modelo de dashboard de KPIs (metas = PENDIENTE).' },
+    contratoEntrega: { tipo: 'dashboard', descripcion: 'Modelo de dashboard de KPIs (metas y cortes).' },
     bloques: [
       { id: 'modelo', titulo: 'Modelo de control', capas: 'C16', campos: [
         { id: 'modelo', pregunta: '¿Qué se mide y bajo qué regla (KPI-1: OS publica, Widget presenta)?', tipo: 'parrafo', requeridoEn: E },
       ] },
       { id: 'kpis', titulo: 'KPIs maestros', capas: 'C16',
         tabla: { tablaRef: 'kpis', etiqueta: 'KPIs maestros', requeridoEn: E, disparadorCSV: 4,
-          columnasContexto: [ { id: 'meta', etiqueta: 'Meta (PENDIENTE)', tipo: 'texto' } ] } },
+          columnasContexto: [ { id: 'meta', etiqueta: 'Meta', tipo: 'texto' } ] } },
       { id: 'metricas', titulo: 'Métricas por capa', capas: 'C16',
         tabla: { tablaRef: 'kpis', etiqueta: 'Métricas por capa', requeridoEn: S, disparadorCSV: 6,
           columnasContexto: [ { id: 'capa', etiqueta: 'Capa (plano/proceso/rol/IA)', tipo: 'texto' } ] } },
       { id: 'umbrales', titulo: 'Umbrales y semáforos', capas: 'C16', campos: [
-        { id: 'umbrales', pregunta: '¿Cortes verde/amarillo/rojo por métrica? (→ PENDIENTE)', tipo: 'parrafo', requeridoEn: S },
+        { id: 'umbrales', pregunta: '¿Cortes verde/amarillo/rojo por métrica?', tipo: 'parrafo', requeridoEn: S },
       ] },
       { id: 'cadencia', titulo: 'Cadencia y responsables', capas: 'C11·C16', campos: [
         { id: 'cadencia', pregunta: '¿Frecuencia de revisión, dueño por KPI y fuente de dato?', tipo: 'parrafo', requeridoEn: C },
@@ -325,7 +325,7 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
     planoId: 'IMP', nombre: 'Implementación',
     lenguajeTecnico: 'Produce ARQUITECTURA de implementación, no construcción/BUILD. Hitos/fases repetibles. Toda fecha/cifra/responsable → PENDIENTE. IMP planea, BUILD construye, ESC escala.',
     dependencias: ['META', 'EST'],
-    contratoEntrega: { tipo: 'documento', descripcion: 'Roadmap de implementación (fechas = PENDIENTE).' },
+    contratoEntrega: { tipo: 'documento', descripcion: 'Roadmap de implementación (fases, hitos y responsables).' },
     bloques: [
       { id: 'fases', titulo: 'Modelo y fases', capas: 'C17', campos: [
         { id: 'fases', pregunta: '¿Cuál es el principio de implementación y las fases en orden?', tipo: 'parrafo', requeridoEn: E },
@@ -337,7 +337,7 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
         { id: 'dependencias', pregunta: '¿Qué requiere qué (secuencia entre fases/planos)?', tipo: 'parrafo', requeridoEn: S },
       ] },
       { id: 'recursos', titulo: 'Responsables y recursos', capas: 'C11·C17', campos: [
-        { id: 'recursos', pregunta: '¿Dueño por fase y recursos (fechas/personas → PENDIENTE)?', tipo: 'parrafo', requeridoEn: C },
+        { id: 'recursos', pregunta: '¿Dueño por fase y recursos (fechas y personas)?', tipo: 'parrafo', requeridoEn: C },
       ] },
     ],
   },
@@ -463,7 +463,7 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
     planoId: 'JUR', nombre: 'Jurídico',
     lenguajeTecnico: 'Produce el CHECKLIST y borradores legales (constitución, contratos, PI, permisos, políticas), NO asesoría vinculante. Todo dictamen/riesgo → PENDIENTE_ASESOR_LEGAL. Documentos repetibles (tabla). No contradice META.',
     dependencias: ['META'],
-    contratoEntrega: { tipo: 'documento', descripcion: 'Checklist legal: constitución, contratos, PI, permisos y políticas (borradores + PENDIENTE asesor).' },
+    contratoEntrega: { tipo: 'documento', descripcion: 'Checklist legal: constitución, contratos, PI, permisos y políticas (borradores y revisión del asesor).' },
     bloques: [
       { id: 'constitucion', titulo: 'Constitución y fiscal', capas: 'C10', campos: [
         { id: 'figura', pregunta: '¿Figura legal, socios y % de participación?', tipo: 'parrafo', requeridoEn: E },
@@ -478,7 +478,7 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
         tabla: { tablaRef: 'legales', requeridoEn: E, disparadorCSV: 4,
           columnasContexto: [ { id: 'estado', etiqueta: 'Estado', tipo: 'opcion', opciones: ['pendiente', 'borrador', 'firmado'] } ] } },
       { id: 'riesgos', titulo: 'Riesgos legales', capas: 'C10', campos: [
-        { id: 'riesgos', pregunta: '¿Riesgos legales y cómo mitigarlos? (dictamen → PENDIENTE_ASESOR_LEGAL)', tipo: 'parrafo', requeridoEn: S },
+        { id: 'riesgos', pregunta: '¿Riesgos legales y cómo mitigarlos?', tipo: 'parrafo', requeridoEn: S },
       ] },
     ],
   },
@@ -487,7 +487,7 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
     planoId: 'INV', nombre: 'Inversionista',
     lenguajeTecnico: 'Produce el documento para un fondo (deck): problema, solución, mercado, uso del dinero, proyección y salida. Es un plano DERIVADO (integra META+COM+FIN); no re-captura lo que ya vive en ellos. Toda cifra/valuación → PENDIENTE. ACL N4.',
     dependencias: ['META', 'FIN', 'COM'],
-    contratoEntrega: { tipo: 'documento', descripcion: 'Documento de inversión (deck): problema, solución, mercado, uso del dinero, proyección y salida (cifras = PENDIENTE).' },
+    contratoEntrega: { tipo: 'documento', descripcion: 'Documento de inversión (deck): problema, solución, mercado, uso del dinero, proyección y salida.' },
     bloques: [
       { id: 'tesis', titulo: 'Tesis de inversión', capas: 'C15', campos: [
         { id: 'problema', pregunta: '¿Problema, solución y por qué ahora?', tipo: 'parrafo', requeridoEn: E },
@@ -495,10 +495,10 @@ export const ESPECIALISTAS: Record<string, EspecialistaConfig> = {
       ] },
       { id: 'rondas', titulo: 'Uso del dinero', capas: 'C15',
         tabla: { tablaRef: 'rondas', requeridoEn: E, disparadorCSV: 2,
-          columnasContexto: [ { id: 'monto', etiqueta: 'Monto (PENDIENTE)', tipo: 'texto' } ] } },
+          columnasContexto: [ { id: 'monto', etiqueta: 'Monto', tipo: 'texto' } ] } },
       { id: 'retorno', titulo: 'Proyección y salida', capas: 'C15', campos: [
-        { id: 'proyeccion', pregunta: '¿Proyección y camino a rentabilidad? (cifras → PENDIENTE_DATO_REAL)', tipo: 'parrafo', requeridoEn: S },
-        { id: 'salida', pregunta: '¿Estrategia de salida del inversionista, valuación y dilución? (→ PENDIENTE)', tipo: 'parrafo', requeridoEn: C },
+        { id: 'proyeccion', pregunta: '¿Proyección y camino a rentabilidad?', tipo: 'parrafo', requeridoEn: S },
+        { id: 'salida', pregunta: '¿Estrategia de salida del inversionista, valuación y dilución?', tipo: 'parrafo', requeridoEn: C },
       ] },
     ],
   },
