@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { ChatEspecialista } from './chat-especialista';
+import { DocumentoPlanoView } from './documento-plano-view';
 import { useEsMovil } from './use-movil';
 import {
   obtenerDetallePlano, plantillaCSV, importarCSV, guardarCampo, generarDocumentoDePlano, guardarFilasTabla,
@@ -32,6 +33,7 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
   const [msgCsv, setMsgCsv] = useState<string>('');
   const [doc, setDoc] = useState<DocumentoPlano | null>(null);
   const [genLoading, setGenLoading] = useState(false);
+  const [verDoc, setVerDoc] = useState(false);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const cargar = () => {
@@ -74,8 +76,22 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
     finally { setGenLoading(false); }
   }
 
+  async function exportarMarkdown() {
+    setGenLoading(true);
+    try {
+      const d = await generarDocumentoDePlano(proyectoId, planoId);
+      if (!d) return;
+      const blob = new Blob([d.markup], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `${planoId}.md`; a.click(); URL.revokeObjectURL(url);
+    } catch { /* noop */ } finally { setGenLoading(false); }
+  }
+
   const r = readiness ?? det?.readiness ?? null;
   const estado = r?.estado ?? 'LOCKED';
+
+  // Vista de DOCUMENTO estilizado (índice + docs anidados por tabla).
+  if (verDoc && det) return <DocumentoPlanoView det={det} onCerrar={() => setVerDoc(false)} onExportar={() => void exportarMarkdown()} exportando={genLoading} />;
 
   return (
     <section>
@@ -85,7 +101,8 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
           {det && <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>entrega: {det.entrega.tipo}</span>}
         </h2>
         <div style={{ display: 'flex', gap: '0.4rem' }}>
-          {det && <button style={{ ...btn, borderColor: '#3b86c9', color: '#1f5c8f' }} onClick={() => void generarDoc()}>{genLoading ? '…' : '📄 Generar documento'}</button>}
+          {det && <button style={{ ...btn, borderColor: '#8a4fbf', color: '#6a3aa0', fontWeight: 'bold' }} onClick={() => setVerDoc(true)}>📖 Documento</button>}
+          {det && <button style={{ ...btn, borderColor: '#3b86c9', color: '#1f5c8f' }} onClick={() => void generarDoc()}>{genLoading ? '…' : '📄 Markdown'}</button>}
           <button style={btn} onClick={onVolver}>← Grafo de planos</button>
         </div>
       </div>
