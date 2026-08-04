@@ -14,7 +14,7 @@ import type { Departamento, ProcesoNodo } from '@/domain/mapa';
 import type { EtapaObjetivo } from '@/domain/etapas';
 import { etapaInfo } from '@/domain/etapas';
 
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
 
 interface Props {
   procesos: ProcesoNodo[];
@@ -69,10 +69,10 @@ export function AgendaRecursos({ procesos, deptos, etapa, onCerrar, onIrProceso 
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0, fontSize: 17 }}>🗓️ Agenda de recursos compartidos <span style={{ fontSize: 12.5, color: '#888' }}>· etapa {info?.n} · {info?.label}</span></h2>
+        <h2 style={{ margin: 0, fontSize: 17 }}>🗓️ Agenda de recursos compartidos <span style={{ fontSize: 12.5, color: 'var(--bp-muted)' }}>· etapa {info?.n} · {info?.label}</span></h2>
         <button style={btn} onClick={onCerrar}>← Volver al mapa</button>
       </div>
-      <p style={{ fontSize: 12, color: '#666', margin: '0.35rem 0 0.6rem' }}>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.35rem 0 0.6rem' }}>
         Un mismo espacio o herramienta puede usarse en varios departamentos <strong>en horarios distintos</strong>. Aquí se ve la semana real y se marcan en rojo los <strong>choques</strong>: dos áreas ocupando el mismo recurso a la misma hora.
       </p>
 
@@ -90,17 +90,17 @@ export function AgendaRecursos({ procesos, deptos, etapa, onCerrar, onIrProceso 
       </div>
 
       {recursos.length === 0 ? (
-        <p style={{ color: '#888', fontSize: 13, border: '1px dashed #ddd', borderRadius: 8, padding: '1rem' }}>
+        <p style={{ color: 'var(--bp-muted)', fontSize: 13, border: '1px dashed #ddd', borderRadius: 8, padding: '1rem' }}>
           Todavía no hay recursos con horario. Asigna espacios o herramientas con horario (ej. <code>L-V 9-14</code>) en el panel de un proceso o de un departamento y aparecerán aquí.
         </p>
       ) : (
-        <div style={{ border: '1px solid #ddd', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid var(--bp-border)', borderRadius: 10, overflow: 'hidden' }}>
           {/* regla de horas */}
-          <div style={{ display: 'flex', borderBottom: '1px solid #eee', background: '#fafbfc' }}>
-            <div style={{ width: 140, flexShrink: 0, borderRight: '1px solid #eee' }} />
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--bp-border)', background: 'var(--bp-panel-alt)' }}>
+            <div style={{ width: 140, flexShrink: 0, borderRight: '1px solid var(--bp-border)' }} />
             <div style={{ flex: 1, position: 'relative', height: 22 }}>
               {horas.map((h) => (
-                <span key={h} style={{ position: 'absolute', left: `${pct(h)}%`, fontSize: 10, color: '#999', transform: 'translateX(-50%)', top: 4 }}>{hhmm(h)}</span>
+                <span key={h} style={{ position: 'absolute', left: `${pct(h)}%`, fontSize: 10, color: 'var(--bp-muted)', transform: 'translateX(-50%)', top: 4 }}>{hhmm(h)}</span>
               ))}
             </div>
           </div>
@@ -110,14 +110,14 @@ export function AgendaRecursos({ procesos, deptos, etapa, onCerrar, onIrProceso 
             const choca = chocaEnDia(r);
             return (
               <div key={r} style={{ display: 'flex', borderBottom: '1px solid #f0f0f0', minHeight: 38, background: choca ? '#fdf3f2' : '#fff' }}>
-                <div style={{ width: 140, flexShrink: 0, borderRight: '1px solid #eee', padding: '0.4rem 0.5rem', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 140, flexShrink: 0, borderRight: '1px solid var(--bp-border)', padding: '0.4rem 0.5rem', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ fontWeight: choca ? 'bold' : 'normal' }}>{r}</span>
                   {choca && <span title="Hay un choque este día" style={{ color: '#c0392b' }}>⚠</span>}
                 </div>
                 <div style={{ flex: 1, position: 'relative', padding: '0.3rem 0' }}>
                   {/* líneas de hora */}
                   {horas.map((h) => (
-                    <div key={h} style={{ position: 'absolute', left: `${pct(h)}%`, top: 0, bottom: 0, width: 1, background: '#f2f4f7' }} />
+                    <div key={h} style={{ position: 'absolute', left: `${pct(h)}%`, top: 0, bottom: 0, width: 1, background: 'var(--bp-panel-alt)' }} />
                   ))}
                   {bloques.length === 0 && <span style={{ fontSize: 11, color: '#ccc', paddingLeft: 8 }}>libre</span>}
                   {bloques.map((b, i) => {
@@ -145,12 +145,12 @@ export function AgendaRecursos({ procesos, deptos, etapa, onCerrar, onIrProceso 
 
       {/* CHOQUES del día */}
       {crucesDelDia.length > 0 && (
-        <div style={{ marginTop: '0.8rem', border: '1px solid #f0c6c1', background: '#fdf3f2', borderRadius: 9, padding: '0.6rem 0.75rem' }}>
+        <div style={{ marginTop: '0.8rem', border: '1px solid #f0c6c1', background: 'var(--bp-panel-alt)', borderRadius: 9, padding: '0.6rem 0.75rem' }}>
           <strong style={{ fontSize: 13, color: '#c0392b' }}>⚠ {crucesDelDia.length} choque{crucesDelDia.length > 1 ? 's' : ''} el {DIAS[dia]}</strong>
           <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.1rem', fontSize: 12.5 }}>
             {crucesDelDia.map((c, i) => (
               <li key={i} style={{ marginBottom: 2 }}>
-                <strong>{c.recurso}</strong>: <span style={{ color: '#555' }}>{c.a.titular}</span> y <span style={{ color: '#555' }}>{c.b.titular}</span> lo ocupan de <strong>{hhmm(c.desde)} a {hhmm(c.hasta)}</strong>.
+                <strong>{c.recurso}</strong>: <span style={{ color: 'var(--bp-muted)' }}>{c.a.titular}</span> y <span style={{ color: 'var(--bp-muted)' }}>{c.b.titular}</span> lo ocupan de <strong>{hhmm(c.desde)} a {hhmm(c.hasta)}</strong>.
               </li>
             ))}
           </ul>
@@ -159,7 +159,7 @@ export function AgendaRecursos({ procesos, deptos, etapa, onCerrar, onIrProceso 
       )}
 
       {sinInterpretar.length > 0 && (
-        <div style={{ marginTop: '0.6rem', fontSize: 11.5, color: '#8a6d3b', background: '#fcf8e3', border: '1px solid #f2e3b8', borderRadius: 8, padding: '0.5rem 0.65rem' }}>
+        <div style={{ marginTop: '0.6rem', fontSize: 11.5, color: '#8a6d3b', background: 'var(--bp-panel-alt)', border: '1px solid #f2e3b8', borderRadius: 8, padding: '0.5rem 0.65rem' }}>
           <strong>{sinInterpretar.length} horario{sinInterpretar.length > 1 ? 's' : ''} sin interpretar</strong> (no entran en la agenda):{' '}
           {sinInterpretar.slice(0, 6).map((u) => `${u.recurso} — "${u.horarioTexto}"`).join(' · ')}{sinInterpretar.length > 6 ? '…' : ''}.
           <br />Escríbelos como <code>L-V 9-14</code>, <code>sáb 10-13</code>, <code>lunes a viernes 9:00-14:00</code> o <code>todos los días 9-18</code>.

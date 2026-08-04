@@ -10,10 +10,10 @@ import { RIESGOS_LOGISTICA, contingenciaDesdePlantilla, GRAVEDADES_CONTINGENCIA,
 import type { Contingencia } from '@/domain/contingencia';
 import type { ProcesoNodo } from '@/domain/mapa';
 
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
 const btnSm: CSSProperties = { ...btn, padding: '0.15rem 0.5rem', fontSize: 12 };
-const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 13, width: '100%', boxSizing: 'border-box' };
-const lbl: CSSProperties = { display: 'block', fontSize: 11, color: '#666', marginTop: '0.4rem', fontWeight: 'bold' };
+const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 13, width: '100%', boxSizing: 'border-box' };
+const lbl: CSSProperties = { display: 'block', fontSize: 11, color: 'var(--bp-muted)', marginTop: '0.4rem', fontWeight: 'bold' };
 
 export function VistaContingencias({ contingencias, procesos, onGuardar, onBorrar, onCerrar, onIrProceso }: {
   contingencias: Contingencia[]; procesos: ProcesoNodo[];
@@ -29,10 +29,10 @@ export function VistaContingencias({ contingencias, procesos, onGuardar, onBorra
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>⚠️ Contingencias <span style={{ fontSize: 13, color: '#888' }}>· manuales de emergencia por riesgo</span></h2>
+        <h2 style={{ margin: 0 }}>⚠️ Contingencias <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· manuales de emergencia por riesgo</span></h2>
         <button style={btn} onClick={onCerrar}>← Mapa</button>
       </div>
-      <p style={{ fontSize: 12, color: '#777', margin: '0.3rem 0 0.7rem' }}>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.3rem 0 0.7rem' }}>
         Qué hacer si algo sale mal: el pedido no llega, roban la mercancía, viene sin seguro, se daña, la detiene aduana… Cada protocolo se ancla a un paso del workflow para que la operación sepa reaccionar.
       </p>
 
@@ -44,7 +44,7 @@ export function VistaContingencias({ contingencias, procesos, onGuardar, onBorra
         <button style={btn} onClick={() => onGuardar({ id: '', titulo: 'Nueva contingencia', disparador: '', categoria: 'operación', gravedad: 'media', pasos: '', responsable: '', prevencion: '', procesoId: '' })}>＋ Libre</button>
       </div>
 
-      {contingencias.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay manuales de emergencia. Agrega los riesgos comunes desde la plantilla (pedido tarde, robo, sin seguro, daño, aduana, proveedor que falla, faltante).</p>}
+      {contingencias.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay manuales de emergencia. Agrega los riesgos comunes desde la plantilla (pedido tarde, robo, sin seguro, daño, aduana, proveedor que falla, faltante).</p>}
 
       {Array.from(grupos.entries()).map(([cat, items]) => (
         <div key={cat} style={{ marginBottom: '1rem' }}>
@@ -53,7 +53,7 @@ export function VistaContingencias({ contingencias, procesos, onGuardar, onBorra
             {items.map((c) => {
               const g = gravedadContingencia(c.gravedad);
               return (
-                <div key={c.id} style={{ border: `1px solid ${g.color}55`, borderLeft: `4px solid ${g.color}`, borderRadius: 9, padding: '0.6rem 0.7rem', background: '#fff' }}>
+                <div key={c.id} style={{ border: `1px solid ${g.color}55`, borderLeft: `4px solid ${g.color}`, borderRadius: 9, padding: '0.6rem 0.7rem', background: 'var(--bp-panel)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <input style={{ ...inp, fontWeight: 'bold', flex: 1 }} defaultValue={c.titulo} key={`t-${c.id}`} onBlur={(e) => { if (e.target.value !== c.titulo) onGuardar({ ...c, titulo: e.target.value }); }} />
                     <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onBorrar(c.id)}>🗑</span>
@@ -81,7 +81,7 @@ export function VistaContingencias({ contingencias, procesos, onGuardar, onBorra
                   </div>
                   <label style={lbl}>🛡️ Prevención</label>
                   <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={c.prevencion} key={`pv-${c.id}`} onBlur={(e) => { if (e.target.value !== c.prevencion) onGuardar({ ...c, prevencion: e.target.value }); }} />
-                  {c.procesoId && <button style={{ ...btnSm, marginTop: 5, background: '#eef4ff', borderColor: '#cdd8ef', color: '#2b5a97' }} onClick={() => onIrProceso(c.procesoId)}>↗ Ir al proceso «{procNombre(c.procesoId)}»</button>}
+                  {c.procesoId && <button style={{ ...btnSm, marginTop: 5, background: 'var(--bp-panel-alt)', borderColor: '#cdd8ef', color: 'var(--bp-gold)' }} onClick={() => onIrProceso(c.procesoId)}>↗ Ir al proceso «{procNombre(c.procesoId)}»</button>}
                 </div>
               );
             })}

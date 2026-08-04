@@ -10,10 +10,10 @@ import type { UnidadComercial } from '@/domain/espacios';
 import { CatalogoUC } from './catalogo-uc';
 import { useEsMovil } from './use-movil';
 
-const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 14 };
-const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 14, width: '100%' };
-const card: CSSProperties = { border: '1px solid #ddd', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0.4rem 0', background: '#fafafa' };
-const lbl: CSSProperties = { display: 'block', fontSize: 12, color: '#666', marginTop: '0.5rem' };
+const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 14 };
+const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 14, width: '100%' };
+const card: CSSProperties = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0.4rem 0', background: 'var(--bp-panel-alt)' };
+const lbl: CSSProperties = { display: 'block', fontSize: 12, color: 'var(--bp-muted)', marginTop: '0.5rem' };
 
 interface Props { proyectoId: string; uc: UnidadComercial; onVolver: () => void; onIrSedes: () => void }
 
@@ -26,7 +26,7 @@ export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>🟢 {uc.nombre} <span style={{ fontSize: 13, color: '#888' }}>· Unidad Comercial</span></h2>
+        <h2 style={{ margin: 0 }}>🟢 {uc.nombre} <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· Unidad Comercial</span></h2>
         <button style={btn} onClick={onVolver}>← Proyecto</button>
       </div>
 
@@ -44,12 +44,12 @@ export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
 
         {/* Desarrollo de la UC */}
         <div>
-          <div style={{ ...card, background: '#f7f9ff', borderColor: '#cdd8ef' }}>
+          <div style={{ ...card, background: 'var(--bp-panel-alt)', borderColor: '#cdd8ef' }}>
             <strong style={{ fontSize: 14 }}>Espacios de esta unidad</strong>
-            <p style={{ fontSize: 12, color: '#666', margin: '0.25rem 0' }}>Habitaciones/áreas asignadas a "{uc.nombre}" en las sedes.</p>
-            {espacios.length === 0 && <p style={{ fontSize: 13, color: '#999' }}>Aún sin espacios. Ve a Sedes & Espacios y asígnale áreas a esta UC.</p>}
+            <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.25rem 0' }}>Habitaciones/áreas asignadas a "{uc.nombre}" en las sedes.</p>
+            {espacios.length === 0 && <p style={{ fontSize: 13, color: 'var(--bp-muted)' }}>Aún sin espacios. Ve a Sedes & Espacios y asígnale áreas a esta UC.</p>}
             {espacios.map((e) => (
-              <div key={e.id} style={{ fontSize: 13, padding: '0.2rem 0' }}>· <strong>{e.nombre}</strong> <span style={{ color: '#888' }}>({e.tipo} · {e.sedeNombre})</span></div>
+              <div key={e.id} style={{ fontSize: 13, padding: '0.2rem 0' }}>· <strong>{e.nombre}</strong> <span style={{ color: 'var(--bp-muted)' }}>({e.tipo} · {e.sedeNombre})</span></div>
             ))}
             <button style={{ ...btn, marginTop: '0.5rem' }} onClick={onIrSedes}>Ir a Sedes & Espacios →</button>
           </div>

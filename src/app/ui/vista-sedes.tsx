@@ -12,11 +12,11 @@ import { registrarDeshacer, BotonDeshacer } from './deshacer';
 import { rectRotado, medidasDeRect, centroide } from './huella-geo';
 import type { LL } from './huella-geo';
 
-const MapaSedes = dynamic(() => import('./mapa-sedes'), { ssr: false, loading: () => <div style={{ height: 380, background: '#eef4ee', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}>Cargando mapa…</div> });
+const MapaSedes = dynamic(() => import('./mapa-sedes'), { ssr: false, loading: () => <div style={{ height: 380, background: 'var(--bp-panel-alt)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--bp-muted)' }}>Cargando mapa…</div> });
 
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
-const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 14 };
-const card: CSSProperties = { border: '1px solid #ddd', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0.4rem 0', background: '#fafafa' };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
+const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 14 };
+const card: CSSProperties = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0.4rem 0', background: 'var(--bp-panel-alt)' };
 
 export function VistaSedes({ proyectoId }: { proyectoId: string }) {
   const [sedes, setSedes] = useState<Sede[]>([]);
@@ -87,7 +87,7 @@ export function VistaSedes({ proyectoId }: { proyectoId: string }) {
   return (
     <section>
       <h3 style={{ marginTop: 0 }}>Sedes & Espacios</h3>
-      <p style={{ fontSize: 13, color: '#555', marginTop: 0 }}>
+      <p style={{ fontSize: 13, color: 'var(--bp-muted)', marginTop: 0 }}>
         Ubica cada sede en el mapa real y ajusta su <strong>huella</strong> (tamaño en metros). Selecciona una para ver su <strong>layout interior superpuesto</strong> en el mapa, y entra al editor 2D para diseñarlo.
       </p>
 
@@ -99,35 +99,35 @@ export function VistaSedes({ proyectoId }: { proyectoId: string }) {
 
       {/* Mapa real */}
       <MapaSedes sedes={sedes} selectedId={selectedId} overlaySpaces={overlay} overlayObjetos={overlayObj} onSelect={setSelectedId} onMove={(id, lat, lng) => void mover(id, lat, lng)} onPolygon={(id, pts) => void setPoligono(id, pts)} alinearActivo={alineando} onAlinear={alinearACalle} />
-      <p style={{ fontSize: 12, color: '#888', margin: '0.35rem 0 0.5rem' }}>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.35rem 0 0.5rem' }}>
         Cada sede aparece como una <strong>huella editable</strong> (rectángulo punteado por defecto, según su ancho×alto). Con las herramientas de Geoman (arriba-izq) puedes <strong>editar vértices</strong> ✎, <strong>rotarla</strong> ↻ o redibujarla con la de <strong>polígono</strong>. Para <strong>mover</strong> toda la huella (incluso tras rotarla) arrastra el <strong>recuadro central ✥</strong>. El recuadro muestra <strong>área</strong>, <strong>orientación</strong> (∠° vs Norte) y cada lado su medida; los <strong>ángulos</strong> de cada esquina se ven en la sede seleccionada. Usa el tablero de abajo para medidas exactas y alinear a las cuadras. El layout azul = tus espacios superpuestos. Tiles © OpenStreetMap.
       </p>
 
       {/* Tablero de huella (sede seleccionada): medidas exactas + orientación/alineación */}
       {selSede && (
-        <div style={{ border: '1px solid #e0795b', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0 0 0.6rem', background: '#fff6f2' }}>
+        <div style={{ border: '1px solid #e0795b', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0 0 0.6rem', background: 'var(--bp-panel-alt)' }}>
           <strong style={{ fontSize: 13 }}>📐 Tablero de huella · {selSede.nombre}</strong>
           <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', alignItems: 'flex-end', marginTop: '0.4rem' }}>
-            <label style={{ fontSize: 12, color: '#555' }}>Ancho (m)<br /><input style={{ ...inp, width: 90 }} type="number" step="0.5" value={huella.W} onChange={(e) => setHuella((h) => ({ ...h, W: Number(e.target.value) }))} /></label>
-            <label style={{ fontSize: 12, color: '#555' }}>Alto (m)<br /><input style={{ ...inp, width: 90 }} type="number" step="0.5" value={huella.H} onChange={(e) => setHuella((h) => ({ ...h, H: Number(e.target.value) }))} /></label>
-            <label style={{ fontSize: 12, color: '#555' }}>Orientación (° vs Norte)<br /><input style={{ ...inp, width: 110 }} type="number" step="1" value={huella.orient} onChange={(e) => setHuella((h) => ({ ...h, orient: Number(e.target.value) }))} /></label>
+            <label style={{ fontSize: 12, color: 'var(--bp-muted)' }}>Ancho (m)<br /><input style={{ ...inp, width: 90 }} type="number" step="0.5" value={huella.W} onChange={(e) => setHuella((h) => ({ ...h, W: Number(e.target.value) }))} /></label>
+            <label style={{ fontSize: 12, color: 'var(--bp-muted)' }}>Alto (m)<br /><input style={{ ...inp, width: 90 }} type="number" step="0.5" value={huella.H} onChange={(e) => setHuella((h) => ({ ...h, H: Number(e.target.value) }))} /></label>
+            <label style={{ fontSize: 12, color: 'var(--bp-muted)' }}>Orientación (° vs Norte)<br /><input style={{ ...inp, width: 110 }} type="number" step="1" value={huella.orient} onChange={(e) => setHuella((h) => ({ ...h, orient: Number(e.target.value) }))} /></label>
             <button style={{ ...btn, borderColor: '#e0795b', color: '#e0795b', fontWeight: 'bold' }} onClick={() => void aplicarHuella(huella)}>Aplicar</button>
-            <span style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center', fontSize: 12, color: '#777' }}>
+            <span style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center', fontSize: 12, color: 'var(--bp-muted)' }}>
               girar: <button style={btn} onClick={() => girar(-5)}>−5°</button><button style={btn} onClick={() => girar(-1)}>−1°</button><button style={btn} onClick={() => girar(1)}>+1°</button><button style={btn} onClick={() => girar(5)}>+5°</button>
             </span>
-            <span style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center', fontSize: 12, color: '#777' }}>
+            <span style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center', fontSize: 12, color: 'var(--bp-muted)' }}>
               alinear: <button style={btn} onClick={() => fijarOrient(0)}>N–S</button><button style={btn} onClick={() => fijarOrient(90)}>E–O</button>
             </span>
             <button style={btn} onClick={leerDelMapa} title="Leer medidas del polígono actual del mapa">↻ Leer del mapa</button>
             <button style={{ ...btn, ...(alineando ? { background: '#e0795b', color: '#fff', borderColor: '#e0795b', fontWeight: 'bold' } : { borderColor: '#e0795b', color: '#e0795b' }) }} onClick={() => setAlineando((v) => !v)} title="Haz 2 clics en el mapa a lo largo de la calle para adoptar su rumbo">{alineando ? '✕ Cancelar alineación' : '🎯 Alinear a la calle (2 clics)'}</button>
           </div>
           {alineando && <p style={{ fontSize: 12, color: '#e0795b', fontWeight: 'bold', margin: '0.4rem 0 0' }}>🎯 Haz <strong>2 clics</strong> en el mapa a lo largo de la cuadra (primero un extremo, luego el otro). La huella adoptará ese rumbo manteniendo su ancho×alto.</p>}
-          <p style={{ fontSize: 11, color: '#888', margin: '0.35rem 0 0' }}>Área ≈ <strong>{Math.round(huella.W * huella.H)} m²</strong>. Para <strong>alinear a la cuadra</strong>: usa <strong>🎯 Alinear a la calle</strong> (2 clics sobre la calle) o ajusta la <strong>orientación</strong> en grados (girar ±1°/±5°) hasta que la huella calce. «Aplicar» regenera el rectángulo centrado en su posición actual.</p>
+          <p style={{ fontSize: 11, color: 'var(--bp-muted)', margin: '0.35rem 0 0' }}>Área ≈ <strong>{Math.round(huella.W * huella.H)} m²</strong>. Para <strong>alinear a la cuadra</strong>: usa <strong>🎯 Alinear a la calle</strong> (2 clics sobre la calle) o ajusta la <strong>orientación</strong> en grados (girar ±1°/±5°) hasta que la huella calce. «Aplicar» regenera el rectángulo centrado en su posición actual.</p>
         </div>
       )}
 
-      {loading && <p style={{ color: '#666' }}>Cargando…</p>}
-      {!loading && sedes.length === 0 && <p style={{ color: '#666' }}>Sin sedes aún. Crea la primera arriba.</p>}
+      {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando…</p>}
+      {!loading && sedes.length === 0 && <p style={{ color: 'var(--bp-muted)' }}>Sin sedes aún. Crea la primera arriba.</p>}
       {sedes.map((s) => {
         const sel = s.id === selectedId;
         return (
@@ -140,12 +140,12 @@ export function VistaSedes({ proyectoId }: { proyectoId: string }) {
                 <button style={{ ...btn, color: '#a00' }} onClick={() => { if (confirm(`¿Eliminar sede "${s.nombre}" y su interior?`)) void eliminarSede(s.id).then(() => { if (selectedId === s.id) setSelectedId(null); cargar(); }); }}>Eliminar</button>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.4rem', fontSize: 12, color: '#666', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.4rem', fontSize: 12, color: 'var(--bp-muted)', alignItems: 'center' }}>
               <input style={{ ...inp, flex: 2, minWidth: 160, fontSize: 13 }} placeholder="Dirección" defaultValue={s.direccion ?? ''} onBlur={(e) => void setFoot(s.id, { direccion: e.target.value })} />
               <label>Huella ancho (m)<input style={{ ...inp, width: 80, marginLeft: 4, fontSize: 13 }} type="number" defaultValue={s.footAncho ?? 20} onBlur={(e) => void setFoot(s.id, { footAncho: Number(e.target.value) || 20 })} /></label>
               <label>alto (m)<input style={{ ...inp, width: 80, marginLeft: 4, fontSize: 13 }} type="number" defaultValue={s.footAlto ?? 15} onBlur={(e) => void setFoot(s.id, { footAlto: Number(e.target.value) || 15 })} /></label>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.4rem', fontSize: 12, color: '#666', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.4rem', fontSize: 12, color: 'var(--bp-muted)', alignItems: 'center' }}>
               <label>🏗️ ¿Ya hay instalaciones?
                 <select style={{ ...inp, width: 'auto', marginLeft: 4, fontSize: 13 }} value={s.existe === true ? 'si' : s.existe === false ? 'no' : ''} onChange={(e) => void setFoot(s.id, { existe: e.target.value === 'si' ? true : false })}>
                   <option value="">— definir —</option>
@@ -153,7 +153,7 @@ export function VistaSedes({ proyectoId }: { proyectoId: string }) {
                   <option value="no">No, por construir</option>
                 </select>
               </label>
-              {s.existe === true && <span style={{ color: '#2e7a4d' }}>→ escanéala con LiDAR en <strong>Editor 2D → 🧊 Ver 3D → 🏠 Subir escaneo</strong>; revisa <strong>📐 Reporte</strong>. Alimenta el plano Jurídico.</span>}
+              {s.existe === true && <span style={{ color: 'var(--bp-text)' }}>→ escanéala con LiDAR en <strong>Editor 2D → 🧊 Ver 3D → 🏠 Subir escaneo</strong>; revisa <strong>📐 Reporte</strong>. Alimenta el plano Jurídico.</span>}
               {s.existe === false && <span style={{ color: '#a67c00' }}>→ diséñala en el Editor 2D o con el Diseñador 3D antes de construir.</span>}
             </div>
           </div>

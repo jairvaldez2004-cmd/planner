@@ -71,7 +71,7 @@ export async function deshacerTodo(): Promise<number> {
 function suscribir(fn: () => void): () => void { subs.add(fn); return () => subs.delete(fn); }
 function leer(): number { return version; }
 
-const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
+const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
 const btnMini: CSSProperties = { ...btn, padding: '0.1rem 0.45rem', fontSize: 11.5 };
 
 // Botón ↩ + panel ▾ compartido. `onDespues` = recargar la vista tras revertir.
@@ -94,7 +94,7 @@ export function BotonDeshacer({ onDespues }: { onDespues: () => void }) {
         title="Elegir qué deshacer" onClick={() => setAbierto((v) => !v)}>▾</button>
 
       {abierto && pila.length > 0 && (
-        <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 40, background: '#fff', border: '1px solid #ccc', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', padding: '0.5rem', minWidth: 290, maxHeight: 340, overflowY: 'auto' }}>
+        <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 40, background: 'var(--bp-panel)', border: '1px solid var(--bp-border)', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', padding: '0.5rem', minWidth: 290, maxHeight: 340, overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <strong style={{ fontSize: 12.5 }}>Historial de cambios ({pila.length})</strong>
             <button style={{ ...btnMini, color: '#b33', borderColor: '#d99' }}
@@ -106,14 +106,14 @@ export function BotonDeshacer({ onDespues }: { onDespues: () => void }) {
             return (
               <div key={a.id}>
                 {encabezado && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '6px 0 2px', paddingTop: 4, borderTop: '1px solid #eee' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '6px 0 2px', paddingTop: 4, borderTop: '1px solid var(--bp-border)' }}>
                     <span style={{ fontSize: 11, color: '#7a4fbf', fontWeight: 'bold' }}>🤖 {a.grupo}</span>
                     <button style={{ ...btnMini, color: '#7a4fbf', borderColor: '#c9b3e8' }}
                       onClick={() => { setAbierto(false); void deshacerGrupo(a.grupo!).then(() => onDespues()); }}>↩ todo el turno</button>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, padding: '2px 0', paddingLeft: a.grupo ? 10 : 0 }}>
-                  <span style={{ fontSize: 12, color: '#444', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.descripcion}</span>
+                  <span style={{ fontSize: 12, color: 'var(--bp-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.descripcion}</span>
                   <button style={btnMini} title="Deshacer solo esta"
                     onClick={() => { void deshacerPor(a.id).then(() => onDespues()); }}>↩</button>
                 </div>

@@ -15,11 +15,11 @@ import type { RolPersona } from '@/app/actions/oferta.actions';
 import type { Oferta, Presentacion, Paso, Insumo, TipoEntregable, FasePaso, Disparador, TipoDisparador } from '@/domain/oferta';
 import { TIPOS_ENTREGABLE, FASES, etiquetaFase, rutaEfectiva, costearPresentacion } from '@/domain/oferta';
 
-const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 13 };
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
-const btnSm: CSSProperties = { padding: '0.15rem 0.5rem', borderRadius: 5, border: '1px solid #bbb', background: '#fff', cursor: 'pointer', fontSize: 12 };
-const card: CSSProperties = { border: '1px solid #ddd', borderRadius: 8, padding: '0.7rem 0.9rem', margin: '0.5rem 0', background: '#fafafa' };
-const lbl: CSSProperties = { display: 'block', fontSize: 11, color: '#666', marginBottom: 2 };
+const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 13 };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
+const btnSm: CSSProperties = { padding: '0.15rem 0.5rem', borderRadius: 5, border: '1px solid #bbb', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 12 };
+const card: CSSProperties = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.7rem 0.9rem', margin: '0.5rem 0', background: 'var(--bp-panel-alt)' };
+const lbl: CSSProperties = { display: 'block', fontSize: 11, color: 'var(--bp-muted)', marginBottom: 2 };
 
 // Animación del drag & drop de pasos (barra de inserción, arrastre suave, resaltado de fase).
 const DND_CSS = `
@@ -110,7 +110,7 @@ export function EditorOferta({ proyectoId, oferta, procesos = [], onVolver }: Pr
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h3 style={{ margin: 0 }}>🏷️ {oferta.nombre} <span style={{ fontSize: 12, color: '#888' }}>· Oferta</span></h3>
+        <h3 style={{ margin: 0 }}>🏷️ {oferta.nombre} <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>· Oferta</span></h3>
         <button style={btn} onClick={onVolver}>← Catálogo</button>
       </div>
 
@@ -129,12 +129,12 @@ export function EditorOferta({ proyectoId, oferta, procesos = [], onVolver }: Pr
       </div>
 
       {/* Ruta base */}
-      <div style={{ ...card, background: '#fff6f2', borderColor: '#e8c3b4' }}>
+      <div style={{ ...card, background: 'var(--bp-panel-alt)', borderColor: '#e8c3b4' }}>
         <style dangerouslySetInnerHTML={{ __html: DND_CSS }} />
         <datalist id="bp-roles">{Array.from(new Set(personas.map((p) => p.rol))).map((r, i) => <option key={i} value={r} />)}</datalist>
         <datalist id="bp-personas">{Array.from(new Set(personas.map((p) => p.persona).filter(Boolean))).map((p, i) => <option key={i} value={p} />)}</datalist>
         <strong style={{ fontSize: 14 }}>🛠️ Ruta base · cómo se entrega</strong>
-        <p style={{ fontSize: 12, color: '#777', margin: '0.2rem 0 0.5rem' }}>Arrastra <span style={{ color: '#a85b3d' }}>⠿</span> para reordenar los pasos o moverlos entre fases. Dentro de cada paso (▼ detalle) defines herramientas, roles y sus <strong>disparadores</strong> (qué lo inicia / qué lo termina y a qué proceso redirige). Cada presentación hereda la ruta.</p>
+        <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.2rem 0 0.5rem' }}>Arrastra <span style={{ color: '#a85b3d' }}>⠿</span> para reordenar los pasos o moverlos entre fases. Dentro de cada paso (▼ detalle) defines herramientas, roles y sus <strong>disparadores</strong> (qué lo inicia / qué lo termina y a qué proceso redirige). Cada presentación hereda la ruta.</p>
         {FASES.map((f) => {
           const pasos = rutaBase.filter((p) => p.fase === f.id);
           const faseOver = !!dragId && dragOverFase === f.id;
@@ -177,7 +177,7 @@ export function EditorOferta({ proyectoId, oferta, procesos = [], onVolver }: Pr
           {presentaciones.map((p) => (
             <button key={p.id} style={{ ...btnSm, ...(sel === p.id ? { background: '#33415c', color: '#fff', borderColor: '#33415c' } : {}) }} onClick={() => setSel(p.id)}>{p.nombre}</button>
           ))}
-          {presentaciones.length === 0 && <span style={{ fontSize: 12, color: '#999' }}>Sin presentaciones aún.</span>}
+          {presentaciones.length === 0 && <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>Sin presentaciones aún.</span>}
         </div>
 
         {selPres && <PresentacionEditor key={selPres.id} rutaBase={rutaBase} pres={selPres} onChange={changePres} onBlur={persistPres} onDelete={() => delPres(selPres.id)} />}
@@ -219,7 +219,7 @@ function PasoCard({ paso, onChange, onBlur, onDelete, dnd, procesos = [], selfId
       <div
         className="bp-paso"
         style={{
-          border: '1px solid #e3d2c8', borderRadius: 6, padding: '0.4rem 0.5rem', margin: '0.3rem 0', background: '#fff',
+          border: '1px solid #e3d2c8', borderRadius: 6, padding: '0.4rem 0.5rem', margin: '0.3rem 0', background: 'var(--bp-panel)',
           opacity: dnd?.isDragging ? 0.4 : 1,
           transform: dnd?.isDragging ? 'scale(0.98)' : 'none',
           boxShadow: dnd?.isDragging ? '0 10px 22px rgba(168,91,61,.22)' : 'none',
@@ -236,7 +236,7 @@ function PasoCard({ paso, onChange, onBlur, onDelete, dnd, procesos = [], selfId
               title="Arrastra para reordenar o mover de fase">⠿</span>
           )}
           <input style={{ ...inp, flex: 1 }} placeholder="Nombre del paso (ej. Seleccionar, Empacar…)" value={paso.nombre} onChange={(e) => set({ nombre: e.target.value })} onBlur={() => onBlur(paso)} />
-          {ds.length > 0 && <span title={`${ds.length} disparador(es)`} style={{ fontSize: 12, color: '#2b5a97' }}>🔀{ds.length}</span>}
+          {ds.length > 0 && <span title={`${ds.length} disparador(es)`} style={{ fontSize: 12, color: 'var(--bp-gold)' }}>🔀{ds.length}</span>}
           <button style={btnSm} onClick={() => setAbierto((v) => !v)}>{abierto ? '▲ detalle' : '▼ detalle'}</button>
           <button style={{ ...btnSm, color: '#a00' }} onClick={onDelete}>✕</button>
         </div>
@@ -254,7 +254,7 @@ function PasoCard({ paso, onChange, onBlur, onDelete, dnd, procesos = [], selfId
             {/* Disparadores de este paso */}
             <div style={{ gridColumn: '1 / -1', borderTop: '1px dashed #e3d2c8', paddingTop: '0.45rem', marginTop: '0.15rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ ...lbl, marginBottom: 0, color: '#2b5a97', fontWeight: 'bold' }}>🔀 Disparadores de este paso</span>
+                <span style={{ ...lbl, marginBottom: 0, color: 'var(--bp-gold)', fontWeight: 'bold' }}>🔀 Disparadores de este paso</span>
                 <span style={{ display: 'flex', gap: '0.3rem' }}>
                   <button style={btnSm} onClick={() => addDisp('inicio')}>＋ inicio</button>
                   <button style={btnSm} onClick={() => addDisp('fin')}>＋ fin</button>
@@ -268,7 +268,7 @@ function PasoCard({ paso, onChange, onBlur, onDelete, dnd, procesos = [], selfId
                     <option value="fin">⏹ fin</option>
                   </select>
                   <input style={{ ...inp, flex: 2, minWidth: 150 }} placeholder={d.tipo === 'inicio' ? 'Evento que inicia (ej. Cliente llega)' : 'Evento que termina (ej. Pago recibido)'} value={d.evento} onChange={(e) => updDisp(d.id, { evento: e.target.value })} onBlur={() => onBlur(paso)} />
-                  <span style={{ fontSize: 12, color: '#777' }}>→</span>
+                  <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>→</span>
                   <select style={{ ...inp, minWidth: 130 }} value={d.destinoOfertaId ?? ''} onChange={(e) => updDisp(d.id, { destinoOfertaId: e.target.value || undefined }, true)} title="Proceso al que redirige">
                     <option value="">(sin redirección)</option>
                     {procesos.filter((p) => p.id !== selfId).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
@@ -302,7 +302,7 @@ function PresentacionEditor({ rutaBase, pres, onChange, onBlur, onDelete }: { ru
   const c = costearPresentacion(rutaBase, pres);
 
   return (
-    <div style={{ border: '1px solid #33415c', borderRadius: 8, padding: '0.7rem 0.9rem', background: '#fff' }}>
+    <div style={{ border: '1px solid #33415c', borderRadius: 8, padding: '0.7rem 0.9rem', background: 'var(--bp-panel)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
         <input style={{ ...inp, fontWeight: 'bold', flex: 1, minWidth: 160 }} value={pres.nombre} onChange={(e) => set({ nombre: e.target.value })} onBlur={() => onBlur(pres)} />
         <button style={{ ...btnSm, color: '#a00' }} onClick={onDelete}>Eliminar presentación</button>
@@ -336,10 +336,10 @@ function PresentacionEditor({ rutaBase, pres, onChange, onBlur, onDelete }: { ru
           );
         })}
         {/* pasos extra */}
-        {pres.pasosExtra.length > 0 && <div style={{ fontSize: 11, color: '#33415c', margin: '0.4rem 0 0.2rem', fontWeight: 'bold' }}>Pasos exclusivos de esta presentación:</div>}
+        {pres.pasosExtra.length > 0 && <div style={{ fontSize: 11, color: 'var(--bp-text)', margin: '0.4rem 0 0.2rem', fontWeight: 'bold' }}>Pasos exclusivos de esta presentación:</div>}
         {pres.pasosExtra.map((p) => <PasoCard key={p.id} paso={p} onChange={changeExtra} onBlur={(pp) => { changeExtra(pp); onBlur({ ...pres, pasosExtra: pres.pasosExtra.map((x) => x.id === pp.id ? pp : x) }); }} onDelete={() => delExtra(p.id)} />)}
         <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.3rem' }}>
-          <span style={{ fontSize: 11, color: '#777', alignSelf: 'center' }}>＋ paso extra en:</span>
+          <span style={{ fontSize: 11, color: 'var(--bp-muted)', alignSelf: 'center' }}>＋ paso extra en:</span>
           {FASES.map((f) => <button key={f.id} style={btnSm} onClick={() => addExtra(f.id)}>{f.label.split('·')[1]?.trim() ?? f.id}</button>)}
         </div>
       </div>
@@ -350,7 +350,7 @@ function PresentacionEditor({ rutaBase, pres, onChange, onBlur, onDelete }: { ru
         <span>Costo insumos ruta: <strong>${c.costoInsumosRuta.toFixed(2)}</strong></span>
         <span>Costo total: <strong>${c.costoTotal.toFixed(2)}</strong></span>
         {c.margen !== undefined && <span style={{ color: c.margen >= 0 ? '#2e9e63' : '#c0392b' }}>Margen: <strong>${c.margen.toFixed(2)}</strong></span>}
-        <span style={{ color: '#777' }}>Tiempo ruta: <strong>{c.tiempoTotalMin} min</strong> · {efectiva.length} pasos</span>
+        <span style={{ color: 'var(--bp-muted)' }}>Tiempo ruta: <strong>{c.tiempoTotalMin} min</strong> · {efectiva.length} pasos</span>
       </div>
     </div>
   );
@@ -391,11 +391,11 @@ function RolesEditor({ roles, personas, onCommitRoles, onAsignarPersona }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
       {roles.map((r, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, background: '#efe9f6', color: morado, border: `1px solid ${morado}44`, borderRadius: 20, padding: '2px 4px 2px 9px', fontWeight: 'bold' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, background: 'var(--bp-panel-alt)', color: morado, border: `1px solid ${morado}44`, borderRadius: 20, padding: '2px 4px 2px 9px', fontWeight: 'bold' }}>
             {r}
             <button onClick={() => onCommitRoles(roles.filter((_, j) => j !== i))} style={{ border: 'none', background: 'none', color: morado, cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '0 3px' }} title="Quitar rol del paso">×</button>
           </span>
-          <span style={{ fontSize: 11, color: '#999' }}>→ persona</span>
+          <span style={{ fontSize: 11, color: 'var(--bp-muted)' }}>→ persona</span>
           <input list="bp-personas" key={`${r}|${personaDe(r)}`} defaultValue={personaDe(r)} placeholder="Asignar persona…"
             style={{ ...inp, width: 150, padding: '0.2rem 0.45rem' }}
             onBlur={(e) => { const v = e.target.value.trim(); if (v !== personaDe(r)) onAsignarPersona(r, v); }} />

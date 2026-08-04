@@ -26,7 +26,7 @@ import { materialAcabado } from './texturas';
 import { ChatArquitecto } from './chat-arquitecto';
 import { useEsMovil } from './use-movil';
 
-const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
+const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
 
 // Material por categoría de objeto (madera/metal/plástico aproximados).
 const MAT_OBJ: Record<string, { color: number; rough: number; metal: number }> = {
@@ -579,13 +579,13 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h3 style={{ margin: 0 }}>🧊 Vista 3D <span style={{ fontSize: 12.5, color: '#888' }}>· {sede.nombre} · arrastra para orbitar · rueda/pellizco = zoom</span></h3>
+        <h3 style={{ margin: 0 }}>🧊 Vista 3D <span style={{ fontSize: 12.5, color: 'var(--bp-muted)' }}>· {sede.nombre} · arrastra para orbitar · rueda/pellizco = zoom</span></h3>
         {onCerrar && <button style={btn} onClick={onCerrar}>← Editor 2D</button>}
       </div>
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', margin: '0.5rem 0' }}>
-        <span style={{ fontSize: 12, color: '#666' }}>Altura de muro</span>
+        <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>Altura de muro</span>
         <input type="range" min={0} max={3.5} step={0.1} value={muroAlt} onChange={(e) => setMuroAlt(Number(e.target.value))} />
-        <span style={{ fontSize: 12, color: '#666' }}>{muroAlt.toFixed(1)} m</span>
+        <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>{muroAlt.toFixed(1)} m</span>
         <button style={{ ...btn, background: modo === 'primera' ? '#8a4fbf' : '#fff', color: modo === 'primera' ? '#fff' : '#333', borderColor: modo === 'primera' ? '#8a4fbf' : '#999', fontWeight: 'bold' }}
           onClick={() => setModo((m) => m === 'primera' ? 'orbita' : 'primera')} title="Recorre el plano caminando (avatar en primera persona)">
           {modo === 'primera' ? '🔭 Vista órbita' : '🚶 Primera persona'}
@@ -615,7 +615,7 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
 
       <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(0, 1fr) 330px', gap: '0.75rem', alignItems: 'start' }}>
         <div>
-          <div ref={montRef} style={{ border: '1px solid #ddd', borderRadius: 10, overflow: 'hidden', lineHeight: 0, touchAction: 'none' }} />
+          <div ref={montRef} style={{ border: '1px solid var(--bp-border)', borderRadius: 10, overflow: 'hidden', lineHeight: 0, touchAction: 'none' }} />
 
           {/* controles de caminar (primera persona) — útiles en móvil */}
           {modo === 'primera' && (
@@ -629,27 +629,27 @@ export function Vista3D({ sede, espacios, objetos, elementos, footAncho, footAlt
                     onPointerCancel={() => fpKeys.current.delete(k)}>{label}</button>
                 ))}
               </div>
-              <span style={{ fontSize: 12, color: '#666' }}>🚶 Arrastra en la escena para <strong>mirar</strong> · <strong>WASD/flechas</strong> o estos botones para <strong>caminar</strong>. Estás a 1.6 m (altura de los ojos).</span>
+              <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>🚶 Arrastra en la escena para <strong>mirar</strong> · <strong>WASD/flechas</strong> o estos botones para <strong>caminar</strong>. Estás a 1.6 m (altura de los ojos).</span>
             </div>
           )}
 
           {/* panel de manipulación del objeto seleccionado */}
           {selObj && (
-            <div style={{ border: '1px solid #d7c9ee', background: '#f8f5fd', borderRadius: 10, padding: '0.5rem 0.7rem', marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ border: '1px solid #d7c9ee', background: 'var(--bp-panel-alt)', borderRadius: 10, padding: '0.5rem 0.7rem', marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <strong style={{ fontSize: 13 }}>◈ {selObj.nombre}</strong>
-              <span style={{ fontSize: 11, color: '#888' }}>({selObj.ancho}×{selObj.alto} m · {Math.round(selObj.rot)}°) — arrástralo en la escena para moverlo</span>
+              <span style={{ fontSize: 11, color: 'var(--bp-muted)' }}>({selObj.ancho}×{selObj.alto} m · {Math.round(selObj.rot)}°) — arrástralo en la escena para moverlo</span>
               <span style={{ flex: 1 }} />
               <button style={btn} title="Girar 90° a la izquierda" onClick={() => girar(-90)}>↺90</button>
               <button style={btn} title="Girar 15° a la izquierda" onClick={() => girar(-15)}>↺15</button>
               <button style={btn} title="Girar 15° a la derecha" onClick={() => girar(15)}>15↻</button>
               <button style={btn} title="Girar 90° a la derecha" onClick={() => girar(90)}>90↻</button>
-              <label style={{ fontSize: 11.5, color: '#666' }}>ancho <input style={{ width: 52, padding: '0.2rem 0.3rem', borderRadius: 5, border: '1px solid #ccc', fontSize: 12 }} type="number" step={0.1} defaultValue={selObj.ancho} onBlur={(e) => redimensionar('ancho', Number(e.target.value))} /></label>
-              <label style={{ fontSize: 11.5, color: '#666' }}>fondo <input style={{ width: 52, padding: '0.2rem 0.3rem', borderRadius: 5, border: '1px solid #ccc', fontSize: 12 }} type="number" step={0.1} defaultValue={selObj.alto} onBlur={(e) => redimensionar('alto', Number(e.target.value))} /></label>
+              <label style={{ fontSize: 11.5, color: 'var(--bp-muted)' }}>ancho <input style={{ width: 52, padding: '0.2rem 0.3rem', borderRadius: 5, border: '1px solid var(--bp-border)', fontSize: 12 }} type="number" step={0.1} defaultValue={selObj.ancho} onBlur={(e) => redimensionar('ancho', Number(e.target.value))} /></label>
+              <label style={{ fontSize: 11.5, color: 'var(--bp-muted)' }}>fondo <input style={{ width: 52, padding: '0.2rem 0.3rem', borderRadius: 5, border: '1px solid var(--bp-border)', fontSize: 12 }} type="number" step={0.1} defaultValue={selObj.alto} onBlur={(e) => redimensionar('alto', Number(e.target.value))} /></label>
               <button style={{ ...btn, color: '#b33', borderColor: '#d99' }} onClick={quitar}>🗑</button>
               <button style={btn} onClick={() => setSelId(null)}>✕</button>
             </div>
           )}
-          <p style={{ fontSize: 11.5, color: '#888', margin: '0.4rem 0 0' }}>
+          <p style={{ fontSize: 11.5, color: 'var(--bp-muted)', margin: '0.4rem 0 0' }}>
             Arrastra el fondo para orbitar · <strong>toca un objeto para seleccionarlo y arrástralo para moverlo</strong> · gíralo/redimensiónalo/elimínalo en el panel · o pídeselo al Diseñador en el chat.
           </p>
         </div>

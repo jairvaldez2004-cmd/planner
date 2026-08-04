@@ -9,9 +9,9 @@ import type { CSSProperties } from 'react';
 import type { MensajeChat, ImagenChat } from '@/adapters/ai/arquitecto-agent';
 import { conversarCurador } from '@/app/actions/arquitecto.actions';
 
-const card: CSSProperties = { border: '1px solid #ddd', borderRadius: 8, padding: '0.75rem 1rem', background: '#fff' };
-const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 14 };
-const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid #ccc' };
+const card: CSSProperties = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.75rem 1rem', background: 'var(--bp-panel)' };
+const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 14 };
+const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--bp-border)' };
 const burbuja = (rol: 'user' | 'assistant'): CSSProperties => ({
   alignSelf: rol === 'user' ? 'flex-end' : 'flex-start',
   background: rol === 'user' ? '#e8f0fe' : '#f1f1f1',
@@ -129,11 +129,11 @@ export function ChatArquitecto({ workspaceId, conversar, saludo, placeholder, ca
             <span key={i} style={{ position: 'relative', display: 'inline-block' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={`data:${f.mime};base64,${f.base64}`} alt={`adjunta ${i + 1}`} style={{ height: 44, borderRadius: 6, display: 'block' }} />
-              <button style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: 9, border: '1px solid #999', background: '#fff', fontSize: 10, lineHeight: '15px', cursor: 'pointer', padding: 0 }}
+              <button style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: 9, border: '1px solid #999', background: 'var(--bp-panel)', fontSize: 10, lineHeight: '15px', cursor: 'pointer', padding: 0 }}
                 title="Quitar esta foto" onClick={() => setFotos((fs) => fs.filter((_, j) => j !== i))}>✕</button>
             </span>
           ))}
-          <span style={{ fontSize: 11.5, color: '#666' }}>
+          <span style={{ fontSize: 11.5, color: 'var(--bp-muted)' }}>
             {fotos.length}/{MAX_FOTOS} — describe qué quieres de ellas.
           </span>
         </div>

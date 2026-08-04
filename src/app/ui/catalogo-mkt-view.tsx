@@ -16,7 +16,7 @@ const irA = (id: string) => document.getElementById(id)?.scrollIntoView({ behavi
 const sl = (s: string) => s.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
 
 const chip = (bg: string, fg: string): CSSProperties => ({ display: 'inline-block', background: bg, color: fg, borderRadius: 999, padding: '2px 10px', fontSize: 12, fontFamily: sans, fontWeight: 600, marginRight: 6 });
-const linkStyle: CSSProperties = { color: '#2b5a97', textDecoration: 'none' };
+const linkStyle: CSSProperties = { color: 'var(--bp-gold)', textDecoration: 'none' };
 
 // Botón "⬇ PDF" reusable. Marca .no-pdf para no aparecer dentro del propio PDF.
 function BotonPDF({ getEl, titulo, label = '⬇ PDF' }: { getEl: () => HTMLElement | null; titulo: string; label?: string }) {
@@ -25,7 +25,7 @@ function BotonPDF({ getEl, titulo, label = '⬇ PDF' }: { getEl: () => HTMLEleme
     <button
       className="no-print no-pdf"
       onClick={async () => { setBusy(true); try { await exportarElementoPDF(getEl(), titulo); } finally { setBusy(false); } }}
-      style={{ padding: '0.2rem 0.6rem', borderRadius: 6, border: '1px solid #b39', background: '#fff', color: '#8a1c6b', cursor: 'pointer', fontSize: 12, fontFamily: sans, whiteSpace: 'nowrap' }}
+      style={{ padding: '0.2rem 0.6rem', borderRadius: 6, border: '1px solid #b39', background: 'var(--bp-panel)', color: 'var(--bp-gold)', cursor: 'pointer', fontSize: 12, fontFamily: sans, whiteSpace: 'nowrap' }}
     >{busy ? '…' : label}</button>
   );
 }
@@ -35,11 +35,11 @@ function Tabla({ columnas, filas }: { columnas: { id: string; et: string }[]; fi
     <div style={{ overflowX: 'auto' }}>
       <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13.5, fontFamily: sans, margin: '0.4rem 0' }}>
         <thead>
-          <tr>{columnas.map((c) => <th key={c.id} style={{ textAlign: 'left', background: '#f3eefa', border: '1px solid #e3d9f0', padding: '5px 8px', color: '#5a3d78', fontSize: 12 }}>{c.et}</th>)}</tr>
+          <tr>{columnas.map((c) => <th key={c.id} style={{ textAlign: 'left', background: 'var(--bp-panel-alt)', border: '1px solid var(--bp-border)', padding: '5px 8px', color: 'var(--bp-gold)', fontSize: 12 }}>{c.et}</th>)}</tr>
         </thead>
         <tbody>
           {filas.map((f, i) => (
-            <tr key={i}>{columnas.map((c) => <td key={c.id} style={{ border: '1px solid #eee', padding: '5px 8px', verticalAlign: 'top' }}>{f[c.id] != null && f[c.id] !== '' ? String(f[c.id]) : '—'}</td>)}</tr>
+            <tr key={i}>{columnas.map((c) => <td key={c.id} style={{ border: '1px solid var(--bp-border)', padding: '5px 8px', verticalAlign: 'top' }}>{f[c.id] != null && f[c.id] !== '' ? String(f[c.id]) : '—'}</td>)}</tr>
           ))}
         </tbody>
       </table>
@@ -52,10 +52,10 @@ function FormatoNode({ fmt, idPrefix }: { fmt: FormatoMkt; idPrefix: string }) {
   const id = `${idPrefix}-fmt-${sl(fmt.id)}`;
   const ref = useRef<HTMLDivElement>(null);
   const Campo = ({ k, v }: { k: string; v?: string | undefined }) => v ? (
-    <div style={{ margin: '3px 0' }}><span style={{ color: '#8a7a4a', fontFamily: sans, fontSize: 12 }}>{k}: </span><span style={{ fontSize: 14 }}>{v}</span></div>
+    <div style={{ margin: '3px 0' }}><span style={{ color: 'var(--bp-muted)', fontFamily: sans, fontSize: 12 }}>{k}: </span><span style={{ fontSize: 14 }}>{v}</span></div>
   ) : null;
   return (
-    <div ref={ref} id={id} className="pdf-keep" style={{ borderLeft: '4px solid #d29', background: '#fffafd', borderRadius: '0 8px 8px 0', padding: '0.55rem 0.85rem', margin: '0.6rem 0 0.6rem 0.4rem' }}>
+    <div ref={ref} id={id} className="pdf-keep" style={{ borderLeft: '4px solid #d29', background: 'var(--bp-panel-alt)', borderRadius: '0 8px 8px 0', padding: '0.55rem 0.85rem', margin: '0.6rem 0 0.6rem 0.4rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={chip('#fce4f3', '#a01e77')}>🎬 Formato</span>
         <strong style={{ fontSize: 15.5, flex: 1 }}>{fmt.formato}</strong>
@@ -72,7 +72,7 @@ function FormatoNode({ fmt, idPrefix }: { fmt: FormatoMkt; idPrefix: string }) {
       {/* Guion profesional (tomas) */}
       {fmt.guion.length > 0 && (
         <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#7a2e63', fontFamily: sans, marginBottom: 2 }}>🎥 Guion — {fmt.guion.length} toma(s)</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--bp-gold)', fontFamily: sans, marginBottom: 2 }}>🎥 Guion — {fmt.guion.length} toma(s)</div>
           <Tabla
             columnas={[{ id: 'n', et: '#' }, { id: 'plano', et: 'Plano / Toma' }, { id: 'descripcion', et: 'Acción' }, { id: 'vozTexto', et: 'Voz / Texto' }, { id: 'duracion', et: 'Dur.' }, { id: 'audio', et: 'Audio' }]}
             filas={fmt.guion.map((t) => ({ n: t.n, plano: t.plano, descripcion: t.descripcion, vozTexto: t.vozTexto, duracion: t.duracion, audio: t.audio }))}
@@ -83,7 +83,7 @@ function FormatoNode({ fmt, idPrefix }: { fmt: FormatoMkt; idPrefix: string }) {
       {/* Minuta de producción (si aplica) */}
       {fmt.minuta && fmt.minuta.length > 0 && (
         <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#7a2e63', fontFamily: sans, marginBottom: 2 }}>📝 Minuta de producción — {fmt.minuta.length} punto(s)</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--bp-gold)', fontFamily: sans, marginBottom: 2 }}>📝 Minuta de producción — {fmt.minuta.length} punto(s)</div>
           <Tabla
             columnas={[{ id: 'momento', et: 'Momento' }, { id: 'tema', et: 'Tema' }, { id: 'responsable', et: 'Responsable' }, { id: 'acuerdo', et: 'Acuerdo / Entregable' }]}
             filas={fmt.minuta.map((m) => ({ momento: m.momento, tema: m.tema, responsable: m.responsable, acuerdo: m.acuerdo }))}
@@ -99,7 +99,7 @@ function CampanaNode({ camp, idPrefix }: { camp: CampanaMkt; idPrefix: string })
   const id = `${idPrefix}-camp-${sl(camp.id)}`;
   const ref = useRef<HTMLDivElement>(null);
   return (
-    <div ref={ref} id={id} style={{ border: '1px solid #eadff2', borderRadius: 10, padding: '0.7rem 0.9rem', margin: '0.7rem 0', background: '#fff' }}>
+    <div ref={ref} id={id} style={{ border: '1px solid var(--bp-border)', borderRadius: 10, padding: '0.7rem 0.9rem', margin: '0.7rem 0', background: 'var(--bp-panel)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={chip('#ede0fb', '#5a2ea6')}>📣 Campaña</span>
         <strong style={{ fontSize: 17, flex: 1 }}>{camp.nombre}</strong>
@@ -113,13 +113,13 @@ function CampanaNode({ camp, idPrefix }: { camp: CampanaMkt; idPrefix: string })
         {([['Objetivo', camp.objetivo], ['Mensaje / ángulo', camp.mensaje], ['Temporada', camp.temporada], ['Canal', camp.canal], ['Presupuesto', camp.presupuesto], ['KPI', camp.kpi]] as [string, string | undefined][])
           .filter(([, v]) => v).map(([k, v]) => (
             <div key={k} style={{ display: 'contents' }}>
-              <dt style={{ color: '#8a7a4a', fontSize: 12 }}>{k}</dt><dd style={{ margin: 0 }}>{v}</dd>
+              <dt style={{ color: 'var(--bp-muted)', fontSize: 12 }}>{k}</dt><dd style={{ margin: 0 }}>{v}</dd>
             </div>
           ))}
       </dl>
       {/* Índice de formatos */}
       {camp.formatos.length > 0 && (
-        <div style={{ fontSize: 12.5, color: '#777', fontFamily: sans, margin: '4px 0' }}>
+        <div style={{ fontSize: 12.5, color: 'var(--bp-muted)', fontFamily: sans, margin: '4px 0' }}>
           Formatos ({camp.formatos.length}):{' '}
           {camp.formatos.map((f, i) => (
             <span key={f.id}>{i > 0 ? ' · ' : ''}<a href="#" onClick={(e) => { e.preventDefault(); irA(`${idPrefix}-fmt-${sl(f.id)}`); }} style={linkStyle}>{f.formato}</a></span>
@@ -143,10 +143,10 @@ function ProductoNode({ prod, idPrefix, n }: { prod: ProductoMkt; idPrefix: stri
       </div>
       <div style={{ margin: '4px 0' }}>
         {prod.categoria && <span style={chip('#e7f6ec', '#1f7a45')}>{prod.categoria}</span>}
-        {prod.precio && <span style={chip('#f0f0f0', '#444')}>{prod.precio}</span>}
+        {prod.precio && <span style={chip('var(--bp-panel-alt)', 'var(--bp-muted)')}>{prod.precio}</span>}
       </div>
-      {prod.descripcion && <p style={{ fontSize: 14.5, color: '#333', margin: '4px 0 8px' }}>{prod.descripcion}</p>}
-      <div style={{ fontSize: 12.5, color: '#777', fontFamily: sans, marginBottom: 4 }}>
+      {prod.descripcion && <p style={{ fontSize: 14.5, color: 'var(--bp-text)', margin: '4px 0 8px' }}>{prod.descripcion}</p>}
+      <div style={{ fontSize: 12.5, color: 'var(--bp-muted)', fontFamily: sans, marginBottom: 4 }}>
         Campañas ({prod.campanas.length}):{' '}
         {prod.campanas.map((c, i) => (
           <span key={c.id}>{i > 0 ? ' · ' : ''}<a href="#" onClick={(e) => { e.preventDefault(); irA(`${idPrefix}-camp-${sl(c.id)}`); }} style={linkStyle}>{c.nombre}</a></span>
@@ -168,24 +168,24 @@ export function CatalogoMktCascada({ cat, idPrefix = 'mkt', empresa }: { cat: Ca
         <h2 style={{ fontSize: 25, margin: 0, flex: 1 }}>🗂️ Catálogo de Marketing (contenido por producto)</h2>
         <BotonPDF getEl={() => ref.current} titulo={`catalogo-marketing-${empresa ?? ''}`} label="⬇ PDF catálogo completo" />
       </div>
-      <div style={{ fontSize: 13, color: '#777', fontFamily: sans, marginBottom: 10 }}>
+      <div style={{ fontSize: 13, color: 'var(--bp-muted)', fontFamily: sans, marginBottom: 10 }}>
         {c.productos} productos · {c.campanas} campañas · {c.formatos} formatos · {c.tomas} tomas de guion · {c.minutas} minuta(s). Todo en cascada, sin nada oculto.
       </div>
 
       {/* Índice del catálogo (productos → campañas) */}
-      <nav style={{ background: '#faf7fd', border: '1px solid #ecdff5', borderRadius: 8, padding: '0.7rem 1.1rem', marginBottom: '1.2rem' }}>
-        <div style={{ fontSize: 12.5, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, color: '#7a5b96', marginBottom: 6, fontFamily: sans }}>Índice del catálogo</div>
+      <nav style={{ background: 'var(--bp-panel-alt)', border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.7rem 1.1rem', marginBottom: '1.2rem' }}>
+        <div style={{ fontSize: 12.5, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, color: 'var(--bp-muted)', marginBottom: 6, fontFamily: sans }}>Índice del catálogo</div>
         <ol style={{ margin: 0, paddingLeft: '1.3rem', fontSize: 14.5 }}>
           {cat.map((p) => (
             <li key={p.id} style={{ margin: '3px 0' }}>
               <a href="#" onClick={(e) => { e.preventDefault(); irA(`${idPrefix}-prod-${sl(p.id)}`); }} style={{ ...linkStyle, fontWeight: 600 }}>{p.producto}</a>
-              <span style={{ color: '#aaa', fontSize: 12.5, fontFamily: sans }}> — {p.campanas.length} campaña(s)</span>
+              <span style={{ color: 'var(--bp-faint)', fontSize: 12.5, fontFamily: sans }}> — {p.campanas.length} campaña(s)</span>
               {p.campanas.length > 0 && (
-                <ul style={{ margin: '2px 0', paddingLeft: '1.1rem', listStyle: 'circle', color: '#888' }}>
+                <ul style={{ margin: '2px 0', paddingLeft: '1.1rem', listStyle: 'circle', color: 'var(--bp-muted)' }}>
                   {p.campanas.map((c2) => (
                     <li key={c2.id} style={{ margin: '1px 0' }}>
                       <a href="#" onClick={(e) => { e.preventDefault(); irA(`${idPrefix}-camp-${sl(c2.id)}`); }} style={linkStyle}>{c2.nombre}</a>
-                      <span style={{ color: '#bbb', fontSize: 12 }}> · {c2.tipo}</span>
+                      <span style={{ color: 'var(--bp-faint)', fontSize: 12 }}> · {c2.tipo}</span>
                     </li>
                   ))}
                 </ul>

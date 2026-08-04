@@ -11,8 +11,8 @@ import { obtenerDetallePlano, guardarCampo, generarDocumentoDePlano } from '@/ap
 import type { DetallePlano } from '@/app/actions/especialista.actions';
 import type { DocumentoPlano } from '@/domain/plano-doc';
 
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
-const inp: CSSProperties = { padding: '0.4rem 0.55rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 13, width: '100%', boxSizing: 'border-box', resize: 'vertical' };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
+const inp: CSSProperties = { padding: '0.4rem 0.55rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 13, width: '100%', boxSizing: 'border-box', resize: 'vertical' };
 
 const EMOJI: Record<string, string> = {
   antropologia: '🔬', hallazgos: '🔎', segmentacion: '🎯', mapas: '🗺️',
@@ -46,22 +46,22 @@ export function VistaMarketing({ proyectoId }: { proyectoId: string }) {
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>📣 Marketing <span style={{ fontSize: 13, color: '#888' }}>· embudo del plan de marketing</span></h2>
+        <h2 style={{ margin: 0 }}>📣 Marketing <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· embudo del plan de marketing</span></h2>
         <button style={{ ...btn, borderColor: '#c95b7c', color: '#a03e5c' }} onClick={() => void generar()}>{genLoading ? '…' : '📄 Generar documento'}</button>
       </div>
-      <p style={{ fontSize: 12, color: '#777', margin: '0.3rem 0 0.8rem' }}>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.3rem 0 0.8rem' }}>
         El flujo va de la <strong>investigación antropológica</strong> al <strong>laboratorio de mercado</strong> (validar antes de gastar). Lo que escribes aquí ES el plano <strong>Marketing</strong>.
       </p>
 
-      {loading && <p style={{ color: '#666' }}>Cargando…</p>}
+      {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando…</p>}
 
       {doc && (
-        <div style={{ border: '1px solid #c95b7c', borderRadius: 10, background: '#fff', padding: '0.7rem', marginBottom: '0.8rem' }}>
+        <div style={{ border: '1px solid #c95b7c', borderRadius: 10, background: 'var(--bp-panel)', padding: '0.7rem', marginBottom: '0.8rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <strong>📄 Documento — {doc.titulo} <span style={{ color: doc.pendientes ? '#c60' : '#2e9e63', fontWeight: 'normal' }}>({doc.pendientes} pendientes / {doc.totalRequerido})</span></strong>
             <button style={btn} onClick={() => setDoc(null)}>Cerrar</button>
           </div>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, maxHeight: 320, overflow: 'auto', background: '#fafafa', padding: '0.6rem', borderRadius: 6, marginTop: '0.5rem', lineHeight: 1.5 }}>{doc.markup}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, maxHeight: 320, overflow: 'auto', background: 'var(--bp-panel-alt)', padding: '0.6rem', borderRadius: 6, marginTop: '0.5rem', lineHeight: 1.5 }}>{doc.markup}</pre>
         </div>
       )}
 
@@ -73,18 +73,18 @@ export function VistaMarketing({ proyectoId }: { proyectoId: string }) {
             const tref = b.tabla?.tablaRef;
             return (
               <div key={b.id}>
-                <div style={{ border: '1px solid #e6cdd6', borderLeft: '4px solid #c95b7c', borderRadius: 10, background: '#fff', padding: '0.7rem 0.85rem' }}>
+                <div style={{ border: '1px solid #e6cdd6', borderLeft: '4px solid #c95b7c', borderRadius: 10, background: 'var(--bp-panel)', padding: '0.7rem 0.85rem' }}>
                   <div style={{ fontWeight: 'bold', fontSize: 14, color: '#a03e5c' }}>{EMOJI[b.id] ?? '•'} {b.titulo}</div>
                   {tieneCampos && (b.campos ?? []).map((c) => (
                     <div key={c.id} style={{ marginTop: '0.5rem' }}>
-                      <label style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 2 }}>{c.pregunta}</label>
+                      <label style={{ fontSize: 12, color: 'var(--bp-muted)', display: 'block', marginBottom: 2 }}>{c.pregunta}</label>
                       <textarea style={inp} rows={2} defaultValue={campos[c.id] ?? ''} key={`${c.id}-${det.planoId}`}
                         placeholder="(vacío → PENDIENTE)"
                         onBlur={(e) => { if (e.target.value !== (campos[c.id] ?? '')) void editar(c.id, e.target.value); }} />
                     </div>
                   ))}
                   {tref && (
-                    <div style={{ marginTop: '0.5rem', fontSize: 12.5, color: '#555', background: '#fdf3f7', borderRadius: 8, padding: '0.4rem 0.55rem' }}>
+                    <div style={{ marginTop: '0.5rem', fontSize: 12.5, color: 'var(--bp-muted)', background: 'var(--bp-panel-alt)', borderRadius: 8, padding: '0.4rem 0.55rem' }}>
                       📊 {b.tabla!.etiqueta ?? tref}: <strong>{filasDe(tref)} filas</strong>. Edítalas por CSV en <strong>📄 Planos → Marketing</strong> (descarga/sube la plantilla).
                     </div>
                   )}

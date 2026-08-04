@@ -15,7 +15,7 @@ import { cargarConversacionWorkspace } from '@/app/actions/contexto.actions';
 import { ChatArquitecto } from './chat-arquitecto';
 import { useEsMovil } from './use-movil';
 
-const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 14 };
+const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 14 };
 
 const PALETA = ['#5b8def', '#e0795b', '#5bbf8a', '#b06be0', '#d9a23b', '#3bb0c9', '#cf5b8f'];
 function color(clase: string): string {
@@ -60,16 +60,16 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>{workspace.nombre} <span style={{ fontSize: 13, color: '#888' }}>· Curador + grafo</span></h2>
+        <h2 style={{ margin: 0 }}>{workspace.nombre} <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· Curador + grafo</span></h2>
         <button style={btn} onClick={onVolver}>← Workspaces</button>
       </div>
 
       {/* 2 columnas: Curador | Grafo (en celular: 1 columna, grafo abajo del chat) */}
       <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(320px, 5fr) 7fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
         {/* Curador */}
-        <div style={{ border: '1px solid #a5d6a7', borderRadius: 10, padding: '0.75rem', background: '#f6fff6' }}>
+        <div style={{ border: '1px solid #a5d6a7', borderRadius: 10, padding: '0.75rem', background: 'var(--bp-panel-alt)' }}>
           <strong style={{ fontSize: 14 }}>Curador del workspace</strong>
-          <p style={{ margin: '0.25rem 0 0.5rem', fontSize: 12, color: '#555' }}>
+          <p style={{ margin: '0.25rem 0 0.5rem', fontSize: 12, color: 'var(--bp-muted)' }}>
             Acomoda proyectos y cura el grafo: “renombra X a Y”, “relaciona X con Y”, “archiva X”, “mueve X al workspace Z”.
           </p>
           <ChatArquitecto
@@ -83,8 +83,8 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
         </div>
 
         {/* Grafo */}
-        <div style={{ border: '1px solid #eee', borderRadius: 10, background: '#fcfcfc', minHeight: 300 }}>
-          {loading && <p style={{ color: '#666', padding: '1rem' }}>Cargando grafo…</p>}
+        <div style={{ border: '1px solid var(--bp-border)', borderRadius: 10, background: 'var(--bp-panel-alt)', minHeight: 300 }}>
+          {loading && <p style={{ color: 'var(--bp-muted)', padding: '1rem' }}>Cargando grafo…</p>}
           {!loading && (
             <>
               <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
@@ -126,7 +126,7 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
                 })}
               </svg>
               {nodos.length === 0 && (
-                <p style={{ textAlign: 'center', color: '#666', paddingBottom: '1rem' }}>
+                <p style={{ textAlign: 'center', color: 'var(--bp-muted)', paddingBottom: '1rem' }}>
                   Sin proyectos aún. Habla con el Curador a la izquierda para acomodar el primero.
                 </p>
               )}
@@ -134,7 +134,7 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
           )}
         </div>
       </div>
-      <p style={{ fontSize: 13, color: '#888', marginTop: '0.5rem' }}>Clic en un nodo para entrar al proyecto. Líneas punteadas moradas = relaciones que creó el Curador.</p>
+      <p style={{ fontSize: 13, color: 'var(--bp-muted)', marginTop: '0.5rem' }}>Clic en un nodo para entrar al proyecto. Líneas punteadas moradas = relaciones que creó el Curador.</p>
     </section>
   );
 }

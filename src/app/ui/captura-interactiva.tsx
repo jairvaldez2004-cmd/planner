@@ -42,10 +42,10 @@ interface UICotizacion {
   productoSku: string; incoterm: Incoterm | ''; puerto: PuertoMX | ''; comisionPayer: CommissionPayer | '';
 }
 
-const card: CSSProperties = { border: '1px solid #ddd', borderRadius: 8, padding: '0.75rem 1rem', margin: '0.75rem 0', background: '#fafafa' };
+const card: CSSProperties = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.75rem 1rem', margin: '0.75rem 0', background: 'var(--bp-panel-alt)' };
 const row: CSSProperties = { display: 'flex', gap: '0.5rem', alignItems: 'center', margin: '0.35rem 0', flexWrap: 'wrap' };
-const lbl: CSSProperties = { minWidth: 130, fontSize: 14, color: '#333' };
-const btn: CSSProperties = { padding: '0.4rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer' };
+const lbl: CSSProperties = { minWidth: 130, fontSize: 14, color: 'var(--bp-text)' };
+const btn: CSSProperties = { padding: '0.4rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer' };
 
 function productoVacio(): UIProducto {
   return { sku: '', nombre: '', categoria: '', restriccion: 'general', destino: '', hsCode: '', incoterm: '', puerto: '', certificado: '', precioMonto: '', precioMoneda: '' };
@@ -239,7 +239,7 @@ export function CapturaInteractiva({ planoCargado, instanciaCargada }: Props) {
     <section>
       {/* Banner si es un plan cargado */}
       {planoCargado && (
-        <div style={{ background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: 8, padding: '0.5rem 1rem', marginBottom: '0.75rem', fontSize: 13 }}>
+        <div style={{ background: 'var(--bp-panel-alt)', border: '1px solid #a5d6a7', borderRadius: 8, padding: '0.5rem 1rem', marginBottom: '0.75rem', fontSize: 13 }}>
           Editando plano cargado: <strong>{planoCargado.id}</strong> · {planoCargado.publicado ? '✓ Publicado' : 'Draft'}
         </div>
       )}
@@ -384,9 +384,9 @@ export function CapturaInteractiva({ planoCargado, instanciaCargada }: Props) {
         </div>
       )}
       {pub && (
-        <div style={{ ...card, background: '#e8f5e9' }}>
+        <div style={{ ...card, background: 'var(--bp-panel-alt)' }}>
           <strong>Publicación (OS):</strong> publicado={pub.plano.publicado ? 'sí' : 'no'} · versión={pub.version}
-          <br/><span style={{ fontSize: 12, color: '#555' }}>ID: {pub.plano.id}</span>
+          <br/><span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>ID: {pub.plano.id}</span>
         </div>
       )}
       {historial.length > 0 && (

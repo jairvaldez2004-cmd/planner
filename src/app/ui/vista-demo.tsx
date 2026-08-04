@@ -13,8 +13,8 @@ import type { PlanoComExp } from '@/domain/plano-com-exp';
 import type { Documento } from '@/domain/documento';
 import type { VersionSnapshot } from '@/domain/version';
 
-const card = { border: '1px solid #ddd', borderRadius: 8, padding: '0.75rem 1rem', margin: '0.5rem 0', background: '#fafafa' } as const;
-const btn = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer' } as const;
+const card = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.75rem 1rem', margin: '0.5rem 0', background: 'var(--bp-panel-alt)' } as const;
+const btn = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer' } as const;
 
 type StepState = 'pending' | 'running' | 'ok' | 'error';
 interface Step { label: string; state: StepState; detail: string }
@@ -134,14 +134,14 @@ export function VistaDemo() {
 
   return (
     <section>
-      <p style={{ color: '#555', marginBottom: '1rem' }}>
+      <p style={{ color: 'var(--bp-muted)', marginBottom: '1rem' }}>
         Demostración completa del método: <strong>Captura → Draft → Validación → Publicación (OS) → Documento → Historial.</strong><br/>
         Datos etiquetados <strong>DEMO</strong>. Valores de negocio → PENDIENTE (no inventados).
         La demo crea y persiste en PostgreSQL local.
       </p>
 
       <button
-        style={{ ...btn, background: '#e8f5e9', fontWeight: 'bold', marginBottom: '1rem' }}
+        style={{ ...btn, background: 'var(--bp-panel-alt)', fontWeight: 'bold', marginBottom: '1rem' }}
         onClick={() => void ejecutarDemo()}
         disabled={running}
       >
@@ -154,7 +154,7 @@ export function VistaDemo() {
             <span style={{ color: stateColor(s.state), fontWeight: 'bold', fontSize: 16 }}>{stateIcon(s.state)}</span>
             <span style={{ fontWeight: s.state === 'ok' ? 'normal' : 'bold' }}>{s.label}</span>
           </div>
-          {s.detail && <div style={{ fontSize: 13, color: '#555', marginTop: '0.25rem', marginLeft: '1.5rem' }}>{s.detail}</div>}
+          {s.detail && <div style={{ fontSize: 13, color: 'var(--bp-muted)', marginTop: '0.25rem', marginLeft: '1.5rem' }}>{s.detail}</div>}
         </div>
       ))}
 
@@ -170,7 +170,7 @@ export function VistaDemo() {
             <strong>Pendientes en plano:</strong> {resultado.doc.pendientes}
           </div>
           <h4 style={{ marginTop: '1rem' }}>Markup del documento</h4>
-          <pre style={{ background: '#f5f5f5', padding: '1rem', borderRadius: 8, whiteSpace: 'pre-wrap', fontSize: 13 }}>
+          <pre style={{ background: 'var(--bp-panel-alt)', padding: '1rem', borderRadius: 8, whiteSpace: 'pre-wrap', fontSize: 13 }}>
             {resultado.doc.markup}
           </pre>
           <div style={card}>

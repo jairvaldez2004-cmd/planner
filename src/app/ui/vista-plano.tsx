@@ -19,8 +19,8 @@ import { superficiesDePlano, LABEL_SUPERFICIE } from '@/domain/proyeccion';
 import type { Readiness } from '@/app/readiness/readiness-engine';
 import { COLOR_ESTADO, LABEL_ESTADO } from '@/app/readiness/readiness-engine';
 
-const card: CSSProperties = { border: '1px solid #ddd', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0.4rem 0', background: '#fafafa' };
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
+const card: CSSProperties = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0.4rem 0', background: 'var(--bp-panel-alt)' };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
 const ENTREGA_ICON: Record<string, string> = { documento: '📄', tabla: '📊', diagrama: '🔀', dashboard: '📈' };
 
 interface Props { proyectoId: string; planoId: string; onVolver: () => void }
@@ -98,7 +98,7 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h2 style={{ margin: 0 }}>
           {ENTREGA_ICON[det?.entrega.tipo ?? 'documento']} {det?.nombre ?? planoId}
-          {det && <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>entrega: {det.entrega.tipo}</span>}
+          {det && <span style={{ fontSize: 12, color: 'var(--bp-muted)', marginLeft: 8 }}>entrega: {det.entrega.tipo}</span>}
         </h2>
         <div style={{ display: 'flex', gap: '0.4rem' }}>
           {det && <button style={{ ...btn, borderColor: '#8a4fbf', color: '#6a3aa0', fontWeight: 'bold' }} onClick={() => setVerDoc(true)}>📖 Documento</button>}
@@ -108,7 +108,7 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
       </div>
 
       {doc && (
-        <div style={{ ...card, background: '#fff', borderColor: '#3b86c9' }}>
+        <div style={{ ...card, background: 'var(--bp-panel)', borderColor: '#3b86c9' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
             <strong style={{ fontSize: 14 }}>
               📄 Documento — {doc.titulo}{' '}
@@ -121,11 +121,11 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
               <button style={btn} onClick={() => setDoc(null)}>Cerrar</button>
             </div>
           </div>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, maxHeight: 360, overflow: 'auto', background: '#fafafa', padding: '0.6rem', borderRadius: 6, marginTop: '0.5rem', lineHeight: 1.5 }}>{doc.markup}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, maxHeight: 360, overflow: 'auto', background: 'var(--bp-panel-alt)', padding: '0.6rem', borderRadius: 6, marginTop: '0.5rem', lineHeight: 1.5 }}>{doc.markup}</pre>
         </div>
       )}
 
-      {loading && <p style={{ color: '#666' }}>Cargando plano…</p>}
+      {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando plano…</p>}
       {!loading && !det && <p style={{ color: '#a00' }}>Este plano no tiene especialista configurado.</p>}
 
       {det && (
@@ -135,15 +135,15 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
             <span style={{ background: COLOR_ESTADO[estado], color: '#fff', borderRadius: 6, padding: '0.2rem 0.6rem', fontSize: 13, fontWeight: 'bold' }}>
               {LABEL_ESTADO[estado]}
             </span>
-            <span style={{ fontSize: 13, color: '#555' }}>Profundidad: <strong>{det.profundidad}</strong></span>
-            {r && <span style={{ fontSize: 13, color: '#555' }}>{r.cumplidoRequerido}/{r.totalRequerido} requeridos</span>}
-            <div style={{ flex: 1, minWidth: 120, height: 8, background: '#eee', borderRadius: 4, overflow: 'hidden' }}>
+            <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>Profundidad: <strong>{det.profundidad}</strong></span>
+            {r && <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>{r.cumplidoRequerido}/{r.totalRequerido} requeridos</span>}
+            <div style={{ flex: 1, minWidth: 120, height: 8, background: 'var(--bp-panel-alt)', borderRadius: 4, overflow: 'hidden' }}>
               <div style={{ width: `${Math.round((r?.progreso ?? 0) * 100)}%`, height: '100%', background: COLOR_ESTADO[estado] }} />
             </div>
           </div>
           {!det.seleccionado && <p style={{ color: '#a60', fontSize: 13 }}>⚠ Este plano NO fue seleccionado por el blueprint del proyecto. Puedes explorarlo, pero no es necesario.</p>}
           {superficiesDePlano(planoId).length > 0 && (
-            <p style={{ fontSize: 12.5, color: '#2f6b4d', background: '#eefaf2', border: '1px solid #bfe6cf', borderRadius: 8, padding: '0.4rem 0.6rem', margin: '0.3rem 0' }}>
+            <p style={{ fontSize: 12.5, color: 'var(--bp-text)', background: 'var(--bp-panel-alt)', border: '1px solid #bfe6cf', borderRadius: 8, padding: '0.4rem 0.6rem', margin: '0.3rem 0' }}>
               🔗 Este plano se <strong>enriquece automáticamente</strong> desde:{' '}
               {superficiesDePlano(planoId).map((s, i) => (
                 <span key={s.superficie}>{i > 0 ? ' · ' : ''}<strong>{LABEL_SUPERFICIE[s.superficie]}</strong> ({s.nota})</span>
@@ -153,9 +153,9 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
 
           <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(320px, 5fr) 7fr', gap: '1rem', alignItems: 'start', marginTop: '0.5rem' }}>
             {/* Izq: chat especialista */}
-            <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.75rem', background: '#f7f9ff' }}>
+            <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.75rem', background: 'var(--bp-panel-alt)' }}>
               <strong style={{ fontSize: 14 }}>Especialista · {det.nombre}</strong>
-              <p style={{ margin: '0.25rem 0 0.5rem', fontSize: 12, color: '#555' }}>{det.lenguajeTecnico}</p>
+              <p style={{ margin: '0.25rem 0 0.5rem', fontSize: 12, color: 'var(--bp-muted)' }}>{det.lenguajeTecnico}</p>
               <ChatEspecialista proyectoId={proyectoId} planoId={planoId} nombrePlano={det.nombre} onReadiness={setReadiness} altura={380} />
             </div>
 
@@ -167,14 +167,14 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
                   <strong style={{ fontSize: 13 }}>{b.titulo}</strong>
                   {(b.campos ?? []).map((c) => (
                     <div key={c.id} style={{ margin: '0.4rem 0' }}>
-                      <label style={{ fontSize: 12, color: '#555', display: 'block' }}>
-                        {c.pregunta} <span style={{ color: '#999' }}>· req. en {c.requeridoEn}</span>
+                      <label style={{ fontSize: 12, color: 'var(--bp-muted)', display: 'block' }}>
+                        {c.pregunta} <span style={{ color: 'var(--bp-muted)' }}>· req. en {c.requeridoEn}</span>
                       </label>
                       <textarea
                         defaultValue={det.campos[c.id] ?? ''}
                         onBlur={(e) => { if (e.target.value !== (det.campos[c.id] ?? '')) void editarCampo(c.id, e.target.value); }}
                         rows={2}
-                        style={{ width: '100%', fontSize: 13, padding: '0.35rem', borderRadius: 6, border: '1px solid #ccc', resize: 'vertical' }}
+                        style={{ width: '100%', fontSize: 13, padding: '0.35rem', borderRadius: 6, border: '1px solid var(--bp-border)', resize: 'vertical' }}
                         placeholder="(vacío → PENDIENTE)"
                       />
                     </div>
@@ -183,11 +183,11 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
               ))}
 
               {det.tablas.length > 0 && <h3 style={{ margin: '0.75rem 0 0.25rem' }}>Tablas (edítalas aquí o por CSV)</h3>}
-              {msgCsv && <p style={{ fontSize: 13, color: '#06c' }}>{msgCsv}</p>}
+              {msgCsv && <p style={{ fontSize: 13, color: 'var(--bp-gold)' }}>{msgCsv}</p>}
               {det.tablas.map((t) => (
                 <div key={t.tablaRef} style={card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
-                    <strong style={{ fontSize: 13 }}>{t.etiqueta} <span style={{ color: '#888', fontWeight: 'normal' }}>({t.filas.length} filas{t.proyectadas > 0 ? ` · ${t.proyectadas} 🔗 auto` : ''})</span></strong>
+                    <strong style={{ fontSize: 13 }}>{t.etiqueta} <span style={{ color: 'var(--bp-muted)', fontWeight: 'normal' }}>({t.filas.length} filas{t.proyectadas > 0 ? ` · ${t.proyectadas} 🔗 auto` : ''})</span></strong>
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
                       <button style={btn} onClick={() => void descargar(t.tablaRef)}>⬇ CSV</button>
                       <button style={btn} onClick={() => fileRefs.current[t.tablaRef]?.click()}>⬆ CSV</button>
@@ -197,7 +197,7 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
                   </div>
                   {/* Derivadas de superficies: solo lectura (se actualizan solas) */}
                   {t.derivadas.length > 0 && (
-                    <div style={{ margin: '0.3rem 0', fontSize: 11.5, color: '#2f6b4d', background: '#f2faf5', border: '1px solid #cfe8d8', borderRadius: 6, padding: '0.3rem 0.5rem' }}>
+                    <div style={{ margin: '0.3rem 0', fontSize: 11.5, color: 'var(--bp-text)', background: 'var(--bp-panel-alt)', border: '1px solid #cfe8d8', borderRadius: 6, padding: '0.3rem 0.5rem' }}>
                       🔗 <strong>{t.derivadas.length}</strong> fila(s) automáticas desde superficies (no se editan aquí):{' '}
                       {t.derivadas.slice(0, 4).map((f) => f[t.columnas[0]!.id]).filter(Boolean).join(' · ')}{t.derivadas.length > 4 ? '…' : ''}
                     </div>
@@ -209,9 +209,9 @@ export function VistaPlano({ proyectoId, planoId, onVolver }: Props) {
               ))}
 
               {r && r.faltanNivel.length > 0 && (
-                <div style={{ ...card, background: '#fff7e6', borderColor: '#ffd591' }}>
+                <div style={{ ...card, background: 'var(--bp-panel-alt)', borderColor: '#ffd591' }}>
                   <strong style={{ fontSize: 13 }}>Falta para publicar (nivel {det.profundidad})</strong>
-                  <ul style={{ margin: '0.25rem 0 0', paddingLeft: '1.1rem', fontSize: 12, color: '#7a5a00' }}>
+                  <ul style={{ margin: '0.25rem 0 0', paddingLeft: '1.1rem', fontSize: 12, color: 'var(--bp-text)' }}>
                     {r.faltanNivel.map((it, i) => <li key={i}>{it.etiqueta} <span style={{ color: '#aa8' }}>({it.tipo}, {it.nivel})</span></li>)}
                   </ul>
                 </div>
@@ -233,13 +233,13 @@ function TablaEditor({ columnas, manuales, onGuardar }: {
   const setCell = (i: number, colId: string, val: string) => setRows((rs) => rs.map((r, j) => j === i ? { ...r, [colId]: val } : r));
   const addRow = () => setRows((rs) => [...rs, {}]);
   const delRow = (i: number) => { const rs = rows.filter((_, j) => j !== i); setRows(rs); onGuardar(rs); };
-  const td: CSSProperties = { border: '1px solid #eee', padding: '1px 2px' };
+  const td: CSSProperties = { border: '1px solid var(--bp-border)', padding: '1px 2px' };
   const cell: CSSProperties = { width: '100%', fontSize: 12, padding: '0.2rem 0.3rem', border: 'none', boxSizing: 'border-box', background: 'transparent' };
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%' }}>
         <thead><tr>
-          {columnas.map((c) => <th key={c.id} style={{ border: '1px solid #ddd', padding: '2px 6px', background: '#f0f0f0', textAlign: 'left', fontSize: 11.5 }}>{c.etiqueta}{c.requerido ? ' *' : ''}</th>)}
+          {columnas.map((c) => <th key={c.id} style={{ border: '1px solid var(--bp-border)', padding: '2px 6px', background: 'var(--bp-panel-alt)', textAlign: 'left', fontSize: 11.5 }}>{c.etiqueta}{c.requerido ? ' *' : ''}</th>)}
           <th style={{ width: 22 }} />
         </tr></thead>
         <tbody>
@@ -260,10 +260,10 @@ function TablaEditor({ columnas, manuales, onGuardar }: {
               <td style={{ ...td, textAlign: 'center' }}><span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => delRow(i)}>×</span></td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={columnas.length + 1} style={{ ...td, color: '#999', padding: '4px 6px' }}>Sin filas manuales. Pulsa “＋ Fila” para agregar.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={columnas.length + 1} style={{ ...td, color: 'var(--bp-muted)', padding: '4px 6px' }}>Sin filas manuales. Pulsa “＋ Fila” para agregar.</td></tr>}
         </tbody>
       </table>
-      <button style={{ marginTop: 4, padding: '0.15rem 0.5rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 12 }} onClick={addRow}>＋ Fila</button>
+      <button style={{ marginTop: 4, padding: '0.15rem 0.5rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 12 }} onClick={addRow}>＋ Fila</button>
     </div>
   );
 }

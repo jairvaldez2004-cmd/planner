@@ -134,7 +134,7 @@ export default function MapaSedes({ sedes, selectedId, overlaySpaces, overlayObj
       const label = L.marker([cLat, cLng], {
         draggable: true,
         pmIgnore: true, // que Geoman NO gestione este marcador (evita 'getLatLngs is not a function')
-        icon: L.divIcon({ className: '', html: `<div style="background:#fff;border:1px solid #ccc;border-radius:4px;padding:1px 6px;font-size:12px;white-space:nowrap;cursor:move;box-shadow:0 1px 3px rgba(0,0,0,.25)">✥ ${s.nombre} · ${Math.round(areaM2)} m²${med ? ` · ∠${med.orient}°N` : ''}</div>`, iconSize: [0, 0] }),
+        icon: L.divIcon({ className: '', html: `<div style="background:#fff;border:1px solid var(--bp-border);border-radius:4px;padding:1px 6px;font-size:12px;white-space:nowrap;cursor:move;box-shadow:0 1px 3px rgba(0,0,0,.25)">✥ ${s.nombre} · ${Math.round(areaM2)} m²${med ? ` · ∠${med.orient}°N` : ''}</div>`, iconSize: [0, 0] }),
       }).addTo(capa);
       let orig: { start: L.LatLng; verts: [number, number][] } | null = null;
       label.on('dragstart', () => { orig = { start: label.getLatLng(), verts: poly.map((p) => [p[0], p[1]] as [number, number]) }; });
@@ -175,7 +175,7 @@ export default function MapaSedes({ sedes, selectedId, overlaySpaces, overlayObj
     }
   }, [sedes, selectedId, overlaySpaces, overlayObjetos]);
 
-  return <div ref={contRef} style={{ width: '100%', height: 400, borderRadius: 10, overflow: 'hidden', border: '1px solid #ddd' }} />;
+  return <div ref={contRef} style={{ width: '100%', height: 400, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--bp-border)' }} />;
 }
 
 // rectángulo (4 esquinas lat/lng) derivado de la huella ancho×alto de una sede sin polígono propio.
@@ -226,7 +226,7 @@ function dibujarOverlay(capa: L.LayerGroup, poly: [number, number][], s: Sede, e
   }
   for (const e of espacios) {
     const pts = (e.poligono && e.poligono.length >= 3) ? e.poligono : esquinasDe(e);
-    L.polygon(pts.map(aLL), { color: '#33415c', weight: 1, fillColor: '#5b8def', fillOpacity: 0.22, pmIgnore: true }).addTo(capa).bindTooltip(e.nombre);
+    L.polygon(pts.map(aLL), { color: 'var(--bp-text)', weight: 1, fillColor: '#5b8def', fillOpacity: 0.22, pmIgnore: true }).addTo(capa).bindTooltip(e.nombre);
   }
   // los objetos también, para que el mapa muestre el layout TAL COMO ESTÁ
   for (const o of objetos) {

@@ -16,9 +16,9 @@ import {
 
 const RESTRICCIONES: RestriccionCarga[] = ['general', 'hazmat', 'perecedero', 'automotriz', 'ganado', 'granel'];
 
-const card: CSSProperties = { border: '1px solid #ddd', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0.4rem 0', background: '#fafafa' };
-const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
-const inp: CSSProperties = { padding: '0.3rem 0.5rem', borderRadius: 6, border: '1px solid #ccc' };
+const card: CSSProperties = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0.4rem 0', background: 'var(--bp-panel-alt)' };
+const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
+const inp: CSSProperties = { padding: '0.3rem 0.5rem', borderRadius: 6, border: '1px solid var(--bp-border)' };
 
 interface Props {
   onPlanoCreado: (planoId: string) => void;
@@ -128,23 +128,23 @@ export function VistaCatalogo({ onPlanoCreado }: Props) {
 
   return (
     <section>
-      <p style={{ color: '#555', fontSize: 14 }}>
+      <p style={{ color: 'var(--bp-muted)', fontSize: 14 }}>
         <strong>Catálogo maestro compartido.</strong> Fuente única de productos — Salem, Magno y futuros planos
         seleccionan de aquí sin re-teclear. El plano toma su snapshot inmutable al crearse.
       </p>
 
       {productos.length === 0 && !loading && (
-        <div style={{ ...card, background: '#f0f7ff', borderColor: '#b3d4f7' }}>
+        <div style={{ ...card, background: 'var(--bp-panel-alt)', borderColor: '#b3d4f7' }}>
           El catálogo está vacío. <button style={btn} onClick={() => void onSembrar()} disabled={busy}>Sembrar catálogo maestro (22 productos)</button>
         </div>
       )}
 
       {/* Crear plano desde selección */}
-      <div style={{ ...card, background: '#e8f5e9', borderColor: '#a5d6a7' }}>
+      <div style={{ ...card, background: 'var(--bp-panel-alt)', borderColor: '#a5d6a7' }}>
         <strong>Crear plano COM-EXP desde el catálogo</strong>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.4rem' }}>
           <input style={{ ...inp, flex: 1, minWidth: 180 }} placeholder="Entidad del plano (p. ej. Salem Solutions)" value={entidad} onChange={(e) => setEntidad(e.target.value)} />
-          <button style={{ ...btn, background: '#fff' }} onClick={() => void onCrearPlano()} disabled={busy || seleccion.size === 0}>
+          <button style={{ ...btn, background: 'var(--bp-panel)' }} onClick={() => void onCrearPlano()} disabled={busy || seleccion.size === 0}>
             Crear plano con seleccionados ({seleccion.size})
           </button>
         </div>
@@ -176,7 +176,7 @@ export function VistaCatalogo({ onPlanoCreado }: Props) {
 
       {msg && <p style={{ color: '#0a5', margin: '0.25rem 0' }}>{msg}</p>}
 
-      <p style={{ fontSize: 13, color: '#666' }}>{filtrados.length} de {productos.length} producto(s)</p>
+      <p style={{ fontSize: 13, color: 'var(--bp-muted)' }}>{filtrados.length} de {productos.length} producto(s)</p>
 
       {filtrados.map((p) => {
         const op = [p.unidad, p.empaque, p.presentacion, p.cantidadMinima].filter((x) => x && x.trim() !== '').length;
@@ -185,8 +185,8 @@ export function VistaCatalogo({ onPlanoCreado }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
               <input type="checkbox" checked={seleccion.has(p.id)} onChange={() => toggle(p.id)} />
               <div style={{ flex: 1, minWidth: 200 }}>
-                <strong>{p.nombre}</strong> <span style={{ fontSize: 12, color: '#888' }}>· {p.sku}</span>
-                <div style={{ fontSize: 12, color: '#666' }}>categoría: {p.categoria} · restricción: {p.restriccion}</div>
+                <strong>{p.nombre}</strong> <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>· {p.sku}</span>
+                <div style={{ fontSize: 12, color: 'var(--bp-muted)' }}>categoría: {p.categoria} · restricción: {p.restriccion}</div>
                 <div style={{ fontSize: 12, color: op === 4 ? '#0a5' : '#a60' }}>
                   operativos: {op === 0 ? 'sin definir (PENDIENTE)' : `${op}/4`}
                   {p.unidad ? ` · unidad: ${p.unidad}` : ''}{p.empaque ? ` · empaque: ${p.empaque}` : ''}
@@ -204,7 +204,7 @@ export function VistaCatalogo({ onPlanoCreado }: Props) {
                 <input style={{ ...inp, width: 180 }} placeholder="Empaque (sacos 25 kg…)" value={eEmpaque} onChange={(e) => setEEmpaque(e.target.value)} />
                 <input style={{ ...inp, width: 160 }} placeholder="Presentación (entero…)" value={ePresentacion} onChange={(e) => setEPresentacion(e.target.value)} />
                 <input style={{ ...inp, width: 170 }} placeholder="Cant. mínima (1 contenedor…)" value={eCantMin} onChange={(e) => setECantMin(e.target.value)} />
-                <button style={{ ...btn, background: '#e8f5e9' }} onClick={() => void onGuardarOperativo(p.id)} disabled={busy}>Guardar</button>
+                <button style={{ ...btn, background: 'var(--bp-panel-alt)' }} onClick={() => void onGuardarOperativo(p.id)} disabled={busy}>Guardar</button>
               </div>
             )}
           </div>

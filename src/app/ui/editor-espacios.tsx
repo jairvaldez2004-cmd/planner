@@ -31,9 +31,9 @@ import { MAX_GLB_BYTES } from '@/domain/render';
 import { useEsMovil } from './use-movil';
 
 const VBW = 900, VBH = 600;
-const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
-const inp: CSSProperties = { padding: '0.35rem 0.5rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 13, width: '100%' };
-const lbl: CSSProperties = { display: 'block', fontSize: 11, color: '#666', marginTop: '0.4rem' };
+const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
+const inp: CSSProperties = { padding: '0.35rem 0.5rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 13, width: '100%' };
+const lbl: CSSProperties = { display: 'block', fontSize: 11, color: 'var(--bp-muted)', marginTop: '0.4rem' };
 
 // Etiqueta de medida sobre el lienzo (fondo claro para legibilidad).
 function Etiqueta({ x, y, text }: { x: number; y: number; text: string }) {
@@ -288,13 +288,13 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
 
       {/* Lentes */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', margin: '0.5rem 0' }}>
-        <span style={{ fontSize: 13, color: '#555' }}>Alimentando:</span>
+        <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>Alimentando:</span>
         {LENTES.map((l) => (<button key={l.id} onClick={() => setLenteId(l.id)} style={{ ...btn, borderColor: l.color, background: lenteId === l.id ? l.color : '#fff', color: lenteId === l.id ? '#fff' : '#333', fontWeight: lenteId === l.id ? 'bold' : 'normal' }}>{l.etiqueta}</button>))}
       </div>
 
       {/* Herramienta */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.4rem' }}>
-        <span style={{ fontSize: 13, color: '#555' }}>Herramienta:</span>
+        <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>Herramienta:</span>
         {MODOS.map((m) => (<button key={m.id} onClick={() => { setModo(m.id); setPend(null); setRoomPts([]); }} style={{ ...btn, background: modo === m.id ? '#1a1a1a' : '#fff', color: modo === m.id ? '#fff' : '#333', fontWeight: modo === m.id ? 'bold' : 'normal' }}>{m.label}</button>))}
         {(modo === 'muro' || modo === 'puerta' || modo === 'ventana') && <span style={{ fontSize: 12, color: '#a60' }}>Clic inicio → clic fin. {pend ? '(inicio puesto)' : ''}</span>}
         {modo === 'habitacion' && <>
@@ -306,7 +306,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
 
       {/* Nivel + agregar */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.5rem' }}>
-        <span style={{ fontSize: 13, color: '#555' }}>Nivel:</span>
+        <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>Nivel:</span>
         {capas.map((c) => <button key={c} style={{ ...btn, background: capa === c ? '#1a1a1a' : '#fff', color: capa === c ? '#fff' : '#333' }} onClick={() => setCapa(c)}>{etiquetaNivel(c)}</button>)}
         <button style={btn} onClick={() => setCapa(Math.max(...capas) + 1)}>＋ piso</button>
         <button style={btn} onClick={() => setCapa(Math.min(...capas) - 1)}>＋ sótano</button>
@@ -317,7 +317,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : '8fr 4fr', gap: '1rem', alignItems: 'start' }}>
-        <div style={{ border: '1px solid #ddd', borderRadius: 10, background: '#fcfcfc' }}>
+        <div style={{ border: '1px solid var(--bp-border)', borderRadius: 10, background: 'var(--bp-panel-alt)' }}>
           <svg ref={svgRef} viewBox={`0 0 ${VBW} ${VBH}`} style={{ width: '100%', height: 'auto', display: 'block', cursor: modo !== 'sel' ? 'crosshair' : (drag || dragEl ? 'grabbing' : 'default') }}
             onMouseMove={moverDrag} onMouseUp={() => void soltarDrag()} onMouseLeave={() => void soltarDrag()}>
             <rect x={0} y={0} width={VBW} height={VBH} fill="#f2f2f2" onMouseDown={() => modo === 'sel' && setSel(null)} />
@@ -422,18 +422,18 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
             {/* overlay de captura en modos de dibujo */}
             {modo !== 'sel' && <rect x={0} y={0} width={VBW} height={VBH} fill="#000" fillOpacity={0} style={{ pointerEvents: 'all', cursor: 'crosshair' }} onMouseMove={(e) => setCursor(metros(e))} onMouseDown={(e) => void lienzoDown(e)} onDoubleClick={() => { if (modo === 'habitacion') void cerrarHabitacion(); }} />}
           </svg>
-          <p style={{ fontSize: 12, color: '#888', padding: '0 0.75rem 0.5rem' }}>Nivel: <strong>{etiquetaNivel(capa)}</strong> · huella {footAncho.toFixed(1)}×{footAlto.toFixed(1)} m · 1 cuadro = 1 m. Dibuja muros/puertas/ventanas (puertas y ventanas = huecos) o una habitación poligonal; en Seleccionar arrastra áreas/objetos y los <strong>extremos</strong> de un muro seleccionado.</p>
+          <p style={{ fontSize: 12, color: 'var(--bp-muted)', padding: '0 0.75rem 0.5rem' }}>Nivel: <strong>{etiquetaNivel(capa)}</strong> · huella {footAncho.toFixed(1)}×{footAlto.toFixed(1)} m · 1 cuadro = 1 m. Dibuja muros/puertas/ventanas (puertas y ventanas = huecos) o una habitación poligonal; en Seleccionar arrastra áreas/objetos y los <strong>extremos</strong> de un muro seleccionado.</p>
         </div>
 
         {/* Panel */}
-        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: '0.75rem', background: '#fafafa', minHeight: 200 }}>
-          {!sel && <p style={{ color: '#666', fontSize: 13 }}>Selecciona un elemento en el lienzo para editar su ficha.<br />Lente activa: <strong style={{ color: lente.color }}>{lente.etiqueta}</strong>.</p>}
+        <div style={{ border: '1px solid var(--bp-border)', borderRadius: 10, padding: '0.75rem', background: 'var(--bp-panel-alt)', minHeight: 200 }}>
+          {!sel && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Selecciona un elemento en el lienzo para editar su ficha.<br />Lente activa: <strong style={{ color: lente.color }}>{lente.etiqueta}</strong>.</p>}
           {selEspacio && <FichaEspacio key={selEspacio.id} espacio={selEspacio} ucs={ucs} lenteId={lenteId} onCambio={cargar} onEliminar={async () => { registrarEliminarEspacio(selEspacio); await eliminarEspacio(selEspacio.id); setSel(null); cargar(); }} />}
           {selObjeto && <FichaObjeto key={selObjeto.id} objeto={selObjeto} espacios={espacios} lenteId={lenteId} proyectoId={proyectoId} tieneModelo={conModelo.has(selObjeto.id)} onCambio={cargar} onEliminar={async () => { registrarEliminarObjeto(selObjeto); await eliminarObjeto(selObjeto.id); setSel(null); cargar(); }} />}
           {selElemento && (
             <div>
               <strong style={{ fontSize: 14 }}>{ESTILO_ELEMENTO[selElemento.tipo].label}</strong>
-              <p style={{ fontSize: 13, color: '#666', margin: '0.3rem 0' }}>Longitud: <strong>{Math.hypot(selElemento.x2 - selElemento.x1, selElemento.y2 - selElemento.y1).toFixed(2)} m</strong> · arrastra los círculos naranjas para editar sus extremos.</p>
+              <p style={{ fontSize: 13, color: 'var(--bp-muted)', margin: '0.3rem 0' }}>Longitud: <strong>{Math.hypot(selElemento.x2 - selElemento.x1, selElemento.y2 - selElemento.y1).toFixed(2)} m</strong> · arrastra los círculos naranjas para editar sus extremos.</p>
               <button style={{ ...btn, color: '#a00' }} onClick={async () => {
                 const el = selElemento;
                 registrarDeshacer(`eliminar ${ESTILO_ELEMENTO[el.tipo].label.toLowerCase()}`, async () => {
@@ -446,7 +446,7 @@ export function EditorEspacios({ proyectoId, sedeId, onVolver }: { proyectoId: s
           <div style={{ marginTop: '1rem', borderTop: '1px solid #e3e3e3', paddingTop: '0.5rem', fontSize: 13 }}>
             <strong>💰 Costeo de la sede</strong>
             <div style={{ color: '#2e9e63', fontSize: 18, fontWeight: 'bold' }}>${costeo.total.toLocaleString()}</div>
-            <div style={{ color: '#777', fontSize: 12 }}>objetos ${costeo.objetos.toLocaleString()} · espacios ${costeo.espacios.toLocaleString()}</div>
+            <div style={{ color: 'var(--bp-muted)', fontSize: 12 }}>objetos ${costeo.objetos.toLocaleString()} · espacios ${costeo.espacios.toLocaleString()}</div>
           </div>
         </div>
       </div>
@@ -470,14 +470,14 @@ function FichaEspacio({ espacio, ucs, lenteId, onCambio, onEliminar }: { espacio
         {TIPOS_ESPACIO.map((t) => <option key={t} value={t}>{t}</option>)}
       </select>
       {esPoligono
-        ? <div style={{ fontSize: 12, color: '#777', marginTop: '0.4rem' }}>Polígono de {espacio.poligono!.length} vértices · bbox {espacio.ancho}×{espacio.alto} m (arrastra la habitación para moverla).</div>
+        ? <div style={{ fontSize: 12, color: 'var(--bp-muted)', marginTop: '0.4rem' }}>Polígono de {espacio.poligono!.length} vértices · bbox {espacio.ancho}×{espacio.alto} m (arrastra la habitación para moverla).</div>
         : <div style={{ display: 'flex', gap: '0.4rem' }}>
             <div style={{ flex: 1 }}><label style={lbl}>Ancho (m)</label><input style={inp} type="number" defaultValue={espacio.ancho} onBlur={(e) => void actualizarEspacio(espacio.id, { ancho: Number(e.target.value) || espacio.ancho }).then(onCambio)} /></div>
             <div style={{ flex: 1 }}><label style={lbl}>Alto (m)</label><input style={inp} type="number" defaultValue={espacio.alto} onBlur={(e) => void actualizarEspacio(espacio.id, { alto: Number(e.target.value) || espacio.alto }).then(onCambio)} /></div>
           </div>}
       <Giro rot={espacio.rot} onCambio={(rot) => void actualizarEspacio(espacio.id, { rot }).then(onCambio)} />
       <label style={lbl}>Unidades Comerciales asignadas</label>
-      {ucs.length === 0 && <div style={{ fontSize: 12, color: '#999' }}>(crea UCs en el proyecto)</div>}
+      {ucs.length === 0 && <div style={{ fontSize: 12, color: 'var(--bp-muted)' }}>(crea UCs en el proyecto)</div>}
       {ucs.map((uc) => (
         <label key={uc.id} style={{ display: 'block', fontSize: 13 }}>
           <input type="checkbox" checked={ucIds.includes(uc.id)} onChange={(e) => { const next = e.target.checked ? [...ucIds, uc.id] : ucIds.filter((x) => x !== uc.id); setUcIds(next); void actualizarEspacio(espacio.id, { ucIds: next }).then(onCambio); }} /> {uc.nombre}
@@ -560,7 +560,7 @@ function Giro({ rot, onCambio }: { rot: number; onCambio: (rot: number) => void 
         <button style={btn} title="Girar 90° a la derecha" onClick={() => set(rot + 90)}>↻</button>
         <button style={btn} title="Volver a 0°" onClick={() => set(0)}>⌐</button>
       </div>
-      <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>También puedes arrastrar la manija morada del lienzo (Shift = imantar a 15°).</div>
+      <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2 }}>También puedes arrastrar la manija morada del lienzo (Shift = imantar a 15°).</div>
     </>
   );
 }

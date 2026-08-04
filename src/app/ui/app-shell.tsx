@@ -14,7 +14,7 @@ import { VistaConfig } from './vista-config';
 
 type Vista = 'workspaces' | 'grafo' | 'proyecto' | 'config';
 
-const crumb: CSSProperties = { cursor: 'pointer', color: '#06c' };
+const crumb: CSSProperties = { cursor: 'pointer', color: 'var(--bp-gold)' };
 const sep: CSSProperties = { color: '#bbb', margin: '0 0.4rem' };
 
 export function AppShell() {
@@ -32,7 +32,7 @@ export function AppShell() {
   return (
     <div>
       {/* Breadcrumbs + acceso a Configuración */}
-      <nav style={{ fontSize: 14, marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <nav style={{ fontSize: 14, marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid var(--bp-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>
           <span style={vista === 'workspaces' ? { fontWeight: 'bold' } : crumb} onClick={irWorkspaces}>Workspaces</span>
           {workspace && (

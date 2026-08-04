@@ -5,8 +5,8 @@ import { listarPlanos, listarHistorial, restaurarVersion } from '@/app/actions/p
 import type { PlanoComExp } from '@/domain/plano-com-exp';
 import type { VersionSnapshot } from '@/domain/version';
 
-const card = { border: '1px solid #ddd', borderRadius: 8, padding: '0.75rem 1rem', margin: '0.5rem 0', background: '#fafafa' } as const;
-const btn = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 } as const;
+const card = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.75rem 1rem', margin: '0.5rem 0', background: 'var(--bp-panel-alt)' } as const;
+const btn = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 } as const;
 const row = { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' as const };
 
 interface Props {
@@ -59,7 +59,7 @@ export function VistaVersiones({ planoIdInicial, onRestaurado }: Props) {
         <select
           value={planoSel}
           onChange={(e) => setPlanoSel(e.target.value)}
-          style={{ padding: '0.3rem 0.5rem', borderRadius: 6, border: '1px solid #ccc', flex: 1, minWidth: 200 }}
+          style={{ padding: '0.3rem 0.5rem', borderRadius: 6, border: '1px solid var(--bp-border)', flex: 1, minWidth: 200 }}
         >
           <option value="">(seleccionar plano)</option>
           {planos.map((p) => (
@@ -72,10 +72,10 @@ export function VistaVersiones({ planoIdInicial, onRestaurado }: Props) {
 
       {msg && <p style={{ color: '#0a5', margin: '0.25rem 0' }}>{msg}</p>}
 
-      {loading && <p style={{ color: '#666' }}>Cargando historial…</p>}
+      {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando historial…</p>}
 
       {!loading && planoSel && historial.length === 0 && (
-        <p style={{ color: '#666' }}>Este plano no tiene versiones publicadas aún.</p>
+        <p style={{ color: 'var(--bp-muted)' }}>Este plano no tiene versiones publicadas aún.</p>
       )}
 
       {historial.map((snap) => (
@@ -89,9 +89,9 @@ export function VistaVersiones({ planoIdInicial, onRestaurado }: Props) {
                 {snap.publicado ? 'publicado' : 'draft'}
               </span>
             </div>
-            <span style={{ fontSize: 12, color: '#888' }}>{snap.timestamp.slice(0, 19).replace('T', ' ')}</span>
+            <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>{snap.timestamp.slice(0, 19).replace('T', ' ')}</span>
           </div>
-          <div style={{ fontSize: 13, color: '#555', margin: '0.25rem 0' }}>
+          <div style={{ fontSize: 13, color: 'var(--bp-muted)', margin: '0.25rem 0' }}>
             {snap.plano.productos.length} producto(s) · {snap.plano.cotizaciones.length} cotización(es)
           </div>
           <div style={{ ...row, marginTop: '0.4rem' }}>
@@ -107,7 +107,7 @@ export function VistaVersiones({ planoIdInicial, onRestaurado }: Props) {
       ))}
 
       {!planoSel && !loading && (
-        <p style={{ color: '#666' }}>Selecciona un plano para ver su historial de versiones.</p>
+        <p style={{ color: 'var(--bp-muted)' }}>Selecciona un plano para ver su historial de versiones.</p>
       )}
     </section>
   );

@@ -18,11 +18,11 @@ import { FASES_MAPA, ordenFaseMapa } from '@/domain/mapa';
 import type { ProcesoNodo } from '@/domain/mapa';
 import { useEsMovil } from './use-movil';
 
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
 const btnSm: CSSProperties = { ...btn, padding: '0.15rem 0.5rem', fontSize: 12 };
-const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 13, width: '100%', boxSizing: 'border-box' };
-const lbl: CSSProperties = { display: 'block', fontSize: 11, color: '#666', marginTop: '0.5rem', fontWeight: 'bold' };
-const tag: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f2ecfb', border: '1px solid #ddcdef', borderRadius: 12, padding: '0.1rem 0.5rem', fontSize: 12, margin: '2px 3px 0 0' };
+const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 13, width: '100%', boxSizing: 'border-box' };
+const lbl: CSSProperties = { display: 'block', fontSize: 11, color: 'var(--bp-muted)', marginTop: '0.5rem', fontWeight: 'bold' };
+const tag: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bp-panel-alt)', border: '1px solid #ddcdef', borderRadius: 12, padding: '0.1rem 0.5rem', fontSize: 12, margin: '2px 3px 0 0' };
 
 export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: string; nombreProyecto?: string }) {
   const [emps, setEmps] = useState<Empleado[]>([]);
@@ -86,7 +86,7 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>👥 Personas & RH <span style={{ fontSize: 13, color: '#888' }}>· plantilla del negocio</span></h2>
+        <h2 style={{ margin: 0 }}>👥 Personas & RH <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· plantilla del negocio</span></h2>
         {vista === 'personas' && <button style={btn} onClick={() => void agregar()}>＋ Dar de alta persona</button>}
       </div>
 
@@ -98,7 +98,7 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
         ))}
       </div>
 
-      {loading && <p style={{ color: '#666' }}>Cargando…</p>}
+      {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando…</p>}
 
       {vista === 'roles' && <RolesLista roles={rolesIdx} buscar={buscarRol} onBuscar={setBuscarRol} onAbrir={setRolSel} />}
 
@@ -110,10 +110,10 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
 
       {vista === 'personas' && (
        <>
-      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.6rem' }}>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0 0 0.6rem' }}>
         {emps.length} personas ({activos} activas). Cada alta alimenta <strong>RH</strong>, <strong>Organizacional</strong>, <strong>Operativo</strong> y (con datos fiscales) <strong>Jurídico</strong> / <strong>Financiero</strong>.
       </p>
-      {!loading && emps.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay nadie. Pulsa <strong>＋ Dar de alta persona</strong> para empezar.</p>}
+      {!loading && emps.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay nadie. Pulsa <strong>＋ Dar de alta persona</strong> para empezar.</p>}
 
       <div style={{ display: 'grid', gridTemplateColumns: movil || !se ? '1fr' : 'minmax(0, 1fr) 360px', gap: '0.75rem', alignItems: 'start' }}>
         {/* Lista de personas */}
@@ -124,8 +124,8 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
               <div key={e.id} onClick={() => setSel(e.id)}
                 style={{ border: `1px solid ${sel === e.id ? '#8a4fbf' : '#e0dae8'}`, borderLeft: `4px solid ${est.color}`, borderRadius: 9, padding: '0.5rem 0.6rem', background: sel === e.id ? '#faf7ff' : '#fff', cursor: 'pointer', boxShadow: sel === e.id ? '0 0 0 2px #8a4fbf22' : '0 1px 2px rgba(0,0,0,0.05)' }}>
                 <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{e.nombre || '(sin nombre)'}</div>
-                <div style={{ fontSize: 12, color: '#555' }}>{e.puesto || '— sin puesto —'}</div>
-                <div style={{ fontSize: 11, color: '#888', marginTop: 2, display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ fontSize: 12, color: 'var(--bp-muted)' }}>{e.puesto || '— sin puesto —'}</div>
+                <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2, display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
                   {e.externo ? <span style={{ color: '#b5651d' }}>🏢 {e.proveedor || 'externo'}</span> : (e.departamento && <span style={{ color: '#8a4fbf' }}>{e.departamento}</span>)}
                   <span style={{ background: est.color, color: '#fff', borderRadius: 8, padding: '0 6px', fontSize: 10 }}>{est.label}</span>
                 </div>
@@ -136,13 +136,13 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
 
         {/* Editor de la persona */}
         {se && (
-          <div style={{ border: '1px solid #ddcdef', borderRadius: 10, padding: '0.7rem', background: '#faf7ff', position: 'sticky', top: 8, maxHeight: '84vh', overflowY: 'auto' }}>
+          <div style={{ border: '1px solid #ddcdef', borderRadius: 10, padding: '0.7rem', background: 'var(--bp-panel-alt)', position: 'sticky', top: 8, maxHeight: '84vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <strong style={{ fontSize: 14 }}>👤 Persona</strong>
               <button style={btnSm} onClick={() => setSel(null)}>✕</button>
             </div>
 
-            <button style={{ ...btnSm, width: '100%', marginTop: 6, background: '#eef4ff', borderColor: '#cdd8ef', color: '#2b5a97', fontWeight: 'bold' }} onClick={() => setVerFlujo(true)}>🔀 Ver sus flujos de trabajo</button>
+            <button style={{ ...btnSm, width: '100%', marginTop: 6, background: 'var(--bp-panel-alt)', borderColor: '#cdd8ef', color: 'var(--bp-gold)', fontWeight: 'bold' }} onClick={() => setVerFlujo(true)}>🔀 Ver sus flujos de trabajo</button>
 
             <label style={lbl}>Nombre</label>
             <input style={inp} defaultValue={se.nombre} key={`n-${se.id}`} onBlur={(ev) => { if (ev.target.value !== se.nombre) void patch({ nombre: ev.target.value }); }} />
@@ -166,14 +166,14 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
               {depts.map((d) => <option key={d} value={d}>{d}</option>)}
               {se.departamento && !depts.includes(se.departamento) && <option value={se.departamento}>{se.departamento}</option>}
             </select>
-            <p style={{ fontSize: 10, color: '#999', margin: '2px 0 0' }}>Los departamentos vienen del Mapa Operativo.</p>
+            <p style={{ fontSize: 10, color: 'var(--bp-muted)', margin: '2px 0 0' }}>Los departamentos vienen del Mapa Operativo.</p>
 
             {/* TERCERIZACIÓN: el rol lo ejecuta un tercero (Girly Zone hacia arriba u otra empresa) */}
             <label style={{ fontSize: 12, color: '#8a5a1f', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.6rem' }}>
               <input type="checkbox" checked={se.externo} onChange={(ev) => void patch({ externo: ev.target.checked })} /> 🏢 Tercerizado (lo hace Girly Zone u otra empresa)
             </label>
             {se.externo && (
-              <div style={{ background: '#fff7ee', border: '1px solid #ecd9a0', borderRadius: 8, padding: '0.4rem 0.55rem', marginTop: 4 }}>
+              <div style={{ background: 'var(--bp-panel-alt)', border: '1px solid #ecd9a0', borderRadius: 8, padding: '0.4rem 0.55rem', marginTop: 4 }}>
                 <label style={lbl}>Proveedor (quién lo ejecuta)</label>
                 <input style={inp} defaultValue={se.proveedor} key={`prov-${se.id}`} placeholder="ej. Girly Zone · Despacho contable X" onBlur={(ev) => void patch({ proveedor: ev.target.value })} />
                 <label style={lbl}>➡️ Qué le entregamos (datos de salida)</label>
@@ -220,7 +220,7 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
               <input style={inp} defaultValue={se.direccion} key={`dir-${se.id}`} onBlur={(ev) => void patch({ direccion: ev.target.value })} />
               <label style={lbl}>Contacto de emergencia</label>
               <input style={inp} defaultValue={se.emergencia} key={`eme-${se.id}`} onBlur={(ev) => void patch({ emergencia: ev.target.value })} />
-              <p style={{ fontSize: 10, color: '#999', margin: '3px 0 0' }}>Datos sensibles (PII). Se usan para contratos (Jurídico) y nómina (Financiero).</p>
+              <p style={{ fontSize: 10, color: 'var(--bp-muted)', margin: '3px 0 0' }}>Datos sensibles (PII). Se usan para contratos (Jurídico) y nómina (Financiero).</p>
             </details>
 
             <div style={{ borderTop: '1px solid #e6ddf2', marginTop: '0.7rem', paddingTop: '0.5rem' }}>
@@ -244,26 +244,26 @@ function FlujoLista({ pasos, yo, externos }: { pasos: PasoFlujoPersona[]; yo?: s
   return (
     <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
       {pasos.map((p, i) => (
-        <li key={p.id} style={{ border: '1px solid #e2ddea', borderRadius: 10, padding: '0.5rem 0.7rem', background: '#fff' }}>
+        <li key={p.id} style={{ border: '1px solid #e2ddea', borderRadius: 10, padding: '0.5rem 0.7rem', background: 'var(--bp-panel)' }}>
           {p.recibeDe.length === 0
-            ? <div style={{ ...linea, color: '#2e9e63', background: '#eefaf2' }}>▶ Inicia el flujo (nadie se lo dispara)</div>
+            ? <div style={{ ...linea, color: '#2e9e63', background: 'var(--bp-panel-alt)' }}>▶ Inicia el flujo (nadie se lo dispara)</div>
             : p.recibeDe.map((d, j) => (
-              <div key={j} style={{ ...linea, color: '#2b5a97', background: '#eef4ff' }}>
-                ⤶ cuando <strong>«{d.evento || 'continúa'}»</strong> — lo entrega <strong>{quienTxt(d.quien, d.departamento)}</strong> <span style={{ color: '#888' }}>(«{d.proceso}»)</span>
+              <div key={j} style={{ ...linea, color: 'var(--bp-gold)', background: 'var(--bp-panel-alt)' }}>
+                ⤶ cuando <strong>«{d.evento || 'continúa'}»</strong> — lo entrega <strong>{quienTxt(d.quien, d.departamento)}</strong> <span style={{ color: 'var(--bp-muted)' }}>(«{d.proceso}»)</span>
               </div>
             ))}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.35rem 0' }}>
             <span style={{ background: '#8a4fbf', color: '#fff', borderRadius: 9, fontSize: 11, fontWeight: 'bold', padding: '1px 7px', flexShrink: 0 }}>{i + 1}</span>
             <div>
               <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{p.nombre}</div>
-              <div style={{ fontSize: 11, color: '#888' }}>{faseLabel(p.fase)} · {p.departamento} · roles: {p.roles.join(', ') || '—'}</div>
+              <div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>{faseLabel(p.fase)} · {p.departamento} · roles: {p.roles.join(', ') || '—'}</div>
             </div>
           </div>
           {p.entregaA.length === 0
-            ? <div style={{ ...linea, color: '#888', background: '#f5f5f7' }}>⏹ Cierra aquí (no dispara nada más)</div>
+            ? <div style={{ ...linea, color: 'var(--bp-muted)', background: 'var(--bp-panel-alt)' }}>⏹ Cierra aquí (no dispara nada más)</div>
             : p.entregaA.map((d, j) => (
-              <div key={j} style={{ ...linea, color: '#7a4fbf', background: '#f6f2fb' }}>
-                ⤷ al terminar dispara <strong>«{d.evento || 'continúa'}»</strong> → <strong>«{d.proceso}»</strong> <span style={{ color: '#888' }}>(lo hace {quienTxt(d.quien, d.departamento)})</span>
+              <div key={j} style={{ ...linea, color: '#7a4fbf', background: 'var(--bp-panel-alt)' }}>
+                ⤷ al terminar dispara <strong>«{d.evento || 'continúa'}»</strong> → <strong>«{d.proceso}»</strong> <span style={{ color: 'var(--bp-muted)' }}>(lo hace {quienTxt(d.quien, d.departamento)})</span>
               </div>
             ))}
         </li>
@@ -332,14 +332,14 @@ function FlujoCanvas({ pasos, procesos, empleados, nombreDepto, yo }: {
   return (
     <div>
       {sub.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', margin: '0 0 0.5rem', fontSize: 12, background: '#eef4ff', border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.35rem 0.6rem' }}>
-          <span style={{ cursor: 'pointer', color: '#2b5a97' }} onClick={() => { setSub([]); setSel(null); setDragPos({}); }}>🔀 Flujo</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', margin: '0 0 0.5rem', fontSize: 12, background: 'var(--bp-panel-alt)', border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.35rem 0.6rem' }}>
+          <span style={{ cursor: 'pointer', color: 'var(--bp-gold)' }} onClick={() => { setSub([]); setSel(null); setDragPos({}); }}>🔀 Flujo</span>
           {sub.map((s, i) => <span key={s.id}><span style={{ color: '#8a93a8' }}> ▸ </span><span style={{ cursor: i < sub.length - 1 ? 'pointer' : 'default', color: i < sub.length - 1 ? '#2b5a97' : '#333', fontWeight: i === sub.length - 1 ? 'bold' : 'normal' }} onClick={() => { if (i < sub.length - 1) { setSub(sub.slice(0, i + 1)); setSel(null); setDragPos({}); } }}>{s.nombre}</span></span>)}
           <button style={{ ...btnSm, marginLeft: 'auto' }} onClick={() => { setSub(sub.slice(0, -1)); setSel(null); setDragPos({}); }}>← Subir</button>
         </div>
       )}
 
-      <div style={{ overflow: 'auto', maxHeight: '62vh', border: '1px solid #e2ddea', borderRadius: 10, background: '#fcfcfd', backgroundImage: 'radial-gradient(#e6e8ee 1px, transparent 1px)', backgroundSize: '22px 22px' }}>
+      <div style={{ overflow: 'auto', maxHeight: '62vh', border: '1px solid #e2ddea', borderRadius: 10, background: 'var(--bp-panel-alt)', backgroundImage: 'radial-gradient(#e6e8ee 1px, transparent 1px)', backgroundSize: '22px 22px' }}>
         <div style={{ position: 'relative', width, height, touchAction: 'none' }}>
           <svg width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             <defs><marker id="fa-p" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a8" /></marker></defs>
@@ -368,23 +368,23 @@ function FlujoCanvas({ pasos, procesos, empleados, nombreDepto, yo }: {
               <div key={n.id} onPointerDown={(e) => onDown(e, n.id)} onPointerMove={onMove} onPointerUp={() => onUp(n.id)}
                 style={{ position: 'absolute', left: p.x, top: p.y, width: W, minHeight: H, border: `2px solid ${bc}`, borderRadius: 10, background: n.propio ? '#faf7ff' : '#fff', padding: '0.35rem 0.5rem', boxSizing: 'border-box', boxShadow: sel === n.id ? '0 0 0 2px #5b6b8c33' : '0 1px 3px rgba(0,0,0,0.08)', cursor: 'grab', touchAction: 'none' }}>
                 <div style={{ fontWeight: 'bold', fontSize: 12, lineHeight: 1.15 }}>{byId.get(n.id)?.automatizacion ? '🤖 ' : ''}{n.nombre}</div>
-                <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{n.depto}</div>
+                <div style={{ fontSize: 10, color: 'var(--bp-muted)', marginTop: 2 }}>{n.depto}</div>
                 <div style={{ fontSize: 10, color: ext ? '#b5651d' : '#555', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ext ? '🏢 ' : '👤 '}{quienStr(n.quien)}</div>
-                {n.hijos > 0 && <button style={{ ...btnSm, marginTop: 4, fontSize: 10, padding: '1px 6px', background: '#eef4ff', borderColor: '#cdd8ef', color: '#2b5a97' }} onClick={() => entrar(n.id, n.nombre)}>⤵ subflujo ({n.hijos})</button>}
+                {n.hijos > 0 && <button style={{ ...btnSm, marginTop: 4, fontSize: 10, padding: '1px 6px', background: 'var(--bp-panel-alt)', borderColor: '#cdd8ef', color: 'var(--bp-gold)' }} onClick={() => entrar(n.id, n.nombre)}>⤵ subflujo ({n.hijos})</button>}
               </div>
             );
           })}
         </div>
       </div>
-      <p style={{ fontSize: 11, color: '#999', margin: '0.3rem 0 0' }}>Arrastra los nodos · clic = detalle · <span style={{ color: '#2b5a97' }}>⤵ subflujo</span> entra al flujo interno del paso.</p>
+      <p style={{ fontSize: 11, color: 'var(--bp-muted)', margin: '0.3rem 0 0' }}>Arrastra los nodos · clic = detalle · <span style={{ color: 'var(--bp-gold)' }}>⤵ subflujo</span> entra al flujo interno del paso.</p>
 
       {selProc && selNode && (
-        <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, background: '#f7f9ff', padding: '0.7rem', marginTop: '0.6rem' }}>
+        <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, background: 'var(--bp-panel-alt)', padding: '0.7rem', marginTop: '0.6rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <strong style={{ fontSize: 14 }}>⚙️ {selProc.nombre}</strong>
             <button style={btnSm} onClick={() => setSel(null)}>✕</button>
           </div>
-          <div style={{ fontSize: 12, color: '#555', marginTop: 4, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.2rem 1rem' }}>
+          <div style={{ fontSize: 12, color: 'var(--bp-muted)', marginTop: 4, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.2rem 1rem' }}>
             <div><b>Quién:</b> {quienStr(selNode.quien)}</div>
             <div><b>Departamento:</b> {selNode.depto}</div>
             <div><b>Roles:</b> {selProc.roles.join(', ') || '—'}</div>
@@ -393,12 +393,12 @@ function FlujoCanvas({ pasos, procesos, empleados, nombreDepto, yo }: {
             {selProc.salida ? <div><b>Produce:</b> {selProc.salida}</div> : null}
           </div>
           {selProc.automatizacion && (
-            <div style={{ fontSize: 12, color: '#2e7d5b', marginTop: 5, background: '#f0f9f4', border: '1px solid #cbe6d8', borderRadius: 6, padding: '0.3rem 0.5rem' }}>
+            <div style={{ fontSize: 12, color: '#2e7d5b', marginTop: 5, background: 'var(--bp-panel-alt)', border: '1px solid #cbe6d8', borderRadius: 6, padding: '0.3rem 0.5rem' }}>
               🤖 <b>Automatizado</b> ({selProc.automatizacion.con}{selProc.automatizacion.herramienta ? ` · ${selProc.automatizacion.herramienta}` : ''}) → plano de software{selProc.automatizacion.nota ? `. ${selProc.automatizacion.nota}` : ''}
             </div>
           )}
-          {selProc.instructivo ? <div style={{ fontSize: 12, color: '#444', marginTop: 5, whiteSpace: 'pre-wrap' }}><b>Instructivo:</b> {selProc.instructivo}</div> : null}
-          {selNode.hijos > 0 && <button style={{ ...btnSm, marginTop: 6, background: '#eef4ff', borderColor: '#cdd8ef', color: '#2b5a97', fontWeight: 'bold' }} onClick={() => entrar(selProc.id, selProc.nombre)}>⤵ Ver subflujo ({selNode.hijos} pasos)</button>}
+          {selProc.instructivo ? <div style={{ fontSize: 12, color: 'var(--bp-muted)', marginTop: 5, whiteSpace: 'pre-wrap' }}><b>Instructivo:</b> {selProc.instructivo}</div> : null}
+          {selNode.hijos > 0 && <button style={{ ...btnSm, marginTop: 6, background: 'var(--bp-panel-alt)', borderColor: '#cdd8ef', color: 'var(--bp-gold)', fontWeight: 'bold' }} onClick={() => entrar(selProc.id, selProc.nombre)}>⤵ Ver subflujo ({selNode.hijos} pasos)</button>}
         </div>
       )}
     </div>
@@ -437,12 +437,12 @@ function FlujoPersona({ emp, procesos, empleados, nombreDepto, onVolver }: {
         <button style={btn} onClick={onVolver}>← Personas</button>
       </div>
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center', margin: '0.4rem 0 0.7rem' }}>
-        <span style={{ fontSize: 12, color: '#666' }}>Roles:</span>
+        <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>Roles:</span>
         {emp.roles.length ? emp.roles.map((r) => <span key={r} style={tag}>{r}</span>) : <span style={{ fontSize: 12, color: '#a60' }}>sin roles — asígnalos en su ficha</span>}
-        <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>{pasos.length} procesos a su cargo</span>
+        <span style={{ fontSize: 12, color: 'var(--bp-muted)', marginLeft: 8 }}>{pasos.length} procesos a su cargo</span>
       </div>
       {pasos.length === 0
-        ? <p style={{ color: '#999', fontSize: 13 }}>No tiene procesos asignados. Dale <strong>roles</strong> que coincidan con los del Mapa o asígnale procesos por nombre.</p>
+        ? <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>No tiene procesos asignados. Dale <strong>roles</strong> que coincidan con los del Mapa o asígnale procesos por nombre.</p>
         : <FlujoVista pasos={pasos} procesos={procesos} empleados={empleados} nombreDepto={nombreDepto} yo={emp.nombre} />}
     </section>
   );
@@ -460,11 +460,11 @@ function FlujoRol({ rol, procesos, empleados, nombreDepto, onVolver }: {
         <h2 style={{ margin: 0 }}>🏷️ Flujo del rol «{rol}»</h2>
         <button style={btn} onClick={onVolver}>← Roles</button>
       </div>
-      <div style={{ fontSize: 12, color: '#666', margin: '0.4rem 0 0.7rem' }}>
+      <div style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.4rem 0 0.7rem' }}>
         {pasos.length} procesos · lo desempeñan: {quienes.length ? <strong>{quienes.map((q) => q.externo ? `🏢 ${q.nombre} (externo)` : q.nombre).join(', ')}</strong> : <span style={{ color: '#a60' }}>nadie aún (rol vacante — tercerízalo o asígnalo)</span>}
       </div>
       {pasos.length === 0
-        ? <p style={{ color: '#999', fontSize: 13 }}>Ningún proceso del Mapa usa este rol todavía.</p>
+        ? <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Ningún proceso del Mapa usa este rol todavía.</p>
         : <FlujoVista pasos={pasos} procesos={procesos} empleados={empleados} nombreDepto={nombreDepto} />}
     </section>
   );
@@ -473,14 +473,14 @@ function FlujoRol({ rol, procesos, empleados, nombreDepto, onVolver }: {
 // ===== FLUJO INTER-EMPRESA (tercerización: este negocio ↔ terceros) =====
 function FlujoInterEmpresa({ negocio, proveedores }: { negocio: string; proveedores: ProveedorFlujo[] }) {
   if (proveedores.length === 0) {
-    return <p style={{ color: '#999', fontSize: 13 }}>No hay roles tercerizados todavía. En la ficha de una persona marca <strong>“🏢 Tercerizado”</strong> (Girly Zone u otra empresa) y define qué entregamos y qué recibimos a cambio.</p>;
+    return <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>No hay roles tercerizados todavía. En la ficha de una persona marca <strong>“🏢 Tercerizado”</strong> (Girly Zone u otra empresa) y define qué entregamos y qué recibimos a cambio.</p>;
   }
   const W = 680, H = Math.max(360, 220 + proveedores.length * 24), cx = W / 2, cy = H / 2, R = Math.min(210, 120 + proveedores.length * 22);
   const pos = (i: number, n: number) => { const a = (i / Math.max(1, n)) * Math.PI * 2 - Math.PI / 2; return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) }; };
   return (
     <div>
-      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.5rem' }}>{proveedores.length} tercero(s). <strong>{negocio}</strong> les <span style={{ color: '#c97a3b' }}>entrega datos ➡️</span> y <span style={{ color: '#2e9e63' }}>recibe algo a cambio ⬅️</span>.</p>
-      <div style={{ overflowX: 'auto', border: '1px solid #e2ddea', borderRadius: 10, background: '#fcfcfd', backgroundImage: 'radial-gradient(#e6e8ee 1px, transparent 1px)', backgroundSize: '22px 22px' }}>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0 0 0.5rem' }}>{proveedores.length} tercero(s). <strong>{negocio}</strong> les <span style={{ color: '#c97a3b' }}>entrega datos ➡️</span> y <span style={{ color: '#2e9e63' }}>recibe algo a cambio ⬅️</span>.</p>
+      <div style={{ overflowX: 'auto', border: '1px solid #e2ddea', borderRadius: 10, background: 'var(--bp-panel-alt)', backgroundImage: 'radial-gradient(#e6e8ee 1px, transparent 1px)', backgroundSize: '22px 22px' }}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: 'auto', display: 'block', margin: '0 auto' }}>
           <defs>
             <marker id="ie-out" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#c97a3b" /></marker>
@@ -524,16 +524,16 @@ function FlujoInterEmpresa({ negocio, proveedores }: { negocio: string; proveedo
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.6rem', marginTop: '0.7rem' }}>
         {proveedores.map((p, i) => (
-          <div key={i} style={{ border: '1px solid #ecd9a0', borderLeft: '4px solid #c97a3b', borderRadius: 9, padding: '0.6rem 0.7rem', background: '#fffdf8' }}>
+          <div key={i} style={{ border: '1px solid #ecd9a0', borderLeft: '4px solid #c97a3b', borderRadius: 9, padding: '0.6rem 0.7rem', background: 'var(--bp-panel-alt)' }}>
             <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>🏢 {p.proveedor}</div>
-            <div style={{ fontSize: 11, color: '#888', margin: '2px 0 4px' }}>Roles: {p.roles.join(', ')}{p.procesos.length ? ` · Hace: ${p.procesos.join(', ')}` : ''}</div>
+            <div style={{ fontSize: 11, color: 'var(--bp-muted)', margin: '2px 0 4px' }}>Roles: {p.roles.join(', ')}{p.procesos.length ? ` · Hace: ${p.procesos.join(', ')}` : ''}</div>
             {p.intercambios.map((x, j) => (
               <div key={j} style={{ borderTop: '1px solid #f0e6cf', paddingTop: 4, marginTop: 4 }}>
                 <div style={{ fontSize: 12, fontWeight: 'bold', color: '#7a4fbf' }}>{x.rol}</div>
-                <div style={{ fontSize: 12, color: '#b5651d' }}>➡️ Entregamos: <span style={{ color: '#555' }}>{x.entregamos || '—'}</span></div>
-                <div style={{ fontSize: 12, color: '#2e9e63' }}>⬅️ Recibimos: <span style={{ color: '#555' }}>{x.recibimos || '—'}</span></div>
+                <div style={{ fontSize: 12, color: '#b5651d' }}>➡️ Entregamos: <span style={{ color: 'var(--bp-muted)' }}>{x.entregamos || '—'}</span></div>
+                <div style={{ fontSize: 12, color: '#2e9e63' }}>⬅️ Recibimos: <span style={{ color: 'var(--bp-muted)' }}>{x.recibimos || '—'}</span></div>
                 {(x.disparaEntrada.length > 0 || x.disparaSalida.length > 0) && (
-                  <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2 }}>
                     {x.disparaEntrada.length > 0 && <div>⚡ Se dispara con: «{x.disparaEntrada.join('» · «')}»</div>}
                     {x.disparaSalida.length > 0 && <div>↳ Al devolver dispara: «{x.disparaSalida.join('» · «')}»</div>}
                   </div>
@@ -567,19 +567,19 @@ function OrganizadorIA({ proyectoId, empleados, procesos, nombreDepto, onCambio,
   const activos = empleados.filter((e) => e.estado !== 'baja');
   const modoLabel: Record<string, string> = { ia: '🧠 Agente IA', n8n: '🔗 n8n', software: '💻 Software' };
 
-  const stat: CSSProperties = { border: '1px solid #e0dae8', borderRadius: 9, padding: '0.5rem 0.7rem', background: '#fff', textAlign: 'center' };
+  const stat: CSSProperties = { border: '1px solid #e0dae8', borderRadius: 9, padding: '0.5rem 0.7rem', background: 'var(--bp-panel)', textAlign: 'center' };
 
   return (
     <div>
-      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.6rem' }}>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0 0 0.6rem' }}>
         La IA arma el equipo más eficiente: <strong>asigna procesos</strong>, crea <strong>vacantes</strong> donde falta gente y decide qué <strong>automatizar</strong>. Lo que automatiza alimenta el <strong>plano de software</strong> (IA → agentes · n8n/software → componentes).
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.5rem', marginBottom: '0.7rem' }}>
-        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#8a4fbf' }}>{activos.length}</div><div style={{ fontSize: 11, color: '#888' }}>personas activas</div></div>
-        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#3b86c9' }}>{manuales.length}</div><div style={{ fontSize: 11, color: '#888' }}>procesos manuales</div></div>
-        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#2e9e63' }}>{automatizados.length}</div><div style={{ fontSize: 11, color: '#888' }}>automatizados 🤖</div></div>
-        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: sinCubrir.length ? '#c0392b' : '#2e9e63' }}>{sinCubrir.length}</div><div style={{ fontSize: 11, color: '#888' }}>sin cubrir</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#8a4fbf' }}>{activos.length}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>personas activas</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#3b86c9' }}>{manuales.length}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>procesos manuales</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#2e9e63' }}>{automatizados.length}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>automatizados 🤖</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: sinCubrir.length ? '#c0392b' : '#2e9e63' }}>{sinCubrir.length}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>sin cubrir</div></div>
       </div>
 
       {/* Carga por persona */}
@@ -587,17 +587,17 @@ function OrganizadorIA({ proyectoId, empleados, procesos, nombreDepto, onCambio,
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: '0.6rem' }}>
           {activos.map((e) => {
             const c = cargaDe(e);
-            return <span key={e.id} style={{ ...tag, background: '#f4f0fb' }}>{e.nombre || '(sin nombre)'} <span style={{ color: c ? '#8a4fbf' : '#aaa', fontWeight: 'bold' }}>~{c} min</span></span>;
+            return <span key={e.id} style={{ ...tag, background: 'var(--bp-panel-alt)' }}>{e.nombre || '(sin nombre)'} <span style={{ color: c ? '#8a4fbf' : '#aaa', fontWeight: 'bold' }}>~{c} min</span></span>;
           })}
         </div>
       )}
 
       {/* Procesos sin cubrir (alerta) */}
       {sinCubrir.length > 0 && (
-        <div style={{ border: '1px solid #f0c9c2', background: '#fdf3f1', borderRadius: 9, padding: '0.5rem 0.7rem', marginBottom: '0.6rem' }}>
+        <div style={{ border: '1px solid #f0c9c2', background: 'var(--bp-panel-alt)', borderRadius: 9, padding: '0.5rem 0.7rem', marginBottom: '0.6rem' }}>
           <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#c0392b' }}>⚠ {sinCubrir.length} proceso(s) sin nadie que los haga</div>
-          <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{sinCubrir.map((p) => p.nombre).join(' · ')}</div>
-          <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>Pídele a la IA: “asigna o automatiza los procesos sin cubrir”.</div>
+          <div style={{ fontSize: 12, color: 'var(--bp-muted)', marginTop: 2 }}>{sinCubrir.map((p) => p.nombre).join(' · ')}</div>
+          <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2 }}>Pídele a la IA: “asigna o automatiza los procesos sin cubrir”.</div>
         </div>
       )}
 
@@ -607,11 +607,11 @@ function OrganizadorIA({ proyectoId, empleados, procesos, nombreDepto, onCambio,
           <div style={{ fontSize: 12, fontWeight: 'bold', color: '#2e7d5b', marginBottom: 4 }}>🤖 Automatizados → plano de software</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.4rem' }}>
             {automatizados.map((p) => (
-              <div key={p.id} style={{ border: '1px solid #cbe6d8', borderLeft: '4px solid #2e9e63', borderRadius: 8, padding: '0.4rem 0.55rem', background: '#f6fbf8' }}>
+              <div key={p.id} style={{ border: '1px solid #cbe6d8', borderLeft: '4px solid #2e9e63', borderRadius: 8, padding: '0.4rem 0.55rem', background: 'var(--bp-panel-alt)' }}>
                 <div style={{ fontWeight: 'bold', fontSize: 12.5 }}>{p.nombre}</div>
-                <div style={{ fontSize: 11, color: '#666', marginTop: 1 }}>{nombreDepto(p.departamentoId)}</div>
+                <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 1 }}>{nombreDepto(p.departamentoId)}</div>
                 <div style={{ fontSize: 11.5, color: '#2e7d5b', marginTop: 2 }}>{modoLabel[p.automatizacion!.con] ?? p.automatizacion!.con}{p.automatizacion!.herramienta ? ` · ${p.automatizacion!.herramienta}` : ''}</div>
-                {p.automatizacion!.nota && <div style={{ fontSize: 11, color: '#777', marginTop: 1 }}>{p.automatizacion!.nota}</div>}
+                {p.automatizacion!.nota && <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 1 }}>{p.automatizacion!.nota}</div>}
               </div>
             ))}
           </div>
@@ -640,16 +640,16 @@ function RolesLista({ roles, buscar, onBuscar, onAbrir }: {
   return (
     <div>
       <input style={{ ...inp, maxWidth: 340, marginBottom: '0.5rem' }} placeholder="🔎 Buscar rol…" value={buscar} onChange={(e) => onBuscar(e.target.value)} />
-      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.5rem' }}>{roles.length} roles (del Mapa Operativo y del roster). Clic en un rol para ver su flujo n8n.</p>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0 0 0.5rem' }}>{roles.length} roles (del Mapa Operativo y del roster). Clic en un rol para ver su flujo n8n.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem' }}>
         {vis.map((r) => (
           <div key={r.rol} onClick={() => onAbrir(r.rol)}
-            style={{ border: '1px solid #e0dae8', borderLeft: '4px solid #8a4fbf', borderRadius: 9, padding: '0.5rem 0.6rem', background: '#fff', cursor: 'pointer' }}>
+            style={{ border: '1px solid #e0dae8', borderLeft: '4px solid #8a4fbf', borderRadius: 9, padding: '0.5rem 0.6rem', background: 'var(--bp-panel)', cursor: 'pointer' }}>
             <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{r.rol}</div>
-            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{r.procesos} proceso{r.procesos !== 1 ? 's' : ''} · {r.personas} persona{r.personas !== 1 ? 's' : ''}</div>
+            <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2 }}>{r.procesos} proceso{r.procesos !== 1 ? 's' : ''} · {r.personas} persona{r.personas !== 1 ? 's' : ''}</div>
           </div>
         ))}
-        {vis.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Sin roles que coincidan con «{buscar}».</p>}
+        {vis.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Sin roles que coincidan con «{buscar}».</p>}
       </div>
     </div>
   );

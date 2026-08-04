@@ -7,9 +7,9 @@ import type { CSSProperties } from 'react';
 import { listarUnidades, crearUnidad, actualizarUnidad, eliminarUnidad } from '@/app/actions/espacios.actions';
 import type { UnidadComercial } from '@/domain/espacios';
 
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
-const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 14 };
-const card: CSSProperties = { border: '1px solid #ddd', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0.4rem 0', background: '#fafafa' };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
+const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 14 };
+const card: CSSProperties = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.6rem 0.9rem', margin: '0.4rem 0', background: 'var(--bp-panel-alt)' };
 
 export function VistaUnidades({ proyectoId }: { proyectoId: string }) {
   const [ucs, setUcs] = useState<UnidadComercial[]>([]);
@@ -29,7 +29,7 @@ export function VistaUnidades({ proyectoId }: { proyectoId: string }) {
   return (
     <section>
       <h3 style={{ marginTop: 0 }}>Unidades Comerciales</h3>
-      <p style={{ fontSize: 13, color: '#555', marginTop: 0 }}>
+      <p style={{ fontSize: 13, color: 'var(--bp-muted)', marginTop: 0 }}>
         Las áreas de <strong>venta directa</strong> (cada una casi un mini-negocio). La administración/dirección/contabilidad va en la capa transversal, aparte.
       </p>
 
@@ -39,14 +39,14 @@ export function VistaUnidades({ proyectoId }: { proyectoId: string }) {
         <button style={btn} onClick={() => void crear()} disabled={!nombre.trim()}>＋ Nueva UC</button>
       </div>
 
-      {loading && <p style={{ color: '#666' }}>Cargando…</p>}
-      {!loading && ucs.length === 0 && <p style={{ color: '#666' }}>Sin unidades aún. Crea la primera arriba.</p>}
+      {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando…</p>}
+      {!loading && ucs.length === 0 && <p style={{ color: 'var(--bp-muted)' }}>Sin unidades aún. Crea la primera arriba.</p>}
       {ucs.map((uc) => (
         <div key={uc.id} style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
           <div style={{ flex: 1 }}>
             <input style={{ ...inp, fontWeight: 'bold', width: '60%' }} defaultValue={uc.nombre}
               onBlur={(e) => { if (e.target.value !== uc.nombre) void actualizarUnidad(uc.id, { nombre: e.target.value }).then(cargar); }} />
-            {uc.tipo && <span style={{ fontSize: 12, color: '#777', marginLeft: 8 }}>· {uc.tipo}</span>}
+            {uc.tipo && <span style={{ fontSize: 12, color: 'var(--bp-muted)', marginLeft: 8 }}>· {uc.tipo}</span>}
           </div>
           <button style={{ ...btn, color: '#a00' }} onClick={() => { if (confirm(`¿Eliminar "${uc.nombre}"?`)) void eliminarUnidad(uc.id).then(cargar); }}>Eliminar</button>
         </div>

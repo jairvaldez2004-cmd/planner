@@ -1,0 +1,65 @@
+/* TEMA GLOBAL — Business Planner® (negro + dorado Bitcoin + blanco).
+   Variables de marca + reglas base para que los elementos heredados/base adopten el tema oscuro.
+   Los componentes con estilos inline usan estas variables vía color-mix o valores directos. */
+
+:root {
+  --bp-bg: #0F0F13;
+  --bp-bg2: #0B0B0E;
+  --bp-panel: #17171D;
+  --bp-panel-alt: #1E1E25;
+  --bp-border: #2A2A33;
+  --bp-border-soft: #22222A;
+  --bp-text: #F4F4F6;
+  --bp-muted: #A2A2AE;
+  --bp-faint: #6E6E7A;
+  --bp-gold: #E8A93C;
+  --bp-gold-dim: #B9852B;
+  --bp-gold-soft: rgba(232, 169, 60, 0.12);
+  --bp-ok: #37B26B;
+  --bp-danger: #E5604D;
+  color-scheme: dark;
+}
+
+html, body {
+  background: var(--bp-bg);
+  color: var(--bp-text);
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--bp-gold); color: #10100c; }
+
+/* Enlaces y encabezados base */
+a { color: var(--bp-gold); }
+h1, h2, h3, h4 { color: var(--bp-text); }
+
+/* Controles de formulario base: que no salgan blancos sobre negro */
+input, select, textarea, button {
+  font-family: inherit;
+  color: var(--bp-text);
+  background: var(--bp-panel-alt);
+  border: 1px solid var(--bp-border);
+  border-radius: 8px;
+}
+input::placeholder, textarea::placeholder { color: var(--bp-faint); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--bp-gold); }
+button { cursor: pointer; }
+
+/* Scrollbar sutil en tema oscuro */
+* { scrollbar-color: var(--bp-border) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--bp-border); border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Tarjeta de marca reutilizable */
+.bp-card {
+  background: var(--bp-panel);
+  border: 1px solid var(--bp-border);
+  border-radius: 12px;
+}
+
+/* Impresión: mantiene el estilo (los entregables ya definen su propio fondo). */
+@media print { .no-print { display: none !important; } }

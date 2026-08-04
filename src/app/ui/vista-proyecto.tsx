@@ -33,13 +33,13 @@ import { VistaPersonas } from './vista-personas';
 import { VistaRecursos } from './vista-recursos';
 import { VistaMarketing } from './vista-marketing';
 
-const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 14 };
-const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 14 };
+const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 14 };
+const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 14 };
 
 // Banner "lo que captures aquí enriquece estos planos" — hace visible el flujo de datos.
 function BannerEnriquece({ superficie }: { superficie: Superficie }) {
   return (
-    <div style={{ fontSize: 12.5, color: '#5a4a1f', background: '#fdf6e3', border: '1px solid #ecd9a0', borderRadius: 8, padding: '0.45rem 0.7rem', margin: '0.4rem 0' }}>
+    <div style={{ fontSize: 12.5, color: 'var(--bp-text)', background: 'var(--bp-panel-alt)', border: '1px solid #ecd9a0', borderRadius: 8, padding: '0.45rem 0.7rem', margin: '0.4rem 0' }}>
       🔗 Lo que captures aquí <strong>enriquece</strong> los planos:{' '}
       {ENRIQUECE[superficie].map((a, i) => (
         <span key={a.planoId}>{i > 0 ? ' · ' : ''}<strong>{PLANOS_MAESTROS[a.planoId] ?? a.planoId}</strong> ({a.nota})</span>
@@ -127,7 +127,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
 
   // --- grafo del proyecto ---
   const nodos: NodoGrafo[] = [
-    { key: 'admin', tipo: 'admin', label: 'Planos', color: '#33415c' },
+    { key: 'admin', tipo: 'admin', label: 'Planos', color: 'var(--bp-text)' },
     { key: 'sedes', tipo: 'sedes', label: 'Sedes & Espacios', color: '#e0795b' },
     { key: 'mapa', tipo: 'mapa', label: 'Mapa Operativo', color: '#d9a23b' },
     { key: 'personas', tipo: 'personas', label: 'Personas & RH', color: '#8a4fbf' },
@@ -158,29 +158,29 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>{nombre || 'Proyecto'} <span style={{ fontSize: 13, color: '#888' }}>· negocios y unidades comerciales</span></h2>
+        <h2 style={{ margin: 0 }}>{nombre || 'Proyecto'} <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· negocios y unidades comerciales</span></h2>
         <button style={btn} onClick={onVolver}>{volverLabel}</button>
       </div>
 
-      {loading && <p style={{ color: '#666' }}>Cargando…</p>}
+      {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando…</p>}
       {!loading && (
         <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(280px, 4fr) 8fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
           {/* Panel */}
-          <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.75rem', background: '#f7f9ff' }}>
+          <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.75rem', background: 'var(--bp-panel-alt)' }}>
             <strong style={{ fontSize: 14 }}>Estructura</strong>
-            <p style={{ margin: '0.25rem 0 0.5rem', fontSize: 12, color: '#555' }}>
+            <p style={{ margin: '0.25rem 0 0.5rem', fontSize: 12, color: 'var(--bp-muted)' }}>
               El nodo <strong>📄 Planos</strong> es donde <strong>ves y descargas</strong> los documentos; los nodos <strong>Sedes</strong>, <strong>Mapa</strong> y <strong>Unidades</strong> son donde <strong>capturas</strong> y desde ahí alimentan varios planos. Un proyecto también puede contener <strong>Negocios</strong> (sub-empresas). Clic en un nodo para entrar.
             </p>
-            <div style={{ fontSize: 12, color: '#777', marginBottom: '0.5rem' }}>📄 Planos: {seleccionados} seleccionados · {hijos.length} negocios · {ucs.length} unidades comerciales.</div>
+            <div style={{ fontSize: 12, color: 'var(--bp-muted)', marginBottom: '0.5rem' }}>📄 Planos: {seleccionados} seleccionados · {hijos.length} negocios · {ucs.length} unidades comerciales.</div>
 
             {/* Etapa objetivo del negocio (la ruta de 5 fases) */}
-            <div style={{ border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.5rem 0.6rem', background: '#eef4ff', marginBottom: '0.6rem' }}>
-              <label style={{ fontSize: 11, color: '#2b5a97', fontWeight: 'bold', display: 'block', marginBottom: 3 }}>🎚️ Etapa del negocio (define el foco de los planos)</label>
+            <div style={{ border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.5rem 0.6rem', background: 'var(--bp-panel-alt)', marginBottom: '0.6rem' }}>
+              <label style={{ fontSize: 11, color: 'var(--bp-gold)', fontWeight: 'bold', display: 'block', marginBottom: 3 }}>🎚️ Etapa del negocio (define el foco de los planos)</label>
               <select style={{ ...inp, width: '100%', fontSize: 13 }} value={etapa} onChange={(e) => void cambiarEtapa(e.target.value as EtapaObjetivo | '')}>
                 <option value="">— Sin definir (fíjala tú o el Curador) —</option>
                 {ETAPAS_OBJETIVO.map((et) => <option key={et.id} value={et.id}>{et.n}. {et.label}</option>)}
               </select>
-              {etapaSel && <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>{etapaSel.descripcion} <span style={{ color: '#2b5a97' }}>Foco: {etapaSel.foco.join(' · ')}.</span></div>}
+              {etapaSel && <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 4 }}>{etapaSel.descripcion} <span style={{ color: 'var(--bp-gold)' }}>Foco: {etapaSel.foco.join(' · ')}.</span></div>}
             </div>
 
             {/* Crear negocio (sub-empresa) */}
@@ -191,7 +191,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
             </div>
 
             {/* Crear unidad comercial */}
-            <label style={{ fontSize: 11, color: '#2f7a4d', fontWeight: 'bold' }}>Unidad comercial de este proyecto</label>
+            <label style={{ fontSize: 11, color: 'var(--bp-text)', fontWeight: 'bold' }}>Unidad comercial de este proyecto</label>
             <div style={{ display: 'flex', gap: '0.4rem', margin: '0.2rem 0 0.5rem' }}>
               <input style={{ ...inp, flex: 1 }} placeholder="Nueva UC (ej. Tatuajes)" value={nuevaUC} onChange={(e) => setNuevaUC(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void crearUC(); }} />
               <button style={btn} onClick={() => void crearUC()} disabled={!nuevaUC.trim()}>＋</button>
@@ -199,7 +199,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
 
             <div style={{ marginTop: '0.6rem', borderTop: '1px solid #dde6fb', paddingTop: '0.5rem' }}>
               <strong style={{ fontSize: 13 }}>🟢 Curador de este proyecto</strong>
-              <p style={{ fontSize: 11, color: '#777', margin: '0.2rem 0 0.4rem' }}>Dile qué negocios contiene o qué vende, y crea negocios o unidades comerciales conversando.</p>
+              <p style={{ fontSize: 11, color: 'var(--bp-muted)', margin: '0.2rem 0 0.4rem' }}>Dile qué negocios contiene o qué vende, y crea negocios o unidades comerciales conversando.</p>
               <ChatArquitecto
                 conversar={(h) => conversarCuradorProyecto(h, proyectoId)}
                 cargarHistorial={() => cargarConversacionProyecto(proyectoId)}
@@ -213,7 +213,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
           </div>
 
           {/* Grafo */}
-          <div style={{ border: '1px solid #eee', borderRadius: 10, background: '#fcfcfc' }}>
+          <div style={{ border: '1px solid var(--bp-border)', borderRadius: 10, background: 'var(--bp-panel-alt)' }}>
             <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
               {nodos.map((n, i) => { const p = posOf(i, nodos.length); return <line key={`e-${n.key}`} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke={hover === n.key ? '#888' : '#dcdcdc'} strokeWidth={hover === n.key ? 2 : 1} />; })}
               {/* centro */}
@@ -233,7 +233,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
                 );
               })}
             </svg>
-            <p style={{ fontSize: 12, color: '#888', padding: '0 0.75rem 0.5rem' }}><span style={{ color: '#33415c' }}>📄 Planos = ver y descargar los documentos</span> · SED = Sedes & Espacios · <span style={{ color: '#b8860b' }}>MAP = Mapa Operativo</span> · <span style={{ color: '#8a4fbf' }}>👥 Personas & RH</span> · <span style={{ color: '#a9720f' }}>📦 Recursos & Proveedores</span> · <span style={{ color: '#c95b7c' }}>📣 Marketing</span> · <span style={{ color: '#8a4fbf' }}>NEG = Negocio</span> · UC = Unidad Comercial. Los nodos <strong>alimentan</strong> los planos; en 📄 los ves. Clic para entrar.</p>
+            <p style={{ fontSize: 12, color: 'var(--bp-muted)', padding: '0 0.75rem 0.5rem' }}><span style={{ color: 'var(--bp-text)' }}>📄 Planos = ver y descargar los documentos</span> · SED = Sedes & Espacios · <span style={{ color: '#b8860b' }}>MAP = Mapa Operativo</span> · <span style={{ color: '#8a4fbf' }}>👥 Personas & RH</span> · <span style={{ color: '#a9720f' }}>📦 Recursos & Proveedores</span> · <span style={{ color: '#c95b7c' }}>📣 Marketing</span> · <span style={{ color: '#8a4fbf' }}>NEG = Negocio</span> · UC = Unidad Comercial. Los nodos <strong>alimentan</strong> los planos; en 📄 los ves. Clic para entrar.</p>
           </div>
         </div>
       )}

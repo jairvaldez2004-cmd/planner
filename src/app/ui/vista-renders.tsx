@@ -15,8 +15,8 @@ import { distanciaMetros, formatoMetros, metrosPorPixel, MAX_RENDER_BYTES } from
 import type { AnclajeRender, PuntoPx } from '@/domain/render';
 import type { Espacio, ObjetoFisico } from '@/domain/espacios';
 
-const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
-const inp: CSSProperties = { padding: '0.35rem 0.5rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 13 };
+const btn: CSSProperties = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
+const inp: CSSProperties = { padding: '0.35rem 0.5rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 13 };
 
 type Modo = 'ver' | 'calibrar' | 'anclar';
 
@@ -115,7 +115,7 @@ export function VistaRenders({ proyectoId, sedeId, espacios, objetos, onCerrar }
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h3 style={{ margin: 0 }}>🖼 Renders externos <span style={{ fontSize: 12.5, color: '#888' }}>· sube tu render/plano/foto y únelo al modelo</span></h3>
+        <h3 style={{ margin: 0 }}>🖼 Renders externos <span style={{ fontSize: 12.5, color: 'var(--bp-muted)' }}>· sube tu render/plano/foto y únelo al modelo</span></h3>
         <button style={btn} onClick={onCerrar}>← Editor 2D</button>
       </div>
 
@@ -129,9 +129,9 @@ export function VistaRenders({ proyectoId, sedeId, espacios, objetos, onCerrar }
         ))}
       </div>
 
-      {msg && <p style={{ fontSize: 12.5, color: '#2b5a97', margin: '0 0 0.5rem' }}>{msg}</p>}
+      {msg && <p style={{ fontSize: 12.5, color: 'var(--bp-gold)', margin: '0 0 0.5rem' }}>{msg}</p>}
       {!render && renders.length === 0 && (
-        <p style={{ color: '#888', fontSize: 13, border: '1px dashed #ddd', borderRadius: 8, padding: '1rem' }}>
+        <p style={{ color: 'var(--bp-muted)', fontSize: 13, border: '1px dashed #ddd', borderRadius: 8, padding: '1rem' }}>
           Sube el render, plano del arquitecto o una foto del local (PNG/JPG/WebP, máx. 5 MB). Después lo calibras a escala con 2 clics y le anclas tus espacios y objetos reales.
         </p>
       )}
@@ -151,14 +151,14 @@ export function VistaRenders({ proyectoId, sedeId, espacios, objetos, onCerrar }
               {mpp !== null && <span style={{ fontSize: 12, color: '#2e9e63', alignSelf: 'center' }}>✓ a escala ({formatoMetros(mpp * 100)} por cada 100 px)</span>}
             </div>
 
-            <div style={{ position: 'relative', border: '1px solid #ddd', borderRadius: 10, overflow: 'hidden', cursor: modo === 'ver' ? 'default' : 'crosshair', lineHeight: 0 }}
+            <div style={{ position: 'relative', border: '1px solid var(--bp-border)', borderRadius: 10, overflow: 'hidden', cursor: modo === 'ver' ? 'default' : 'crosshair', lineHeight: 0 }}
               onClick={(e) => void clicImagen(e)}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img ref={imgRef} src={render.dataUrl} alt={render.nombre} style={{ width: '100%', height: 'auto', display: 'block' }}
                 onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
               {/* puntos de calibración en curso */}
               {calibPts.map((p, i) => (
-                <span key={i} style={{ position: 'absolute', ...pct(p), transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: 6, background: '#b06be0', border: '2px solid #fff', boxShadow: '0 1px 3px rgba(0,0,0,.4)' }} />
+                <span key={i} style={{ position: 'absolute', ...pct(p), transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: 6, background: '#b06be0', border: '2px solid var(--bp-border)', boxShadow: '0 1px 3px rgba(0,0,0,.4)' }} />
               ))}
               {/* línea de calibración guardada */}
               {render.calibracion && natural && (
@@ -176,18 +176,18 @@ export function VistaRenders({ proyectoId, sedeId, espacios, objetos, onCerrar }
                 </span>
               ))}
             </div>
-            <p style={{ fontSize: 11.5, color: '#888', margin: '0.35rem 0 0' }}>
+            <p style={{ fontSize: 11.5, color: 'var(--bp-muted)', margin: '0.35rem 0 0' }}>
               📏 Calibrar = 2 clics sobre una distancia conocida (la imagen queda a escala). 📌 Anclar = unir un punto del render con un espacio u objeto REAL del modelo — comparten ficha, costos y procesos.
             </p>
           </div>
 
           {/* panel */}
-          <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.7rem', background: '#f7f9ff' }}>
+          <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.7rem', background: 'var(--bp-panel-alt)' }}>
             <strong style={{ fontSize: 14 }}>{render.nombre}</strong>
-            <div style={{ fontSize: 11.5, color: '#888', marginBottom: 6 }}>{render.calibracion ? `Calibrado: ${render.calibracion.metros} m de referencia.` : 'Sin calibrar todavía.'}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--bp-muted)', marginBottom: 6 }}>{render.calibracion ? `Calibrado: ${render.calibracion.metros} m de referencia.` : 'Sin calibrar todavía.'}</div>
 
             {pendiente && (
-              <div style={{ border: '1px solid #bfe3cf', background: '#effaf3', borderRadius: 8, padding: '0.5rem', marginBottom: 8 }}>
+              <div style={{ border: '1px solid #bfe3cf', background: 'var(--bp-panel-alt)', borderRadius: 8, padding: '0.5rem', marginBottom: 8 }}>
                 <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>¿Qué hay en ese punto?</div>
                 <select style={{ ...inp, width: '100%' }} value={destino} onChange={(e) => setDestino(e.target.value)}>
                   <option value="">— elegir del modelo —</option>
@@ -205,14 +205,14 @@ export function VistaRenders({ proyectoId, sedeId, espacios, objetos, onCerrar }
               </div>
             )}
 
-            <div style={{ fontSize: 12, fontWeight: 'bold', color: '#666' }}>📌 Anclajes ({render.anclajes.length})</div>
-            {render.anclajes.length === 0 && <div style={{ fontSize: 12, color: '#999' }}>Ninguno todavía.</div>}
+            <div style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--bp-muted)' }}>📌 Anclajes ({render.anclajes.length})</div>
+            {render.anclajes.length === 0 && <div style={{ fontSize: 12, color: 'var(--bp-muted)' }}>Ninguno todavía.</div>}
             {render.anclajes.map((a, i) => {
               const prev = render.anclajes[i - 1];
               const d = prev && render.calibracion ? distanciaMetros(prev, a, render.calibracion) : null;
               return (
                 <div key={a.id} style={{ fontSize: 12.5, padding: '0.2rem 0', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ flex: 1 }}>· <strong>{a.nombre}</strong> <span style={{ color: '#999' }}>({a.tipo})</span>{d !== null && <span style={{ color: '#2b5a97' }}> · a {formatoMetros(d)} del anterior</span>}</span>
+                  <span style={{ flex: 1 }}>· <strong>{a.nombre}</strong> <span style={{ color: 'var(--bp-muted)' }}>({a.tipo})</span>{d !== null && <span style={{ color: 'var(--bp-gold)' }}> · a {formatoMetros(d)} del anterior</span>}</span>
                   <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => void quitarAnclaje(a.id)}>×</span>
                 </div>
               );

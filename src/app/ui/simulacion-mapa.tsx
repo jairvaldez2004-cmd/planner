@@ -11,10 +11,10 @@ import type { EtapaObjetivo } from '@/domain/etapas';
 import { simular } from '@/domain/simulacion';
 import type { SimItem } from '@/domain/simulacion';
 
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
-const card: CSSProperties = { border: '1px solid #dde', borderRadius: 10, padding: '0.6rem 0.8rem', background: '#fff', minWidth: 120 };
-const cap: CSSProperties = { fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.3 };
-const bignum: CSSProperties = { fontSize: 20, fontWeight: 'bold', color: '#2b5a97' };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
+const card: CSSProperties = { border: '1px solid #dde', borderRadius: 10, padding: '0.6rem 0.8rem', background: 'var(--bp-panel)', minWidth: 120 };
+const cap: CSSProperties = { fontSize: 11, color: 'var(--bp-muted)', textTransform: 'uppercase', letterSpacing: 0.3 };
+const bignum: CSSProperties = { fontSize: 20, fontWeight: 'bold', color: 'var(--bp-gold)' };
 
 function minutos(n: number): string {
   if (n < 60) return `${Math.round(n)} min`;
@@ -30,14 +30,14 @@ function Barras({ items, cuello, color }: { items: SimItem[]; cuello?: SimItem |
         <div key={it.nombre}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
             <span style={{ fontWeight: cuello?.nombre === it.nombre ? 'bold' : 'normal' }}>{cuello?.nombre === it.nombre ? '🔥 ' : ''}{it.nombre} <span style={{ color: '#aaa' }}>({it.procesos})</span></span>
-            <span style={{ color: '#666', fontVariantNumeric: 'tabular-nums' }}>{minutos(it.minutos)}</span>
+            <span style={{ color: 'var(--bp-muted)', fontVariantNumeric: 'tabular-nums' }}>{minutos(it.minutos)}</span>
           </div>
-          <div style={{ height: 8, background: '#eef', borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ height: 8, background: 'var(--bp-panel-alt)', borderRadius: 4, overflow: 'hidden' }}>
             <div style={{ width: `${Math.round((it.minutos / max) * 100)}%`, height: '100%', background: color }} />
           </div>
         </div>
       ))}
-      {items.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Sin datos (faltan espacios/roles o tiempos en los procesos).</p>}
+      {items.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Sin datos (faltan espacios/roles o tiempos en los procesos).</p>}
     </div>
   );
 }
@@ -51,10 +51,10 @@ export function SimulacionMapa({ procesos, etapa, onCerrar, onIrProceso }: {
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>🎬 Simulación <span style={{ fontSize: 13, color: '#888' }}>· procesos sobre el espacio</span></h2>
+        <h2 style={{ margin: 0 }}>🎬 Simulación <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· procesos sobre el espacio</span></h2>
         <button style={btn} onClick={onCerrar}>← Mapa</button>
       </div>
-      <p style={{ fontSize: 12, color: '#888', margin: '0.2rem 0 0.8rem' }}>Estimación a partir de los tiempos, roles y espacios capturados en cada proceso. {r.sinTiempo > 0 && <span style={{ color: '#a60' }}>{r.sinTiempo} proceso(s) sin tiempo declarado (cuentan como 0 — captúralos para afinar).</span>}</p>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.2rem 0 0.8rem' }}>Estimación a partir de los tiempos, roles y espacios capturados en cada proceso. {r.sinTiempo > 0 && <span style={{ color: '#a60' }}>{r.sinTiempo} proceso(s) sin tiempo declarado (cuentan como 0 — captúralos para afinar).</span>}</p>
 
       <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
         <div style={card}><div style={cap}>Tiempo total</div><div style={bignum}>{minutos(r.totalMin)}</div></div>
@@ -75,18 +75,18 @@ export function SimulacionMapa({ procesos, etapa, onCerrar, onIrProceso }: {
         </div>
       </div>
 
-      <h3 style={{ margin: '1rem 0 0.4rem' }}>🚶 Recorrido cronológico <span style={{ fontSize: 12, color: '#888', fontWeight: 'normal' }}>({r.recorrido.length} pasos con espacio · {r.cambiosEspacio} caminatas)</span></h3>
+      <h3 style={{ margin: '1rem 0 0.4rem' }}>🚶 Recorrido cronológico <span style={{ fontSize: 12, color: 'var(--bp-muted)', fontWeight: 'normal' }}>({r.recorrido.length} pasos con espacio · {r.cambiosEspacio} caminatas)</span></h3>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, fontSize: 12.5 }}>
         {r.recorrido.map((p, i) => (
           <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             {i > 0 && <span style={{ color: p.cambio ? '#c0392b' : '#c9cfdd' }}>{p.cambio ? '🚶→' : '→'}</span>}
             <span onClick={() => onIrProceso?.(p.proceso)} title={p.proceso}
-              style={{ cursor: onIrProceso ? 'pointer' : 'default', background: '#f2f4f8', border: '1px solid #dde', borderRadius: 12, padding: '2px 8px' }}>
+              style={{ cursor: onIrProceso ? 'pointer' : 'default', background: 'var(--bp-panel-alt)', border: '1px solid #dde', borderRadius: 12, padding: '2px 8px' }}>
               {p.espacio}
             </span>
           </span>
         ))}
-        {r.recorrido.length === 0 && <span style={{ color: '#999' }}>Asigna espacios a los procesos para ver el recorrido.</span>}
+        {r.recorrido.length === 0 && <span style={{ color: 'var(--bp-muted)' }}>Asigna espacios a los procesos para ver el recorrido.</span>}
       </div>
     </section>
   );

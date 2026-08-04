@@ -7,8 +7,8 @@ import { TIPOS_POR_PLANO } from '@/app/documentos/documento-service';
 import type { PlanoComExp } from '@/domain/plano-com-exp';
 import type { Documento } from '@/domain/documento';
 
-const card = { border: '1px solid #ddd', borderRadius: 8, padding: '0.75rem 1rem', margin: '0.5rem 0', background: '#fafafa' } as const;
-const btn = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 } as const;
+const card = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.75rem 1rem', margin: '0.5rem 0', background: 'var(--bp-panel-alt)' } as const;
+const btn = { padding: '0.3rem 0.7rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 } as const;
 const row = { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' as const, marginTop: '0.5rem' };
 
 export function VistaDocumentos() {
@@ -72,11 +72,11 @@ export function VistaDocumentos() {
   return (
     <section>
       {/* Generar nuevo documento */}
-      <div style={{ ...card, background: '#f0f7ff', borderColor: '#b3d4f7' }}>
+      <div style={{ ...card, background: 'var(--bp-panel-alt)', borderColor: '#b3d4f7' }}>
         <strong>Generar documento</strong>
         <div style={row}>
           <select value={planoSel} onChange={(e) => setPlanoSel(e.target.value)}
-            style={{ padding: '0.3rem 0.5rem', borderRadius: 6, border: '1px solid #ccc', minWidth: 200 }}>
+            style={{ padding: '0.3rem 0.5rem', borderRadius: 6, border: '1px solid var(--bp-border)', minWidth: 200 }}>
             <option value="">(seleccionar plano)</option>
             {planos.map((p) => (
               <option key={p.id} value={p.id}>
@@ -85,10 +85,10 @@ export function VistaDocumentos() {
             ))}
           </select>
           <select value={tipoSel} onChange={(e) => setTipoSel(e.target.value)}
-            style={{ padding: '0.3rem 0.5rem', borderRadius: 6, border: '1px solid #ccc' }}>
+            style={{ padding: '0.3rem 0.5rem', borderRadius: 6, border: '1px solid var(--bp-border)' }}>
             {tiposDisponibles.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
-          <button style={{ ...btn, background: '#e8f5e9' }} onClick={() => void onGenerar()} disabled={generando || !planoSel}>
+          <button style={{ ...btn, background: 'var(--bp-panel-alt)' }} onClick={() => void onGenerar()} disabled={generando || !planoSel}>
             {generando ? 'Generando…' : 'Generar'}
           </button>
           <button style={btn} onClick={cargar} disabled={loading}>{loading ? 'Cargando…' : 'Actualizar'}</button>
@@ -99,26 +99,26 @@ export function VistaDocumentos() {
 
       {/* Lista de documentos */}
       {documentos.length === 0 && !loading && (
-        <p style={{ color: '#666' }}>No hay documentos. Genera uno arriba.</p>
+        <p style={{ color: 'var(--bp-muted)' }}>No hay documentos. Genera uno arriba.</p>
       )}
       {documentos.map((d) => (
         <div key={d.id} style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
             <div>
               <strong>{d.tipoDocumento}</strong>
-              <span style={{ marginLeft: 8, fontSize: 12, color: '#555' }}>v{d.version}</span>
+              <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--bp-muted)' }}>v{d.version}</span>
               {d.pendientes > 0 && (
                 <span style={{ marginLeft: 6, fontSize: 12, color: '#a60' }}>⚠ {d.pendientes} pendiente(s)</span>
               )}
             </div>
-            <span style={{ fontSize: 11, color: '#888' }}>{d.id.slice(0, 40)}…</span>
+            <span style={{ fontSize: 11, color: 'var(--bp-muted)' }}>{d.id.slice(0, 40)}…</span>
           </div>
-          <div style={{ fontSize: 12, color: '#666', margin: '0.25rem 0' }}>
+          <div style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.25rem 0' }}>
             Plano: {d.planoId.slice(0, 30)}… · Actualizado: {d.actualizadoEn.slice(0, 19).replace('T', ' ')}
           </div>
           <div style={row}>
             <button style={btn} onClick={() => void onRegenerar(d.id)}>Regenerar</button>
-            <button style={{ ...btn, background: '#e8f5e9' }} onClick={() => void onExportar(d.id)}>Exportar Markdown</button>
+            <button style={{ ...btn, background: 'var(--bp-panel-alt)' }} onClick={() => void onExportar(d.id)}>Exportar Markdown</button>
           </div>
         </div>
       ))}
@@ -127,7 +127,7 @@ export function VistaDocumentos() {
       {markup && (
         <>
           <h3 style={{ marginTop: '1.5rem' }}>Markdown exportado</h3>
-          <pre style={{ background: '#f5f5f5', padding: '1rem', borderRadius: 8, whiteSpace: 'pre-wrap', overflowX: 'auto', fontSize: 13 }}>
+          <pre style={{ background: 'var(--bp-panel-alt)', padding: '1rem', borderRadius: 8, whiteSpace: 'pre-wrap', overflowX: 'auto', fontSize: 13 }}>
             {markup}
           </pre>
         </>

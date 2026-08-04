@@ -36,11 +36,11 @@ import { AgendaRecursos } from './agenda-recursos';
 import { SimulacionMapa } from './simulacion-mapa';
 import { useEsMovil } from './use-movil';
 
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
 const btnSm: CSSProperties = { ...btn, padding: '0.15rem 0.5rem', fontSize: 12 };
-const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 13, width: '100%', boxSizing: 'border-box' };
-const lbl: CSSProperties = { display: 'block', fontSize: 11, color: '#666', marginTop: '0.5rem', fontWeight: 'bold' };
-const tag: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#eef2fb', border: '1px solid #cdd8ef', borderRadius: 12, padding: '0.1rem 0.5rem', fontSize: 12, margin: '2px 3px 0 0' };
+const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 13, width: '100%', boxSizing: 'border-box' };
+const lbl: CSSProperties = { display: 'block', fontSize: 11, color: 'var(--bp-muted)', marginTop: '0.5rem', fontWeight: 'bold' };
+const tag: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bp-panel-alt)', border: '1px solid #cdd8ef', borderRadius: 12, padding: '0.1rem 0.5rem', fontSize: 12, margin: '2px 3px 0 0' };
 
 const ANCHO_NODO = 200;
 
@@ -283,15 +283,15 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>🗺️ Mapa Operativo <span style={{ fontSize: 13, color: '#888' }}>· {nombreProyecto ?? 'proyecto'} · un solo flujo cronológico</span></h2>
+        <h2 style={{ margin: 0 }}>🗺️ Mapa Operativo <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· {nombreProyecto ?? 'proyecto'} · un solo flujo cronológico</span></h2>
         <button style={btn} onClick={onVolver}>← Proyecto</button>
       </div>
 
       {/* MIGAS: navegación de flujos anidados (subflujo dentro de un paso) */}
       {nivel && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', margin: '0.5rem 0 0', fontSize: 13, background: '#eef4ff', border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.4rem 0.6rem' }}>
-          <span style={{ color: '#2b5a97', fontWeight: 'bold' }}>Subflujo dentro de →</span>
-          <span style={{ cursor: 'pointer', color: '#2b5a97' }} onClick={() => irANivel(-1)}>🗺️ Mapa</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', margin: '0.5rem 0 0', fontSize: 13, background: 'var(--bp-panel-alt)', border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.4rem 0.6rem' }}>
+          <span style={{ color: 'var(--bp-gold)', fontWeight: 'bold' }}>Subflujo dentro de →</span>
+          <span style={{ cursor: 'pointer', color: 'var(--bp-gold)' }} onClick={() => irANivel(-1)}>🗺️ Mapa</span>
           {ruta.map((r, i) => (
             <span key={r.id}>
               <span style={{ color: '#8a93a8' }}> ▸ </span>
@@ -323,7 +323,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
         })}
       </div>
       {info && (
-        <p style={{ fontSize: 11.5, color: '#6b5a85', margin: '0 0 0.4rem', background: '#f6f2fb', border: '1px solid #e6dcf3', borderRadius: 7, padding: '0.35rem 0.55rem' }}>
+        <p style={{ fontSize: 11.5, color: '#6b5a85', margin: '0 0 0.4rem', background: 'var(--bp-panel-alt)', border: '1px solid #e6dcf3', borderRadius: 7, padding: '0.35rem 0.55rem' }}>
           <strong>Etapa {info.n} · {info.label}</strong> — {info.descripcion}{' '}
           {etapaN(etapa) > 1
             ? <>Ves <strong>{heredados}</strong> procesos heredados de etapas anteriores (atenuados) + <strong>{nuevosAqui}</strong> que nacen aquí. Lo que crees ahora nace en esta etapa.</>
@@ -360,7 +360,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
 
       {/* etiquetas de departamento */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', alignItems: 'center', margin: '0.2rem 0 0.5rem' }}>
-        <span style={{ fontSize: 11, color: '#888', fontWeight: 'bold' }}>Departamentos (etiquetas):</span>
+        <span style={{ fontSize: 11, color: 'var(--bp-muted)', fontWeight: 'bold' }}>Departamentos (etiquetas):</span>
         {deptos.map((d, i) => (
           <span key={d.id} onClick={() => { setSelDepto(d.id); setSelProc(null); }}
             style={{ ...tag, cursor: 'pointer', borderColor: colorDepto(d, i), background: selDepto === d.id ? colorDepto(d, i) : '#fff', color: selDepto === d.id ? '#fff' : colorDepto(d, i), fontWeight: 'bold' }}>
@@ -371,13 +371,13 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
         {nuevoDepto.trim() && <button style={btnSm} onClick={() => void altaDepto()}>＋</button>}
       </div>
 
-      {msg && <p style={{ fontSize: 12, color: '#2b5a97', margin: '0 0 0.4rem' }}>{msg}</p>}
-      {catalogo.length > 0 && (() => { const t = vigentes.reduce((s, p) => s + costearProceso(p.insumos, p.cantidades, idxRec).total, 0); return t > 0 ? <p style={{ fontSize: 12, color: '#6b5320', margin: '0 0 0.4rem', background: '#fdf6e3', border: '1px solid #e0d3b0', borderRadius: 7, padding: '0.3rem 0.55rem' }}>💵 Costo de insumos de esta etapa: <strong>{formatoMoneda(t)}</strong> <span style={{ color: '#999' }}>— precio del catálogo 🏷️ Productos</span></p> : null; })()}
-      {loading && <p style={{ color: '#666' }}>Cargando…</p>}
+      {msg && <p style={{ fontSize: 12, color: 'var(--bp-gold)', margin: '0 0 0.4rem' }}>{msg}</p>}
+      {catalogo.length > 0 && (() => { const t = vigentes.reduce((s, p) => s + costearProceso(p.insumos, p.cantidades, idxRec).total, 0); return t > 0 ? <p style={{ fontSize: 12, color: 'var(--bp-text)', margin: '0 0 0.4rem', background: 'var(--bp-panel-alt)', border: '1px solid #e0d3b0', borderRadius: 7, padding: '0.3rem 0.55rem' }}>💵 Costo de insumos de esta etapa: <strong>{formatoMoneda(t)}</strong> <span style={{ color: 'var(--bp-muted)' }}>— precio del catálogo 🏷️ Productos</span></p> : null; })()}
+      {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando…</p>}
 
       <div style={{ display: 'grid', gridTemplateColumns: movil || !(proc || depto) ? '1fr' : 'minmax(0, 1fr) 330px', gap: '0.75rem', alignItems: 'start' }}>
         {/* ==== CANVAS DE LA FASE ==== */}
-        <div style={{ border: '1px solid #ddd', borderRadius: 10, background: '#fcfcfd', overflow: 'auto', maxHeight: '74vh' }}>
+        <div style={{ border: '1px solid var(--bp-border)', borderRadius: 10, background: 'var(--bp-panel-alt)', overflow: 'auto', maxHeight: '74vh' }}>
           <div ref={canvasRef}
             onDoubleClick={(e) => {
               if (e.target !== e.currentTarget) return;
@@ -438,17 +438,17 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
                     border: `1.5px ${nuevo ? 'solid' : 'dashed'} ${selProc === p.id ? color : (nuevo ? '#c9cfdd' : '#dfe3ea')}`,
                     borderTop: `4px solid ${seRetira ? '#c0392b' : color}`,
                     opacity: nuevo ? 1 : 0.72,
-                    borderRadius: 9, background: '#fff', padding: '0.35rem 0.5rem', cursor: 'grab', touchAction: 'none',
+                    borderRadius: 9, background: 'var(--bp-panel)', padding: '0.35rem 0.5rem', cursor: 'grab', touchAction: 'none',
                     boxShadow: selProc === p.id ? `0 0 0 2px ${color}33` : '0 1px 3px rgba(0,0,0,0.07)' }}>
                   {/* portales de ENTRADA desde otras fases */}
                   {entrantes.map((x, i) => (
                     <div key={i} data-portal onClick={() => { setFase(x.desde.fase); setSelProc(x.desde.id); }}
-                      style={{ fontSize: 10, color: '#2b5a97', cursor: 'pointer', marginBottom: 2 }}
+                      style={{ fontSize: 10, color: 'var(--bp-gold)', cursor: 'pointer', marginBottom: 2 }}
                       title={`Viene de ${faseLabel(x.desde.fase)} · clic para ir`}>
                       ⤶ {x.desde.nombre}{x.evento && x.evento !== 'continúa' ? ` (${x.evento})` : ''} · {faseLabel(x.desde.fase).split(' ·')[0]}
                     </div>
                   ))}
-                  <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#222', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 'bold', color: 'var(--bp-text)', display: 'flex', alignItems: 'center', gap: 4 }}>
                     {n !== undefined && <span style={{ background: n === 1 ? '#2e9e63' : '#5b6b8c', color: '#fff', borderRadius: 9, fontSize: 10, padding: '0 5px', flexShrink: 0 }}>{n === 1 ? '▶ 1' : n}</span>}
                     <span style={{ flex: 1, textDecoration: seRetira ? 'line-through' : 'none' }}>{p.nombre}</span>
                     {bifurca && <span title="Se divide en caminos por disparador" style={{ color: '#b06be0' }}>⑂</span>}
@@ -464,11 +464,11 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
                     )}
                     {seRetira && <span title="Se retira al pasar a la siguiente etapa" style={{ background: '#c0392b', color: '#fff', borderRadius: 8, padding: '0 5px', fontSize: 9 }}>⊘ último uso</span>}
                   </div>
-                  {lenteCard(p) && <div style={{ fontSize: 11, color: '#777', marginTop: 1 }}>{lenteCard(p)}</div>}
+                  {lenteCard(p) && <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 1 }}>{lenteCard(p)}</div>}
                   {/* subflujo anidado: abrir/crear el flujo de trabajo DENTRO de este paso */}
                   <div data-portal onClick={(ev) => { ev.stopPropagation(); entrarSubflujo(p); }}
                     title="Abrir el subflujo de este paso (flujos de trabajo dentro del paso)"
-                    style={{ marginTop: 3, fontSize: 10, color: '#2b5a97', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3, background: '#eef4ff', border: '1px solid #cdd8ef', borderRadius: 6, padding: '1px 6px' }}>
+                    style={{ marginTop: 3, fontSize: 10, color: 'var(--bp-gold)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3, background: 'var(--bp-panel-alt)', border: '1px solid #cdd8ef', borderRadius: 6, padding: '1px 6px' }}>
                     ⤵ {subCount.get(p.id) ? `subflujo (${subCount.get(p.id)})` : 'crear subflujo'}
                   </div>
                   {/* portales de SALIDA hacia otras fases */}
@@ -485,7 +485,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
                   {/* portales hacia ETAPAS FUTURAS: lo que se hace hoy para habilitar el mañana */}
                   {futuras.map(({ r, dest }) => (
                     <div key={r.id} data-portal onClick={() => { setEtapa(dest.etapaDesde); setFase(dest.fase); setSelProc(dest.id); }}
-                      style={{ fontSize: 10, color: '#7a4fbf', cursor: 'pointer', marginTop: 2, background: '#f6f2fb', borderRadius: 5, padding: '1px 4px' }}
+                      style={{ fontSize: 10, color: '#7a4fbf', cursor: 'pointer', marginTop: 2, background: 'var(--bp-panel-alt)', borderRadius: 5, padding: '1px 4px' }}
                       title={`Alimenta la etapa ${etapaN(dest.etapaDesde)} (${etapaLabel(dest.etapaDesde)}) · clic para ir`}>
                       ⏭ alimenta <strong>E{etapaN(dest.etapaDesde)}</strong> · {dest.nombre}{r.evento && r.evento !== 'continúa' ? ` (${r.evento})` : ''}
                     </div>
@@ -495,12 +495,12 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
             })}
 
             {!loading && enFase.length === 0 && (
-              <p style={{ position: 'absolute', top: 24, left: 24, color: '#999', fontSize: 13 }}>
+              <p style={{ position: 'absolute', top: 24, left: 24, color: 'var(--bp-muted)', fontSize: 13 }}>
                 Página vacía en la etapa {etapaN(etapa)}. Doble clic en el lienzo (o ＋ Proceso) para crear el primer proceso de esta fase.
               </p>
             )}
           </div>
-          <p style={{ fontSize: 11, color: '#999', padding: '0.4rem 0.6rem', margin: 0, borderTop: '1px solid #eee' }}>
+          <p style={{ fontSize: 11, color: 'var(--bp-muted)', padding: '0.4rem 0.6rem', margin: 0, borderTop: '1px solid var(--bp-border)' }}>
             Doble clic = nuevo proceso (nace en la etapa {etapaN(etapa)}) · arrastra los nodos · clic = editar · <span style={{ color: '#2e9e63', fontWeight: 'bold' }}>▶ 1</span> = primer paso de todos · ⑂ = se divide por disparador · ⤶/⤷ = viene de / sigue en otra fase · <span style={{ color: '#7a4fbf' }}>⏭</span> = alimenta una etapa futura · nodo punteado y atenuado = heredado de una etapa anterior · 🧬 = del catálogo.
           </p>
         </div>
@@ -593,7 +593,7 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
   }
 
   return (
-    <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.7rem', background: '#f7f9ff', position: 'sticky', top: 8, maxHeight: '82vh', overflowY: 'auto' }}>
+    <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.7rem', background: 'var(--bp-panel-alt)', position: 'sticky', top: 8, maxHeight: '82vh', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong style={{ fontSize: 14 }}>⚙️ Proceso</strong>
         <button style={btnSm} onClick={onCerrar}>✕</button>
@@ -603,7 +603,7 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
       <input style={inp} defaultValue={proc.nombre} onBlur={(e) => { if (e.target.value.trim() && e.target.value !== proc.nombre) onPatch({ nombre: e.target.value.trim() }); }} />
 
       {/* SUBFLUJO: el flujo de trabajo que vive DENTRO de este paso (anidado, recursivo) */}
-      <button style={{ ...btnSm, width: '100%', marginTop: 6, background: '#eef4ff', borderColor: '#cdd8ef', color: '#2b5a97', fontWeight: 'bold' }} onClick={onEntrarSubflujo}>
+      <button style={{ ...btnSm, width: '100%', marginTop: 6, background: 'var(--bp-panel-alt)', borderColor: '#cdd8ef', color: 'var(--bp-gold)', fontWeight: 'bold' }} onClick={onEntrarSubflujo}>
         ⤵ {subprocesos ? `Abrir subflujo (${subprocesos} paso${subprocesos > 1 ? 's' : ''})` : 'Crear subflujo dentro de este paso'}
       </button>
 
@@ -638,7 +638,7 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
           </select>
         </div>
       </div>
-      <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 0' }}>
+      <p style={{ fontSize: 10.5, color: 'var(--bp-muted)', margin: '2px 0 0' }}>
         Existe desde su etapa en adelante (se hereda). Usa &quot;vigente hasta&quot; para los procesos que otra etapa reemplaza (ej. el manual que la automatización jubila).
       </p>
 
@@ -668,7 +668,7 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
       {(proc.apoyos ?? []).map((a) => (
         <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3, fontSize: 12 }}>
           <span>{a.tipo === 'video' ? '🎥' : a.tipo === 'documento' ? '📄' : '🔗'}</span>
-          <a href={a.url} target="_blank" rel="noreferrer" style={{ flex: 1, color: '#2b5a97', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.titulo || a.url}</a>
+          <a href={a.url} target="_blank" rel="noreferrer" style={{ flex: 1, color: 'var(--bp-gold)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.titulo || a.url}</a>
           <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onPatch({ apoyos: (proc.apoyos ?? []).filter((x) => x.id !== a.id) })}>×</span>
         </div>
       ))}
@@ -682,10 +682,10 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
         <input style={{ ...inp, flex: 1 }} placeholder="URL (YouTube, Drive, PDF…)" value={apUrl} onChange={(e) => setApUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addApoyo(); }} />
         <button style={btnSm} onClick={addApoyo} disabled={!apUrl.trim() && !apTitulo.trim()}>＋</button>
       </div>
-      <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 0' }}>Para temas complejos: el video/documento se muestra en el instructivo (ej. el jefe de obra lo pone en la mañana para enseñar a aplicar).</p>
+      <p style={{ fontSize: 10.5, color: 'var(--bp-muted)', margin: '2px 0 0' }}>Para temas complejos: el video/documento se muestra en el instructivo (ej. el jefe de obra lo pone en la mañana para enseñar a aplicar).</p>
 
       {/* ROLES */}
-      <label style={lbl}>👤 Roles {proc.roles.length > 0 && <span style={{ color: '#999' }}>({proc.roles.length})</span>}</label>
+      <label style={lbl}>👤 Roles {proc.roles.length > 0 && <span style={{ color: 'var(--bp-muted)' }}>({proc.roles.length})</span>}</label>
       <div>{proc.roles.map((r) => <span key={r} style={tag}>{r} <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onPatch({ roles: proc.roles.filter((x) => x !== r) })}>×</span></span>)}</div>
       <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
         <input style={{ ...inp, flex: 1 }} list={`roles-${proc.id}`} placeholder="rol existente o nuevo…" value={nuevoRol} onChange={(e) => setNuevoRol(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void addRol(); }} />
@@ -694,7 +694,7 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
       </div>
 
       {/* HERRAMIENTAS (con manual anidado) */}
-      <label style={lbl}>🔧 Herramientas <span style={{ color: '#999', fontWeight: 'normal' }}>(se reúsan · 📖 manual)</span></label>
+      <label style={lbl}>🔧 Herramientas <span style={{ color: 'var(--bp-muted)', fontWeight: 'normal' }}>(se reúsan · 📖 manual)</span></label>
       {proc.herramientas.map((h) => (
         <div key={h} style={{ marginTop: 3 }}>
           <span style={{ ...tag, display: 'flex', justifyContent: 'space-between', width: '100%', boxSizing: 'border-box' }}>{h}
@@ -713,7 +713,7 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
       </div>
 
       {/* EQUIPO / MAQUINARIA (con manual anidado) */}
-      <label style={lbl}>🛠️ Equipo / maquinaria <span style={{ color: '#999', fontWeight: 'normal' }}>(📖 manual)</span></label>
+      <label style={lbl}>🛠️ Equipo / maquinaria <span style={{ color: 'var(--bp-muted)', fontWeight: 'normal' }}>(📖 manual)</span></label>
       {(proc.equipo ?? []).map((h) => (
         <div key={h} style={{ marginTop: 3 }}>
           <span style={{ ...tag, display: 'flex', justifyContent: 'space-between', width: '100%', boxSizing: 'border-box' }}>{h}
@@ -741,7 +741,7 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
       </div>
 
       {/* INSUMOS (se consumen · con cantidad) */}
-      <label style={lbl}>🧴 Insumos <span style={{ color: '#999', fontWeight: 'normal' }}>(se consumen · con cantidad)</span></label>
+      <label style={lbl}>🧴 Insumos <span style={{ color: 'var(--bp-muted)', fontWeight: 'normal' }}>(se consumen · con cantidad)</span></label>
       {proc.insumos.map((x) => (
         <div key={x} style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
           <span style={{ ...tag, flex: 1, margin: 0 }}>{x}</span>
@@ -762,13 +762,13 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
       {proc.insumos.length > 0 && (() => {
         const c = costearProceso(proc.insumos, proc.cantidades, idxCosto);
         return (
-          <div style={{ marginTop: 6, background: '#fdf6e3', border: '1px solid #e0d3b0', borderRadius: 8, padding: '0.4rem 0.55rem', fontSize: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#6b5320' }}>
+          <div style={{ marginTop: 6, background: 'var(--bp-panel-alt)', border: '1px solid #e0d3b0', borderRadius: 8, padding: '0.4rem 0.55rem', fontSize: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: 'var(--bp-text)' }}>
               <span>💵 Costo de insumos</span><span>{formatoMoneda(c.total)}</span>
             </div>
             {c.lineas.map((l) => (
               <div key={l.insumo} style={{ display: 'flex', justifyContent: 'space-between', color: l.subtotal !== null ? '#555' : '#c60' }}>
-                <span>{l.insumo} <span style={{ color: '#999' }}>×{l.cantidad ?? 1}</span></span>
+                <span>{l.insumo} <span style={{ color: 'var(--bp-muted)' }}>×{l.cantidad ?? 1}</span></span>
                 <span>{l.subtotal !== null ? formatoMoneda(l.subtotal) : (l.enCatalogo ? 'sin costo' : 'no está en catálogo')}</span>
               </div>
             ))}
@@ -809,16 +809,16 @@ function PanelProceso({ proyectoId, proc, procesos, deptos, recursos, catalogo, 
         </div>
       ))}
       <button style={{ ...btnSm, marginTop: 4 }} onClick={() => onPatch({ ramas: [...proc.ramas, { id: `RAMA-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, evento: '' }] })}>＋ Rama</button>
-      <p style={{ fontSize: 10.5, color: '#999', margin: '0.3rem 0 0' }}>Un proceso con 2+ ramas se divide en caminos según el disparador que se active. Si el destino está en otra fase aparece como portal ⤷; si nace en una etapa posterior, como ⏭ (el trabajo de hoy que alimenta el mañana — ej. guardar la factura hoy para Contabilidad en la etapa 2).</p>
+      <p style={{ fontSize: 10.5, color: 'var(--bp-muted)', margin: '0.3rem 0 0' }}>Un proceso con 2+ ramas se divide en caminos según el disparador que se active. Si el destino está en otra fase aparece como portal ⤷; si nace en una etapa posterior, como ⏭ (el trabajo de hoy que alimenta el mañana — ej. guardar la factura hoy para Contabilidad en la etapa 2).</p>
 
       {/* ==== CONTINGENCIAS / MANUALES DE EMERGENCIA de este proceso ==== */}
       <div style={{ borderTop: '1px solid #dde', marginTop: '0.7rem', paddingTop: '0.5rem' }}>
         <div style={{ fontSize: 12, fontWeight: 'bold', color: '#a03e2c' }}>⚠️ Contingencias / qué hacer si… ({contingencias.length})</div>
-        <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 4px' }}>Manuales de emergencia por riesgo, anclados a este paso del workflow.</p>
+        <p style={{ fontSize: 10.5, color: 'var(--bp-muted)', margin: '2px 0 4px' }}>Manuales de emergencia por riesgo, anclados a este paso del workflow.</p>
         {contingencias.map((c) => {
           const g = gravedadContingencia(c.gravedad);
           return (
-            <div key={c.id} style={{ border: `1px solid ${g.color}44`, borderLeft: `3px solid ${g.color}`, borderRadius: 7, padding: '0.35rem 0.5rem', marginBottom: 4, background: '#fff' }}>
+            <div key={c.id} style={{ border: `1px solid ${g.color}44`, borderLeft: `3px solid ${g.color}`, borderRadius: 7, padding: '0.35rem 0.5rem', marginBottom: 4, background: 'var(--bp-panel)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ fontSize: 12.5, fontWeight: 'bold', flex: 1 }}>{c.titulo}</span>
                 <span style={{ fontSize: 9.5, fontWeight: 'bold', color: '#fff', background: g.color, borderRadius: 7, padding: '0 5px' }}>{g.label}</span>
@@ -876,7 +876,7 @@ function PanelDepartamento({ depto, recursos, compartidos, onPatch, onEliminar, 
     const otros = esCompartido(r);
     return (
       <div key={`${r.nombre}-${i}`} style={{ fontSize: 12, padding: '0.15rem 0', display: 'flex', alignItems: 'center', gap: 4 }}>
-        <span style={{ flex: 1 }}>· <strong>{r.nombre}</strong>{r.horario ? <span style={{ color: '#2b5a97' }}> · {r.horario}</span> : ''}
+        <span style={{ flex: 1 }}>· <strong>{r.nombre}</strong>{r.horario ? <span style={{ color: 'var(--bp-gold)' }}> · {r.horario}</span> : ''}
           {otros.length > 0 && <span title={`También lo usa: ${otros.join(', ')}`} style={{ color: '#b06be0', marginLeft: 4 }}>⇄ compartido</span>}
         </span>
         <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onPatch({ [campo]: depto[campo].filter((_, j) => j !== i) } as never)}>×</span>
@@ -885,20 +885,20 @@ function PanelDepartamento({ depto, recursos, compartidos, onPatch, onEliminar, 
   };
 
   return (
-    <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.7rem', background: '#f7f9ff', position: 'sticky', top: 8, maxHeight: '82vh', overflowY: 'auto' }}>
+    <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.7rem', background: 'var(--bp-panel-alt)', position: 'sticky', top: 8, maxHeight: '82vh', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong style={{ fontSize: 14 }}>🏷️ Departamento (etiqueta)</strong>
         <button style={btnSm} onClick={onCerrar}>✕</button>
       </div>
-      <div style={{ fontSize: 11, color: '#888' }}>{depto.tipo === 'uc' ? 'Etiqueta derivada de una Unidad Comercial' : 'Etiqueta administrativa'} · los procesos se etiquetan con ella en el panel del proceso.</div>
+      <div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>{depto.tipo === 'uc' ? 'Etiqueta derivada de una Unidad Comercial' : 'Etiqueta administrativa'} · los procesos se etiquetan con ella en el panel del proceso.</div>
 
       <label style={lbl}>Nombre</label>
       <input style={inp} defaultValue={depto.nombre} disabled={depto.tipo === 'uc'}
         onBlur={(e) => { if (e.target.value.trim() && e.target.value !== depto.nombre) onPatch({ nombre: e.target.value.trim() }); }} />
-      {depto.tipo === 'uc' && <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 0' }}>El nombre se hereda de la Unidad Comercial.</p>}
+      {depto.tipo === 'uc' && <p style={{ fontSize: 10.5, color: 'var(--bp-muted)', margin: '2px 0 0' }}>El nombre se hereda de la Unidad Comercial.</p>}
 
       <label style={lbl}>Color de la etiqueta</label>
-      <input type="color" value={depto.color ?? '#33415c'} onChange={(e) => onPatch({ color: e.target.value })} style={{ width: 46, height: 28, border: '1px solid #ccc', borderRadius: 6, background: '#fff', cursor: 'pointer' }} />
+      <input type="color" value={depto.color ?? '#33415c'} onChange={(e) => onPatch({ color: e.target.value })} style={{ width: 46, height: 28, border: '1px solid var(--bp-border)', borderRadius: 6, background: 'var(--bp-panel)', cursor: 'pointer' }} />
 
       <label style={lbl}>Descripción</label>
       <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={depto.descripcion ?? ''} onBlur={(e) => onPatch({ descripcion: e.target.value })} />
@@ -921,7 +921,7 @@ function PanelDepartamento({ depto, recursos, compartidos, onPatch, onEliminar, 
         <input style={{ ...inp, flex: 1 }} placeholder="horario" value={horarioH} onChange={(e) => setHorarioH(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addHerr(); }} />
         <button style={btnSm} onClick={addHerr} disabled={!nuevaHerr.trim()}>＋</button>
       </div>
-      <p style={{ fontSize: 10.5, color: '#999', margin: '0.3rem 0 0' }}>⇄ = recurso compartido con otro departamento (en horarios distintos).</p>
+      <p style={{ fontSize: 10.5, color: 'var(--bp-muted)', margin: '0.3rem 0 0' }}>⇄ = recurso compartido con otro departamento (en horarios distintos).</p>
 
       {onEliminar && (
         <div style={{ borderTop: '1px solid #dde', marginTop: '0.7rem', paddingTop: '0.5rem' }}>

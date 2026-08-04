@@ -11,6 +11,7 @@ import type { DetallePlano } from '@/app/actions/especialista.actions';
 import type { CatalogoMkt } from '@/domain/mkt-catalogo';
 import { CatalogoMktCascada } from './catalogo-mkt-view';
 import { exportarElementoPDF } from './pdf';
+import { Logo, BRAND } from './brand';
 
 // Contexto de exportación a PDF. `forced` fuerza a expandir TODO lo colapsable antes de
 // capturar, para que el PDF salga en cascada sin dejar nada oculto dentro de las anidaciones.
@@ -32,15 +33,15 @@ function usePdfExport(): PdfCtxVal {
 
 const ENTREGA_ICON: Record<string, string> = { documento: '📄', tabla: '📊', diagrama: '🔀', dashboard: '📈' };
 
-const wrap: CSSProperties = { maxWidth: 880, margin: '0 auto', background: '#fff', color: '#222', fontFamily: 'Georgia, "Times New Roman", serif', lineHeight: 1.6, padding: '0 0.5rem' };
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'system-ui, sans-serif' };
+const wrap: CSSProperties = { maxWidth: 880, margin: '0 auto', background: 'var(--bp-panel)', color: 'var(--bp-text)', fontFamily: 'Georgia, "Times New Roman", serif', lineHeight: 1.6, padding: '0 0.5rem' };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid var(--bp-border)', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13, fontFamily: 'system-ui, sans-serif' };
 const sans = 'system-ui, sans-serif';
 
 function slug(prefix: string, s: string): string { return `${prefix}-sec-${s.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}`; }
 function irA(id: string) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 function pctListo(d: DetallePlano): number { return d.readiness.totalRequerido ? Math.round((d.readiness.cumplidoRequerido / d.readiness.totalRequerido) * 100) : 100; }
 
-const printStyle = `@media print { .no-print { display: none !important; } body { background: #fff; } }`;
+const printStyle = `@media print { .no-print { display: none !important; } body { background: var(--bp-bg2); } }`;
 
 // Botón "⬇ PDF" que captura un elemento por su id (una parte indexada) o el ref dado.
 // Usa el contexto para forzar-expandir todo antes de capturar (cascada sin nada oculto).
@@ -48,8 +49,8 @@ function BotonPDFdoc({ getEl, titulo, label, small }: { getEl: () => HTMLElement
   const { exportPDF } = useContext(PdfCtx);
   const [busy, setBusy] = useState(false);
   const st: CSSProperties = small
-    ? { padding: '0.15rem 0.55rem', borderRadius: 6, border: '1px solid #b39', background: '#fff', color: '#8a1c6b', cursor: 'pointer', fontSize: 12, fontFamily: sans, whiteSpace: 'nowrap' }
-    : { ...btn, borderColor: '#b39', color: '#8a1c6b' };
+    ? { padding: '0.15rem 0.55rem', borderRadius: 6, border: '1px solid var(--bp-gold)', background: 'var(--bp-gold-soft)', color: 'var(--bp-gold)', cursor: 'pointer', fontSize: 12, fontFamily: sans, whiteSpace: 'nowrap' }
+    : { ...btn, borderColor: 'var(--bp-gold)', color: 'var(--bp-gold)' };
   return (
     <button className="no-print no-pdf" style={st}
       onClick={async () => { setBusy(true); try { await exportPDF(getEl, titulo); } finally { setBusy(false); } }}
@@ -93,31 +94,32 @@ export function PlanoDocBody({ det, idPrefix, portada, capitulo }: {
   return (
     <>
       {portada ? (
-        <header style={{ borderBottom: '3px double #333', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
-          <div style={{ fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', color: '#888', fontFamily: sans }}>Plano · {det.entrega.tipo}</div>
+        <header style={{ borderBottom: `2px solid ${BRAND.gold}`, paddingBottom: '0.9rem', marginBottom: '1rem' }}>
+          <div style={{ marginBottom: 10 }}><Logo size={38} /></div>
+          <div style={{ fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--bp-gold)', fontFamily: sans }}>Plano · {det.entrega.tipo}</div>
           <h1 style={{ margin: '0.2rem 0', fontSize: 30 }}>{det.nombre}</h1>
-          <div style={{ fontSize: 14, color: '#555', fontStyle: 'italic' }}>{det.entrega.descripcion}</div>
-          <div style={{ fontSize: 12.5, color: '#777', marginTop: 6, fontFamily: sans }}>Completitud <strong style={{ color: colorPct }}>{listo}%</strong> · {det.readiness.cumplidoRequerido}/{det.readiness.totalRequerido} requeridos · profundidad {det.profundidad}</div>
+          <div style={{ fontSize: 14, color: 'var(--bp-muted)', fontStyle: 'italic' }}>{det.entrega.descripcion}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--bp-muted)', marginTop: 6, fontFamily: sans }}>Completitud <strong style={{ color: colorPct }}>{listo}%</strong> · {det.readiness.cumplidoRequerido}/{det.readiness.totalRequerido} requeridos · profundidad {det.profundidad}</div>
         </header>
       ) : (
         <header style={{ marginBottom: '0.8rem' }}>
           <h1 style={{ margin: 0, fontSize: 25 }}>{capitulo !== undefined ? `${capitulo}. ` : ''}{ENTREGA_ICON[det.entrega.tipo] ?? '📄'} {det.nombre}</h1>
-          <div style={{ fontSize: 13, color: '#777', fontFamily: sans }}>{det.entrega.descripcion} · completitud <strong style={{ color: colorPct }}>{listo}%</strong></div>
+          <div style={{ fontSize: 13, color: 'var(--bp-muted)', fontFamily: sans }}>{det.entrega.descripcion} · completitud <strong style={{ color: colorPct }}>{listo}%</strong></div>
         </header>
       )}
 
       {/* Índice del plano */}
       {(bloquesCampos.length > 0 || det.tablas.length > 0) && (
-        <nav style={{ background: '#faf9f6', border: '1px solid #e6e2d8', borderRadius: 8, padding: '0.6rem 1rem', marginBottom: '1.3rem' }}>
-          <div style={{ fontSize: 12.5, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, color: '#777', marginBottom: 5, fontFamily: sans }}>Contenido</div>
+        <nav style={{ background: 'var(--bp-panel-alt)', border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.6rem 1rem', marginBottom: '1.3rem' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, color: 'var(--bp-muted)', marginBottom: 5, fontFamily: sans }}>Contenido</div>
           <ol style={{ margin: 0, paddingLeft: '1.3rem', fontSize: 14 }}>
             {bloquesCampos.map((b) => (
-              <li key={b.id} style={{ margin: '2px 0' }}><a href="#" onClick={(e) => { e.preventDefault(); irA(slug(idPrefix, b.titulo)); }} style={{ color: '#2b5a97', textDecoration: 'none' }}>{b.titulo}</a></li>
+              <li key={b.id} style={{ margin: '2px 0' }}><a href="#" onClick={(e) => { e.preventDefault(); irA(slug(idPrefix, b.titulo)); }} style={{ color: 'var(--bp-gold)', textDecoration: 'none' }}>{b.titulo}</a></li>
             ))}
             {det.tablas.map((t) => (
               <li key={t.tablaRef} style={{ margin: '2px 0' }}>
-                <a href="#" onClick={(e) => { e.preventDefault(); irA(slug(idPrefix, t.etiqueta)); }} style={{ color: '#2b5a97', textDecoration: 'none' }}>{t.etiqueta}</a>
-                <span style={{ color: '#aaa', fontSize: 12.5 }}> — {t.filas.length} entrada(s)</span>
+                <a href="#" onClick={(e) => { e.preventDefault(); irA(slug(idPrefix, t.etiqueta)); }} style={{ color: 'var(--bp-gold)', textDecoration: 'none' }}>{t.etiqueta}</a>
+                <span style={{ color: 'var(--bp-faint)', fontSize: 12.5 }}> — {t.filas.length} entrada(s)</span>
               </li>
             ))}
           </ol>
@@ -127,12 +129,12 @@ export function PlanoDocBody({ det, idPrefix, portada, capitulo }: {
       {/* Campos */}
       {bloquesCampos.map((b) => (
         <section key={b.id} id={slug(idPrefix, b.titulo)} style={{ marginBottom: '1.5rem' }}>
-          <h2 style={{ fontSize: 21, borderBottom: '1px solid #ddd', paddingBottom: 4 }}>{b.titulo}</h2>
+          <h2 style={{ fontSize: 21, borderBottom: '1px solid var(--bp-border)', paddingBottom: 4 }}>{b.titulo}</h2>
           {(b.campos ?? []).map((c) => {
             const val = (det.campos[c.id] ?? '').trim();
             return (
               <div key={c.id} style={{ margin: '0.7rem 0' }}>
-                <div style={{ fontSize: 12.5, color: '#8a7a4a', fontFamily: sans }}>{c.pregunta}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--bp-muted)', fontFamily: sans }}>{c.pregunta}</div>
                 {val ? <div style={{ fontSize: 15, whiteSpace: 'pre-wrap' }}>{val}</div> : <div style={{ fontSize: 13.5, color: '#c0392b', fontStyle: 'italic' }}>⚠ PENDIENTE</div>}
               </div>
             );
@@ -160,35 +162,35 @@ function TablaLibro({ idPrefix, etiqueta, columnas, filas, llave, derivadas }: {
   const idSec = slug(idPrefix, etiqueta);
 
   return (
-    <section id={idSec} style={{ marginBottom: '1.7rem', borderTop: '3px double #333', paddingTop: '0.8rem' }}>
+    <section id={idSec} style={{ marginBottom: '1.7rem', borderTop: '3px solid var(--bp-border)', paddingTop: '0.8rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <h2 style={{ fontSize: 22, margin: 0, flex: 1, cursor: 'pointer' }} onClick={() => setAbierto((a) => !a)}>📖 {etiqueta}</h2>
-        <span style={{ fontSize: 12.5, color: '#888', fontFamily: sans }}>{filas.length} entrada(s){derivadas > 0 ? ` · ${derivadas} 🔗 auto` : ''}</span>
+        <span style={{ fontSize: 12.5, color: 'var(--bp-muted)', fontFamily: sans }}>{filas.length} entrada(s){derivadas > 0 ? ` · ${derivadas} 🔗 auto` : ''}</span>
         <BotonPDFdoc getEl={() => document.getElementById(idSec)} titulo={`${etiqueta}`} label="⬇ PDF" small />
-        <span style={{ color: '#999', cursor: 'pointer' }} onClick={() => setAbierto((a) => !a)}>{abierto ? '▾' : '▸'}</span>
+        <span style={{ color: 'var(--bp-muted)', cursor: 'pointer' }} onClick={() => setAbierto((a) => !a)}>{abierto ? '▾' : '▸'}</span>
       </div>
 
-      {open && filas.length === 0 && <p style={{ color: '#999', fontStyle: 'italic' }}>Sin entradas todavía.</p>}
+      {open && filas.length === 0 && <p style={{ color: 'var(--bp-muted)', fontStyle: 'italic' }}>Sin entradas todavía.</p>}
 
       {open && filas.length > 0 && (
         <>
-          <nav style={{ background: '#f7f9ff', border: '1px solid #dfe6f4', borderRadius: 8, padding: '0.5rem 0.8rem', margin: '0.6rem 0 1rem', columns: filas.length > 6 ? 2 : 1, columnGap: '1.5rem' }}>
+          <nav style={{ background: 'var(--bp-panel-alt)', border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.5rem 0.8rem', margin: '0.6rem 0 1rem', columns: filas.length > 6 ? 2 : 1, columnGap: '1.5rem' }}>
             <ol style={{ margin: 0, paddingLeft: '1.4rem', fontSize: 13.5 }}>
               {filas.map((f, i) => (
-                <li key={i} style={{ margin: '1px 0' }}><a href="#" onClick={(e) => { e.preventDefault(); irA(`${idSec}-${i}`); }} style={{ color: '#2b5a97', textDecoration: 'none' }}>{tituloDe(f, i)}</a></li>
+                <li key={i} style={{ margin: '1px 0' }}><a href="#" onClick={(e) => { e.preventDefault(); irA(`${idSec}-${i}`); }} style={{ color: 'var(--bp-gold)', textDecoration: 'none' }}>{tituloDe(f, i)}</a></li>
               ))}
             </ol>
           </nav>
           {filas.map((f, i) => (
-            <div key={i} id={`${idSec}-${i}`} style={{ borderLeft: '4px solid #8a4fbf', background: '#fbfaff', borderRadius: '0 8px 8px 0', padding: '0.6rem 0.9rem', margin: '0.5rem 0' }}>
+            <div key={i} id={`${idSec}-${i}`} style={{ borderLeft: '4px solid #8a4fbf', background: 'var(--bp-panel-alt)', borderRadius: '0 8px 8px 0', padding: '0.6rem 0.9rem', margin: '0.5rem 0' }}>
               <div style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>{i + 1}. {tituloDe(f, i)}</div>
               <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2px 12px', fontSize: 14 }}>
                 {columnas.filter((c) => c.id !== keyCol.id).map((c) => {
                   const v = (f[c.id] ?? '').trim();
                   return (
                     <div key={c.id} style={{ display: 'contents' }}>
-                      <dt style={{ color: '#8a7a4a', fontFamily: sans, fontSize: 12.5 }}>{c.etiqueta}</dt>
-                      <dd style={{ margin: 0, color: v ? '#222' : '#bbb' }}>{v || '—'}</dd>
+                      <dt style={{ color: 'var(--bp-muted)', fontFamily: sans, fontSize: 12.5 }}>{c.etiqueta}</dt>
+                      <dd style={{ margin: 0, color: v ? 'var(--bp-text)' : 'var(--bp-faint)' }}>{v || '—'}</dd>
                     </div>
                   );
                 })}
@@ -228,29 +230,30 @@ export function DocumentoPaqueteView({ pkg, onCerrar, onExportar, exportando }: 
       </div>
 
       <article ref={articleRef} style={wrap}>
-        {/* Portada del libro */}
-        <header style={{ textAlign: 'center', borderBottom: '3px double #333', paddingBottom: '1rem', marginBottom: '1.2rem' }}>
+        {/* Portada del libro — marca Business Planner */}
+        <header style={{ textAlign: 'center', borderBottom: `2px solid ${BRAND.gold}`, background: BRAND.bg2, borderRadius: 12, padding: '1.6rem 1rem 1.3rem', marginBottom: '1.4rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}><Logo size={44} /></div>
           <div style={{ fontSize: 40 }}>{pkg.icono}</div>
           <h1 style={{ margin: '0.2rem 0', fontSize: 32 }}>{pkg.nombre}</h1>
-          <div style={{ fontSize: 15, color: '#555', fontStyle: 'italic' }}>{pkg.descripcion}</div>
-          <div style={{ fontSize: 14, color: '#333', marginTop: 8, fontFamily: sans }}>{pkg.empresa}</div>
-          <div style={{ fontSize: 12.5, color: '#777', marginTop: 4, fontFamily: sans }}>{pkg.planos.length} capítulos · completitud <strong style={{ color: listo === 100 ? '#2e7d4f' : '#b5651d' }}>{listo}%</strong> · {pend} pendientes de {req}</div>
+          <div style={{ fontSize: 15, color: 'var(--bp-muted)', fontStyle: 'italic' }}>{pkg.descripcion}</div>
+          <div style={{ fontSize: 15, color: BRAND.gold, marginTop: 10, fontFamily: sans, fontWeight: 700, letterSpacing: 0.3 }}>{pkg.empresa}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--bp-muted)', marginTop: 4, fontFamily: sans }}>{pkg.planos.length} capítulos · completitud <strong style={{ color: listo === 100 ? BRAND.ok : BRAND.gold }}>{listo}%</strong> · {pend} pendientes de {req}</div>
         </header>
 
         {/* Índice de capítulos (planos) */}
-        <nav style={{ background: '#faf9f6', border: '1px solid #e6e2d8', borderRadius: 8, padding: '0.7rem 1.1rem', marginBottom: '1.6rem' }}>
-          <div style={{ fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, color: '#777', marginBottom: 6, fontFamily: sans }}>Índice de capítulos</div>
+        <nav style={{ background: 'var(--bp-panel-alt)', border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.7rem 1.1rem', marginBottom: '1.6rem' }}>
+          <div style={{ fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, color: 'var(--bp-muted)', marginBottom: 6, fontFamily: sans }}>Índice de capítulos</div>
           <ol style={{ margin: 0, paddingLeft: '1.4rem', fontSize: 15 }}>
             {pkg.planos.map((d) => (
               <li key={d.planoId} style={{ margin: '3px 0' }}>
-                <a href="#" onClick={(e) => { e.preventDefault(); irA(`cap-${d.planoId}`); }} style={{ color: '#2b5a97', textDecoration: 'none' }}>{d.nombre}</a>
-                <span style={{ color: '#aaa', fontSize: 12.5, fontFamily: sans }}> — {pctListo(d)}% · {d.tablas.length} tabla(s)</span>
+                <a href="#" onClick={(e) => { e.preventDefault(); irA(`cap-${d.planoId}`); }} style={{ color: 'var(--bp-gold)', textDecoration: 'none' }}>{d.nombre}</a>
+                <span style={{ color: 'var(--bp-faint)', fontSize: 12.5, fontFamily: sans }}> — {pctListo(d)}% · {d.tablas.length} tabla(s)</span>
               </li>
             ))}
             {hayCatalogo && (
               <li style={{ margin: '3px 0' }}>
-                <a href="#" onClick={(e) => { e.preventDefault(); irA('mkt-catalogo'); }} style={{ color: '#8a1c6b', textDecoration: 'none', fontWeight: 600 }}>🗂️ Catálogo de Marketing (contenido por producto)</a>
-                <span style={{ color: '#aaa', fontSize: 12.5, fontFamily: sans }}> — {pkg.catalogoMkt!.length} producto(s) en cascada</span>
+                <a href="#" onClick={(e) => { e.preventDefault(); irA('mkt-catalogo'); }} style={{ color: 'var(--bp-gold)', textDecoration: 'none', fontWeight: 600 }}>🗂️ Catálogo de Marketing (contenido por producto)</a>
+                <span style={{ color: 'var(--bp-faint)', fontSize: 12.5, fontFamily: sans }}> — {pkg.catalogoMkt!.length} producto(s) en cascada</span>
               </li>
             )}
           </ol>
@@ -258,7 +261,7 @@ export function DocumentoPaqueteView({ pkg, onCerrar, onExportar, exportando }: 
 
         {/* Capítulos */}
         {pkg.planos.map((d, i) => (
-          <section key={d.planoId} id={`cap-${d.planoId}`} style={{ borderTop: '4px double #333', paddingTop: '1rem', marginTop: '1.5rem' }}>
+          <section key={d.planoId} id={`cap-${d.planoId}`} style={{ borderTop: '4px solid var(--bp-border)', paddingTop: '1rem', marginTop: '1.5rem' }}>
             <div className="no-print no-pdf" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: -8 }}>
               <BotonPDFdoc getEl={() => document.getElementById(`cap-${d.planoId}`)} titulo={`${d.nombre}-${pkg.empresa}`} label="⬇ PDF capítulo" />
             </div>

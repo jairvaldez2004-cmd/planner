@@ -20,7 +20,7 @@ export async function exportarElementoPDF(el: HTMLElement | null, titulo: string
     html2canvas: {
       scale: 2,
       useCORS: true,
-      backgroundColor: '#ffffff',
+      backgroundColor: '#0B0B0E', // fondo oscuro de marca (los entregables son tema oscuro)
       // No incluir en el PDF los botones/controles (evita que salga "⬇ PDF" dentro del PDF).
       ignoreElements: (node: Element) => node.classList?.contains('no-pdf'),
     },

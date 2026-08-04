@@ -41,12 +41,12 @@ import {
 import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia, Interaccion, Embarque, Transportista, Tarifa, Importacion } from '@/domain/recursos';
 import { useEsMovil } from './use-movil';
 
-const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 13 };
+const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
 const btnSm: CSSProperties = { ...btn, padding: '0.15rem 0.5rem', fontSize: 12 };
-const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid #ccc', fontSize: 13, width: '100%', boxSizing: 'border-box' };
-const lbl: CSSProperties = { display: 'block', fontSize: 11, color: '#666', marginTop: '0.5rem', fontWeight: 'bold' };
-const chip: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f5ecd8', border: '1px solid #e0d3b0', borderRadius: 12, padding: '0.05rem 0.5rem', fontSize: 12, margin: '2px 3px 0 0' };
-const sum: CSSProperties = { cursor: 'pointer', fontSize: 12, fontWeight: 'bold', color: '#6b5320', marginTop: '0.6rem' };
+const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 13, width: '100%', boxSizing: 'border-box' };
+const lbl: CSSProperties = { display: 'block', fontSize: 11, color: 'var(--bp-muted)', marginTop: '0.5rem', fontWeight: 'bold' };
+const chip: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bp-panel-alt)', border: '1px solid #e0d3b0', borderRadius: 12, padding: '0.05rem 0.5rem', fontSize: 12, margin: '2px 3px 0 0' };
+const sum: CSSProperties = { cursor: 'pointer', fontSize: 12, fontWeight: 'bold', color: 'var(--bp-text)', marginTop: '0.6rem' };
 
 type Agrupar = 'categoria' | 'grupo' | 'proveedor' | 'ninguno';
 type Tab = 'recursos' | 'proveedores' | 'productos' | 'compras' | 'logistica' | 'contratos' | 'ia';
@@ -159,7 +159,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>📦 Recursos & Proveedores <span style={{ fontSize: 13, color: '#888' }}>· abastecimiento</span></h2>
+        <h2 style={{ margin: 0 }}>📦 Recursos & Proveedores <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· abastecimiento</span></h2>
         {tab === 'recursos' && <button style={btn} onClick={() => void nuevoRec()}>＋ Recurso</button>}
         {tab === 'proveedores' && <button style={btn} onClick={() => void nuevoProv()}>＋ Proveedor</button>}
         {tab === 'productos' && <button style={btn} onClick={() => void nuevoProd()}>＋ Producto</button>}
@@ -175,28 +175,28 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
         ))}
       </div>
 
-      {loading && <p style={{ color: '#666' }}>Cargando…</p>}
+      {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando…</p>}
 
       {/* ======= RECURSOS ======= */}
       {tab === 'recursos' && (
         <>
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', margin: '0 0 0.6rem' }}>
-            <span style={{ fontSize: 12, color: '#666' }}>Agrupar por:</span>
+            <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>Agrupar por:</span>
             <select style={{ ...inp, width: 'auto' }} value={agrupar} onChange={(e) => setAgrupar(e.target.value as Agrupar)}>
               <option value="categoria">Categoría</option>
               <option value="grupo">Grupo (libre)</option>
               <option value="proveedor">Proveedor</option>
               <option value="ninguno">Sin agrupar</option>
             </select>
-            <span style={{ marginLeft: 'auto', fontSize: 13, color: '#6b5320' }}>Total estimado: <strong>{formatoMoneda(total)}</strong> <span style={{ color: '#999' }}>({recs.length} recursos)</span></span>
+            <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--bp-text)' }}>Total estimado: <strong>{formatoMoneda(total)}</strong> <span style={{ color: 'var(--bp-muted)' }}>({recs.length} recursos)</span></span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: movil || !rSel ? '1fr' : 'minmax(0, 1fr) 340px', gap: '0.75rem', alignItems: 'start' }}>
             <div>
-              {!loading && recs.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay recursos. Pulsa <strong>＋ Recurso</strong>.</p>}
+              {!loading && recs.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay recursos. Pulsa <strong>＋ Recurso</strong>.</p>}
               {Array.from(grupos.entries()).map(([g, arr]) => (
                 <div key={g} style={{ marginBottom: '0.7rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 'bold', color: '#6b5320', borderBottom: '2px solid #e0d3b0', padding: '2px 2px 3px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 'bold', color: 'var(--bp-text)', borderBottom: '2px solid #e0d3b0', padding: '2px 2px 3px' }}>
                     <span>{g} <span style={{ color: '#aaa', fontWeight: 'normal' }}>({arr.length})</span></span>
                     <span>{formatoMoneda(subtotalDe(arr))}</span>
                   </div>
@@ -208,13 +208,13 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
                         <span title={c.label}>{c.emoji}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 'bold' }}>{r.nombre || '(sin nombre)'}{r.existe ? <span style={{ color: '#2e9e63', fontSize: 10, fontWeight: 'normal' }}> ✅ ya</span> : null}</div>
-                          <div style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div style={{ fontSize: 11, color: 'var(--bp-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {r.cantidad ? `${r.cantidad} ${r.unidad}` : ''}{r.proveedor ? ` · 🏭 ${r.proveedor}` : ''}{r.impuesto ? ` · ${r.impuesto}` : ''}
                           </div>
                         </div>
-                        <div style={{ fontSize: 12.5, color: '#6b5320', textAlign: 'right' }}>
+                        <div style={{ fontSize: 12.5, color: 'var(--bp-text)', textAlign: 'right' }}>
                           {r.costo ? <div>{r.costo}{r.unidad ? `/${r.unidad}` : ''}</div> : <div style={{ color: '#c60' }}>sin costo</div>}
-                          {sub !== null && r.cantidad ? <div style={{ fontSize: 11, color: '#999' }}>= {formatoMoneda(sub)}</div> : null}
+                          {sub !== null && r.cantidad ? <div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>= {formatoMoneda(sub)}</div> : null}
                         </div>
                       </div>
                     );
@@ -224,7 +224,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
             </div>
 
             {rSel && (
-              <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '84vh', overflowY: 'auto' }}>
+              <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: 'var(--bp-panel-alt)', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '84vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong style={{ fontSize: 14 }}>{categoriaRecurso(rSel.categoria).emoji} Recurso</strong>
                   <button style={btnSm} onClick={() => setSelR(null)}>✕</button>
@@ -249,11 +249,11 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
                   <div><label style={lbl}>Impuesto</label><input style={inp} defaultValue={rSel.impuesto} key={`i-${rSel.id}`} placeholder="16% IVA" onBlur={(e) => void patchRec({ impuesto: e.target.value })} /></div>
-                  <div><label style={lbl}>Subtotal</label><input style={{ ...inp, background: '#f5efdd' }} value={subtotalRecurso(rSel) !== null ? formatoMoneda(subtotalRecurso(rSel)!) : '—'} readOnly /></div>
+                  <div><label style={lbl}>Subtotal</label><input style={{ ...inp, background: 'var(--bp-panel-alt)' }} value={subtotalRecurso(rSel) !== null ? formatoMoneda(subtotalRecurso(rSel)!) : '—'} readOnly /></div>
                 </div>
                 <label style={lbl}>🚚 Logística (dónde/tiempo de entrega)</label>
                 <input style={inp} defaultValue={rSel.logistica} key={`l-${rSel.id}`} onBlur={(e) => void patchRec({ logistica: e.target.value })} />
-                <label style={{ fontSize: 12, color: '#2e7a4d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.6rem' }}>
+                <label style={{ fontSize: 12, color: 'var(--bp-text)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.6rem' }}>
                   <input type="checkbox" checked={rSel.existe} onChange={(e) => void patchRec({ existe: e.target.checked })} /> ✅ Ya lo tenemos (inventario actual)
                 </label>
                 <label style={lbl}>Notas</label>
@@ -274,7 +274,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
             const riesgoUnico = provs.filter((p) => p.proveedorUnico && !p.planB && !p.proveedorAlternativo);
             if (!riesgoUnico.length) return null;
             return (
-              <div style={{ background: '#fdecea', border: '1px solid #f0c9c2', borderRadius: 9, padding: '0.45rem 0.7rem', marginBottom: '0.5rem' }}>
+              <div style={{ background: 'var(--bp-panel-alt)', border: '1px solid #f0c9c2', borderRadius: 9, padding: '0.45rem 0.7rem', marginBottom: '0.5rem' }}>
                 <strong style={{ fontSize: 12.5, color: '#c0392b' }}>⚠ {riesgoUnico.length} proveedor(es) ÚNICOS sin plan B:</strong>
                 <span style={{ fontSize: 12, color: '#a33', marginLeft: 6 }}>{riesgoUnico.map((p) => p.nombre || '(sin nombre)').join(' · ')}</span>
               </div>
@@ -283,7 +283,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
           <input style={{ ...inp, maxWidth: 340, marginBottom: '0.5rem' }} placeholder="🔎 Buscar proveedor (nombre, categoría, ciudad)…" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
           <div style={{ display: 'grid', gridTemplateColumns: movil || !pSel ? '1fr' : 'minmax(0, 1fr) 380px', gap: '0.75rem', alignItems: 'start' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
-              {!loading && provs.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay proveedores. Pulsa <strong>＋ Proveedor</strong> para dar de alta a quien te surte.</p>}
+              {!loading && provs.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay proveedores. Pulsa <strong>＋ Proveedor</strong> para dar de alta a quien te surte.</p>}
               {provsVis.map((p) => {
                 const sc = scoreProveedor(p, incs);
                 const niv = NIVELES_SCORE[sc.nivel];
@@ -296,7 +296,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
                       {p.proximoSeguimiento && p.proximoSeguimiento <= hoy && <span title={`Seguimiento pendiente desde ${p.proximoSeguimiento}`} style={{ fontSize: 12 }}>⏰</span>}
                       {p.proveedorUnico && <span title="Proveedor único (riesgo)" style={{ fontSize: 12 }}>⚠</span>}
                     </div>
-                    <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{[p.ciudad, p.pais].filter(Boolean).join(', ') || '—'}{p.contacto ? ` · ${p.contacto}` : ''}</div>
+                    <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2 }}>{[p.ciudad, p.pais].filter(Boolean).join(', ') || '—'}{p.contacto ? ` · ${p.contacto}` : ''}</div>
                     {p.categorias.length > 0 && <div style={{ marginTop: 3 }}>{p.categorias.slice(0, 3).map((c) => <span key={c} style={{ ...chip, fontSize: 10.5, margin: '1px 3px 0 0' }}>{c}</span>)}{p.categorias.length > 3 ? <span style={{ fontSize: 10, color: '#aaa' }}>+{p.categorias.length - 3}</span> : null}</div>}
                   </div>
                 );
@@ -321,8 +321,8 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
             const pronto = planes.filter((x) => x.accion === 'comprar-pronto').length;
             if (!urg && !hoyN && !pronto) return null;
             return (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', background: '#fbf3e6', border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.4rem 0.7rem', marginBottom: '0.5rem' }}>
-                <strong style={{ fontSize: 12.5, color: '#6b5320' }}>🛒 Planeación de compras:</strong>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', background: 'var(--bp-panel-alt)', border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.4rem 0.7rem', marginBottom: '0.5rem' }}>
+                <strong style={{ fontSize: 12.5, color: 'var(--bp-text)' }}>🛒 Planeación de compras:</strong>
                 {urg > 0 && <span style={{ fontSize: 12.5, color: '#c0392b' }}>🔴 {urg} urgente(s)</span>}
                 {hoyN > 0 && <span style={{ fontSize: 12.5, color: '#d9781f' }}>🟠 {hoyN} comprar hoy</span>}
                 {pronto > 0 && <span style={{ fontSize: 12.5, color: '#c9a13b' }}>🟡 {pronto} pronto</span>}
@@ -332,7 +332,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
           <input style={{ ...inp, maxWidth: 340, marginBottom: '0.5rem' }} placeholder="🔎 Buscar producto (nombre, marca, SKU)…" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
           <div style={{ display: 'grid', gridTemplateColumns: movil || !prodSel ? '1fr' : 'minmax(0, 1fr) 400px', gap: '0.75rem', alignItems: 'start' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
-              {!loading && prods.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay productos. Pulsa <strong>＋ Producto</strong>. Cada producto se vincula a los proveedores que lo ofrecen (uno o muchos), cada uno con su precio.</p>}
+              {!loading && prods.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay productos. Pulsa <strong>＋ Producto</strong>. Cada producto se vincula a los proveedores que lo ofrecen (uno o muchos), cada uno con su precio.</p>}
               {prodsVis.map((p) => {
                 const nProv = vinculosDeProducto(vinc, p.id).length;
                 const barato = proveedorMasBarato(vinc, p.id);
@@ -345,7 +345,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
                       <span style={{ fontWeight: 'bold', fontSize: 13.5, flex: 1 }}>🏷️ {p.nombre || '(sin nombre)'}</span>
                       {plan.accion !== 'ok' && plan.accion !== 'sin-datos' && <span style={{ fontSize: 10.5, fontWeight: 'bold', color: '#fff', background: ac.color, borderRadius: 8, padding: '0 6px' }}>{ac.emoji} {ac.label}</span>}
                     </div>
-                    <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{[p.marca, p.modelo].filter(Boolean).join(' ') || p.categoria}{p.skuInterno ? ` · ${p.skuInterno}` : ''}</div>
+                    <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2 }}>{[p.marca, p.modelo].filter(Boolean).join(' ') || p.categoria}{p.skuInterno ? ` · ${p.skuInterno}` : ''}</div>
                     <div style={{ fontSize: 11, color: nProv ? '#6b5320' : '#c0392b', marginTop: 2 }}>
                       {nProv ? `🏭 ${nProv} proveedor${nProv !== 1 ? 'es' : ''}` : '⚠ sin proveedor'}{barato ? ` · desde ${precioVigente(barato)}${barato.moneda ? ' ' + barato.moneda : ''}` : ''}
                       {plan.diasCobertura !== null ? ` · ${plan.diasCobertura}d de stock` : ''}
@@ -421,19 +421,19 @@ function CentroIA({ proyectoId, prods, provs, ctrs, incs, hoy, movil, onCambio }
   const scores = provs.map((p) => scoreProveedor(p, incs).score).filter((s): s is number => s !== null);
   const scorePromedio = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
   const segHoy = seguimientosPendientes(provs, hoy).length;
-  const stat: CSSProperties = { border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.5rem 0.7rem', background: '#fff', textAlign: 'center' };
+  const stat: CSSProperties = { border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.5rem 0.7rem', background: 'var(--bp-panel)', textAlign: 'center' };
 
   return (
     <div>
-      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.6rem' }}>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0 0 0.6rem' }}>
         Con tus productos, proveedores, inventario, compras, contratos y calidad, la IA te dice <strong>qué comprar</strong>, <strong>a quién</strong>, <strong>qué se agota</strong>, <strong>qué vence</strong> y <strong>qué es riesgo</strong> — y puede <strong>generar solicitudes</strong> y <strong>registrar incidencias</strong>.
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.5rem', marginBottom: '0.7rem' }}>
-        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: porComprar ? '#c0392b' : '#2e9e63' }}>{porComprar}</div><div style={{ fontSize: 11, color: '#888' }}>por comprar ya</div></div>
-        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: ctrAlerta ? '#d9781f' : '#2e9e63' }}>{ctrAlerta}</div><div style={{ fontSize: 11, color: '#888' }}>contratos por vencer</div></div>
-        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: riesgoUnico ? '#c0392b' : '#2e9e63' }}>{riesgoUnico}</div><div style={{ fontSize: 11, color: '#888' }}>únicos sin plan B</div></div>
-        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: segHoy ? '#d9781f' : '#2e9e63' }}>{segHoy}</div><div style={{ fontSize: 11, color: '#888' }}>seguimientos hoy</div></div>
-        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: '#6b5320' }}>{scorePromedio ?? '—'}</div><div style={{ fontSize: 11, color: '#888' }}>score prom. proveedores</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: porComprar ? '#c0392b' : '#2e9e63' }}>{porComprar}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>por comprar ya</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: ctrAlerta ? '#d9781f' : '#2e9e63' }}>{ctrAlerta}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>contratos por vencer</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: riesgoUnico ? '#c0392b' : '#2e9e63' }}>{riesgoUnico}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>únicos sin plan B</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: segHoy ? '#d9781f' : '#2e9e63' }}>{segHoy}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>seguimientos hoy</div></div>
+        <div style={stat}><div style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--bp-text)' }}>{scorePromedio ?? '—'}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>score prom. proveedores</div></div>
       </div>
       <ChatArquitecto
         conversar={(h) => conversarCentroAbastecimiento(h, proyectoId)}
@@ -465,10 +465,10 @@ function ArranquePanel({ recs, prods, vinc, provNombre, onGenerar, onIrFlujo }: 
     finally { setGen(false); }
   }
 
-  const stat: CSSProperties = { border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.5rem 0.7rem', background: '#fff', textAlign: 'center' };
+  const stat: CSSProperties = { border: '1px solid #e0d3b0', borderRadius: 9, padding: '0.5rem 0.7rem', background: 'var(--bp-panel)', textAlign: 'center' };
   const secc = (titulo: string, items: typeof plan.activos, total: number) => (
     <div style={{ marginBottom: '0.8rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 'bold', color: '#6b5320', borderBottom: '2px solid #e0d3b0', padding: '2px 2px 3px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 'bold', color: 'var(--bp-text)', borderBottom: '2px solid #e0d3b0', padding: '2px 2px 3px' }}>
         <span>{titulo} <span style={{ color: '#aaa', fontWeight: 'normal' }}>({items.length})</span></span>
         <span>{formatoMoneda(total)}</span>
       </div>
@@ -477,32 +477,32 @@ function ArranquePanel({ recs, prods, vinc, provNombre, onGenerar, onIrFlujo }: 
           <span>{it.tipo === 'activo' ? '🛠️' : '🧴'}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 'bold' }}>{it.nombre}</div>
-            <div style={{ fontSize: 11, color: '#888' }}>{it.cantidad} {it.unidad} · {it.grupo}{it.proveedorId ? ` · 🏭 ${provNombre(it.proveedorId)}` : it.proveedorNombre ? ` · 🏭 ${it.proveedorNombre}` : ''}</div>
+            <div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>{it.cantidad} {it.unidad} · {it.grupo}{it.proveedorId ? ` · 🏭 ${provNombre(it.proveedorId)}` : it.proveedorNombre ? ` · 🏭 ${it.proveedorNombre}` : ''}</div>
           </div>
-          <div style={{ fontSize: 12.5, color: '#6b5320', textAlign: 'right' }}>
+          <div style={{ fontSize: 12.5, color: 'var(--bp-text)', textAlign: 'right' }}>
             {it.costoUnit !== null ? <div>{formatoMoneda(it.costoUnit)}/{it.unidad}</div> : <div style={{ color: '#c60' }}>sin costo</div>}
-            {it.subtotal !== null ? <div style={{ fontSize: 11, color: '#999' }}>= {formatoMoneda(it.subtotal)}</div> : null}
+            {it.subtotal !== null ? <div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>= {formatoMoneda(it.subtotal)}</div> : null}
           </div>
         </div>
       ))}
-      {items.length === 0 && <p style={{ fontSize: 12, color: '#999', margin: '4px 2px' }}>Nada pendiente aquí.</p>}
+      {items.length === 0 && <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '4px 2px' }}>Nada pendiente aquí.</p>}
     </div>
   );
 
   return (
     <div>
-      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.6rem' }}>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0 0 0.6rem' }}>
         Todo lo que hace falta <strong>adquirir para abrir</strong>: activos/equipo por comprar (Recursos marcados “por adquirir”) e <strong>inventario inicial</strong> (llenar cada Producto de su stock actual a su máximo). Con un clic genero las órdenes de compra.
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.5rem', marginBottom: '0.7rem' }}>
-        <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#6b5320' }}>{formatoMoneda(plan.totalActivos)}</div><div style={{ fontSize: 11, color: '#888' }}>activos/equipo</div></div>
-        <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#6b5320' }}>{formatoMoneda(plan.totalInsumos)}</div><div style={{ fontSize: 11, color: '#888' }}>inventario inicial</div></div>
-        <div style={{ ...stat, background: '#fdf6e3', borderColor: '#a9720f' }}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#a9720f' }}>{formatoMoneda(plan.total)}</div><div style={{ fontSize: 11, color: '#888' }}>💰 inversión de apertura</div></div>
+        <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--bp-text)' }}>{formatoMoneda(plan.totalActivos)}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>activos/equipo</div></div>
+        <div style={stat}><div style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--bp-text)' }}>{formatoMoneda(plan.totalInsumos)}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>inventario inicial</div></div>
+        <div style={{ ...stat, background: 'var(--bp-panel-alt)', borderColor: '#a9720f' }}><div style={{ fontSize: 18, fontWeight: 'bold', color: '#a9720f' }}>{formatoMoneda(plan.total)}</div><div style={{ fontSize: 11, color: 'var(--bp-muted)' }}>💰 inversión de apertura</div></div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
         <button style={{ ...btn, background: '#a9720f', color: '#fff', borderColor: '#a9720f', fontWeight: 'bold', opacity: nItems ? 1 : 0.5 }} disabled={!nItems || gen} onClick={() => void generar()}>{gen ? 'Generando…' : `🚀 Generar ${nItems} órdenes de arranque`}</button>
-        {msg && <span style={{ fontSize: 12.5, color: '#2e7a4d' }}>{msg} <button style={{ ...btnSm, marginLeft: 4 }} onClick={onIrFlujo}>Ver flujo →</button></span>}
+        {msg && <span style={{ fontSize: 12.5, color: 'var(--bp-text)' }}>{msg} <button style={{ ...btnSm, marginLeft: 4 }} onClick={onIrFlujo}>Ver flujo →</button></span>}
       </div>
 
       {nItems === 0 && <p style={{ color: '#2e9e63', fontSize: 13 }}>✅ No hay nada pendiente por adquirir para abrir. Marca activos como “por adquirir” (📦 Recursos) o define stock objetivo en 🏷️ Productos.</p>}
@@ -521,8 +521,8 @@ function ComprasFlujo({ ocs, sel, onSel, provNombre, prodNombre, provs, prods, o
   const abiertas = ocs.filter((o) => o.etapa !== 'cerrada');
   return (
     <>
-      {ocs.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay órdenes. Pulsa <strong>＋ Orden de compra</strong>, o genera solicitudes automáticas desde un producto bajo mínimo (pestaña Productos).</p>}
-      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.5rem' }}>{abiertas.length} orden(es) en curso de {ocs.length}. El flujo va de <strong>Solicitud</strong> a <strong>Evaluación</strong>; avanza cada orden con “Avanzar etapa”.</p>
+      {ocs.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay órdenes. Pulsa <strong>＋ Orden de compra</strong>, o genera solicitudes automáticas desde un producto bajo mínimo (pestaña Productos).</p>}
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0 0 0.5rem' }}>{abiertas.length} orden(es) en curso de {ocs.length}. El flujo va de <strong>Solicitud</strong> a <strong>Evaluación</strong>; avanza cada orden con “Avanzar etapa”.</p>
       <div style={{ display: 'grid', gridTemplateColumns: movil || !oSel ? '1fr' : 'minmax(0, 1fr) 380px', gap: '0.75rem', alignItems: 'start' }}>
         {/* Columnas por etapa (kanban) */}
         <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: 6 }}>
@@ -531,15 +531,15 @@ function ComprasFlujo({ ocs, sel, onSel, provNombre, prodNombre, provs, prods, o
             if (enEtapa.length === 0) return null;
             return (
               <div key={e.id} style={{ minWidth: 180, flexShrink: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 'bold', color: '#6b5320', padding: '2px 4px', borderBottom: '2px solid #e0d3b0' }}>{e.emoji} {e.label} <span style={{ color: '#aaa' }}>({enEtapa.length})</span></div>
+                <div style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--bp-text)', padding: '2px 4px', borderBottom: '2px solid #e0d3b0' }}>{e.emoji} {e.label} <span style={{ color: '#aaa' }}>({enEtapa.length})</span></div>
                 {enEtapa.map((o) => {
                   const t = totalOrden(o);
                   return (
                     <div key={o.id} onClick={() => onSel(o.id)}
                       style={{ border: `1px solid ${sel === o.id ? '#a9720f' : '#e0d3b0'}`, borderRadius: 8, padding: '0.4rem 0.5rem', background: sel === o.id ? '#fdf6e3' : '#fff', cursor: 'pointer', marginTop: 5 }}>
                       <div style={{ fontSize: 12.5, fontWeight: 'bold' }}>{o.descripcion || prodNombre(o.productoId) || '(sin descripción)'}</div>
-                      <div style={{ fontSize: 10.5, color: '#888', marginTop: 2 }}>{o.proveedorId ? `🏭 ${provNombre(o.proveedorId)}` : 'sin proveedor'}{o.cantidad ? ` · ${o.cantidad} ${o.unidad}` : ''}</div>
-                      {t !== null && <div style={{ fontSize: 11, color: '#6b5320' }}>{formatoMoneda(t)}{o.moneda ? ` ${o.moneda}` : ''}</div>}
+                      <div style={{ fontSize: 10.5, color: 'var(--bp-muted)', marginTop: 2 }}>{o.proveedorId ? `🏭 ${provNombre(o.proveedorId)}` : 'sin proveedor'}{o.cantidad ? ` · ${o.cantidad} ${o.unidad}` : ''}</div>
+                      {t !== null && <div style={{ fontSize: 11, color: 'var(--bp-text)' }}>{formatoMoneda(t)}{o.moneda ? ` ${o.moneda}` : ''}</div>}
                     </div>
                   );
                 })}
@@ -564,7 +564,7 @@ function OrdenEditor({ o, provs, prods, onPatch, onClose, onDelete }: {
   const idx = ETAPAS_COMPRA_INFO.findIndex((e) => e.id === o.etapa);
   const t = totalOrden(o);
   return (
-    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
+    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: 'var(--bp-panel-alt)', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong style={{ fontSize: 14 }}>🛒 Orden de compra</strong>
         <button style={btnSm} onClick={onClose}>✕</button>
@@ -576,8 +576,8 @@ function OrdenEditor({ o, provs, prods, onPatch, onClose, onDelete }: {
             style={{ fontSize: 10, cursor: 'pointer', padding: '1px 5px', borderRadius: 8, background: i <= idx ? '#a9720f' : '#efe6cf', color: i <= idx ? '#fff' : '#8a7a4a' }}>{e.emoji}</span>
         ))}
       </div>
-      <div style={{ fontSize: 12, fontWeight: 'bold', color: '#6b5320' }}>{etapaCompraInfo(o.etapa).emoji} {etapaCompraInfo(o.etapa).label}</div>
-      {o.etapa !== 'cerrada' && <button style={{ ...btnSm, marginTop: 4, background: '#eef7ee', borderColor: '#bcd8bc', color: '#2e7a4d', fontWeight: 'bold' }} onClick={() => set('etapa', siguienteEtapaCompra(o.etapa))}>→ Avanzar a «{etapaCompraInfo(siguienteEtapaCompra(o.etapa)).label}»</button>}
+      <div style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--bp-text)' }}>{etapaCompraInfo(o.etapa).emoji} {etapaCompraInfo(o.etapa).label}</div>
+      {o.etapa !== 'cerrada' && <button style={{ ...btnSm, marginTop: 4, background: 'var(--bp-panel-alt)', borderColor: '#bcd8bc', color: 'var(--bp-text)', fontWeight: 'bold' }} onClick={() => set('etapa', siguienteEtapaCompra(o.etapa))}>→ Avanzar a «{etapaCompraInfo(siguienteEtapaCompra(o.etapa)).label}»</button>}
 
       <label style={lbl}>Descripción</label>
       <input style={inp} defaultValue={o.descripcion} key={`d-${o.id}`} onBlur={(e) => { if (e.target.value !== o.descripcion) set('descripcion', e.target.value); }} />
@@ -594,7 +594,7 @@ function OrdenEditor({ o, provs, prods, onPatch, onClose, onDelete }: {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
         {F('Cantidad', 'cantidad')}{F('Unidad', 'unidad')}{F('Precio unit.', 'precioUnitario')}
         {F('Moneda', 'moneda', 'MXN')}{F('Folio', 'folio')}
-        <div><label style={lbl}>Total</label><input style={{ ...inp, background: '#f5efdd' }} value={t !== null ? formatoMoneda(t) : '—'} readOnly /></div>
+        <div><label style={lbl}>Total</label><input style={{ ...inp, background: 'var(--bp-panel-alt)' }} value={t !== null ? formatoMoneda(t) : '—'} readOnly /></div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
         {F('Fecha solicitud', 'fechaSolicitud')}{F('Fecha requerida', 'fechaRequerida')}
@@ -609,12 +609,12 @@ function OrdenEditor({ o, provs, prods, onPatch, onClose, onDelete }: {
             <div style={{ fontSize: 12, paddingBottom: 6 }}>
               {rec.estado === 'parcial' && <span style={{ color: '#c0392b', fontWeight: 'bold' }}>⚠ Parcial: faltan {rec.faltante} {o.unidad}</span>}
               {rec.estado === 'completa' && <span style={{ color: '#2e9e63', fontWeight: 'bold' }}>✅ Completa</span>}
-              {rec.estado === 'sin-datos' && <span style={{ color: '#999' }}>—</span>}
+              {rec.estado === 'sin-datos' && <span style={{ color: 'var(--bp-muted)' }}>—</span>}
             </div>
           </div>
         );
       })()}
-      <label style={{ fontSize: 12, color: '#2e7a4d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
+      <label style={{ fontSize: 12, color: 'var(--bp-text)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
         <input type="checkbox" checked={o.recibidoOk} onChange={(e) => set('recibidoOk', e.target.checked)} /> 🔍 Pasó inspección
       </label>
       <label style={lbl}>Notas</label>
@@ -635,16 +635,16 @@ function EmbarquesLista({ embs, ocs, trps, sel, onSel, hoy, onPatch, onDelete, m
   const retrasados = embs.filter((e) => embarqueRetrasado(e, hoy));
   return (
     <>
-      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.5rem' }}>
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0 0 0.5rem' }}>
         Un <strong>embarque</strong> consolida órdenes de compra en un envío. El costo logístico (flete/seguro/aduana) se suma al valor de la mercancía = <strong>landed cost</strong> (costo puesto en tienda) y alimenta Financiero.
       </p>
       {retrasados.length > 0 && (
-        <div style={{ background: '#fdecea', border: '1px solid #f0c9c2', borderRadius: 9, padding: '0.45rem 0.7rem', marginBottom: '0.5rem' }}>
+        <div style={{ background: 'var(--bp-panel-alt)', border: '1px solid #f0c9c2', borderRadius: 9, padding: '0.45rem 0.7rem', marginBottom: '0.5rem' }}>
           <strong style={{ fontSize: 12.5, color: '#c0392b' }}>⚠ {retrasados.length} embarque(s) retrasado(s):</strong>
           <span style={{ fontSize: 12, color: '#a33', marginLeft: 6 }}>{retrasados.map((e) => `${e.folio || e.destino || 'embarque'} (ETA ${e.fechaEstimada})`).join(' · ')}</span>
         </div>
       )}
-      {embs.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay embarques. Pulsa <strong>＋ Embarque</strong> para consolidar órdenes y calcular el landed cost.</p>}
+      {embs.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay embarques. Pulsa <strong>＋ Embarque</strong> para consolidar órdenes y calcular el landed cost.</p>}
       <div style={{ display: 'grid', gridTemplateColumns: movil || !eSel ? '1fr' : 'minmax(0, 1fr) 420px', gap: '0.75rem', alignItems: 'start' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
           {embs.map((e) => {
@@ -656,8 +656,8 @@ function EmbarquesLista({ embs, ocs, trps, sel, onSel, hoy, onPatch, onDelete, m
                   <span style={{ fontWeight: 'bold', fontSize: 13.5, flex: 1 }}>{modalidadEnvioInfo(e.modalidad).emoji} {e.folio || e.destino || 'Embarque'}</span>
                   <span style={{ fontSize: 10.5, fontWeight: 'bold', color: '#fff', background: ret ? '#c0392b' : '#3b9ec9', borderRadius: 8, padding: '0 6px' }}>{inf.emoji} {inf.label}</span>
                 </div>
-                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{modalidadEnvioInfo(e.modalidad).label}{e.importacion.esImportacion ? ' · 🛃 importación' : ''} · {e.transportista || 'sin transportista'}{e.tracking ? ` · guía ${e.tracking}` : ''}{e.fechaEstimada ? ` · ETA ${e.fechaEstimada}` : ''}</div>
-                <div style={{ fontSize: 11.5, color: '#6b5320', marginTop: 2 }}>Landed <strong>{formatoMoneda(lc.total)}</strong> {lc.logistica > 0 ? <span style={{ color: '#999' }}>(+{formatoMoneda(lc.logistica)} log · ×{lc.factor.toFixed(2)})</span> : null}</div>
+                <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2 }}>{modalidadEnvioInfo(e.modalidad).label}{e.importacion.esImportacion ? ' · 🛃 importación' : ''} · {e.transportista || 'sin transportista'}{e.tracking ? ` · guía ${e.tracking}` : ''}{e.fechaEstimada ? ` · ETA ${e.fechaEstimada}` : ''}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--bp-text)', marginTop: 2 }}>Landed <strong>{formatoMoneda(lc.total)}</strong> {lc.logistica > 0 ? <span style={{ color: 'var(--bp-muted)' }}>(+{formatoMoneda(lc.logistica)} log · ×{lc.factor.toFixed(2)})</span> : null}</div>
               </div>
             );
           })}
@@ -691,7 +691,7 @@ function EmbarqueEditor({ e, ocs, trps, onPatch, onClose, onDelete }: {
   const incluidas = new Set(e.ordenIds);
   const toggleOrden = (id: string) => set('ordenIds', incluidas.has(id) ? e.ordenIds.filter((x) => x !== id) : [...e.ordenIds, id]);
   return (
-    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
+    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: 'var(--bp-panel-alt)', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong style={{ fontSize: 14 }}>🚚 Embarque</strong>
         <button style={btnSm} onClick={onClose}>✕</button>
@@ -704,14 +704,14 @@ function EmbarqueEditor({ e, ocs, trps, onPatch, onClose, onDelete }: {
         ))}
       </div>
       <div style={{ fontSize: 12, fontWeight: 'bold', color: '#2b7a93' }}>{estadoEmbarqueInfo(e.estado).emoji} {estadoEmbarqueInfo(e.estado).label}</div>
-      {e.estado !== 'entregado' && <button style={{ ...btnSm, marginTop: 4, background: '#eef7fb', borderColor: '#bcd8e6', color: '#2b7a93', fontWeight: 'bold' }} onClick={() => set('estado', siguienteEstadoEmbarque(e.estado))}>→ Avanzar a «{estadoEmbarqueInfo(siguienteEstadoEmbarque(e.estado)).label}»</button>}
+      {e.estado !== 'entregado' && <button style={{ ...btnSm, marginTop: 4, background: 'var(--bp-panel-alt)', borderColor: '#bcd8e6', color: '#2b7a93', fontWeight: 'bold' }} onClick={() => set('estado', siguienteEstadoEmbarque(e.estado))}>→ Avanzar a «{estadoEmbarqueInfo(siguienteEstadoEmbarque(e.estado)).label}»</button>}
 
       <label style={lbl}>Modalidad de envío</label>
       <select style={inp} value={e.modalidad} onChange={(ev) => set('modalidad', ev.target.value)}>
         {MODALIDADES_ENVIO.map((m) => <option key={m.id} value={m.id}>{m.emoji} {m.label}</option>)}
       </select>
-      {e.modalidad === 'paqueteria' && <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 0' }}>Courier (Estafeta/DHL/FedEx…): cobra por guía/peso/volumen. Suele ser 1 orden por guía; el flete es el costo de la guía.</p>}
-      {e.modalidad === 'carga' && <p style={{ fontSize: 10.5, color: '#999', margin: '2px 0 0' }}>Flete/tráiler: aquí sí conviene consolidar varias órdenes en el mismo envío.</p>}
+      {e.modalidad === 'paqueteria' && <p style={{ fontSize: 10.5, color: 'var(--bp-muted)', margin: '2px 0 0' }}>Courier (Estafeta/DHL/FedEx…): cobra por guía/peso/volumen. Suele ser 1 orden por guía; el flete es el costo de la guía.</p>}
+      {e.modalidad === 'carga' && <p style={{ fontSize: 10.5, color: 'var(--bp-muted)', margin: '2px 0 0' }}>Flete/tráiler: aquí sí conviene consolidar varias órdenes en el mismo envío.</p>}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
         {F('Folio', 'folio')}{F('Transportista', 'transportista', 'Estafeta, DHL…')}
         {F('Origen', 'origen')}{F('Destino', 'destino')}
@@ -727,11 +727,11 @@ function EmbarqueEditor({ e, ocs, trps, onPatch, onClose, onDelete }: {
         {ocs.filter((o) => o.etapa !== 'cerrada' || incluidas.has(o.id)).map((o) => (
           <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '2px 0', cursor: 'pointer' }}>
             <input type="checkbox" checked={incluidas.has(o.id)} onChange={() => toggleOrden(o.id)} />
-            <span style={{ flex: 1 }}>{o.descripcion || '(orden)'} <span style={{ color: '#999' }}>{o.cantidad ? `· ${o.cantidad} ${o.unidad}` : ''}</span></span>
-            <span style={{ color: '#6b5320' }}>{totalOrden(o) !== null ? formatoMoneda(totalOrden(o)!) : '—'}</span>
+            <span style={{ flex: 1 }}>{o.descripcion || '(orden)'} <span style={{ color: 'var(--bp-muted)' }}>{o.cantidad ? `· ${o.cantidad} ${o.unidad}` : ''}</span></span>
+            <span style={{ color: 'var(--bp-text)' }}>{totalOrden(o) !== null ? formatoMoneda(totalOrden(o)!) : '—'}</span>
           </label>
         ))}
-        {ocs.length === 0 && <span style={{ fontSize: 11, color: '#999' }}>No hay órdenes de compra. Créalas en 🛒 Compras.</span>}
+        {ocs.length === 0 && <span style={{ fontSize: 11, color: 'var(--bp-muted)' }}>No hay órdenes de compra. Créalas en 🛒 Compras.</span>}
       </div>
 
       {/* Costos logísticos */}
@@ -763,7 +763,7 @@ function EmbarqueEditor({ e, ocs, trps, onPatch, onClose, onDelete }: {
                 {I('IVA importación (%)', 'ivaPct', '16')}{I('DTA', 'dta')}
                 {I('Honorarios agente', 'honorariosAgente')}{I('Otros gastos', 'otros')}
               </div>
-              <div style={{ marginTop: 5, border: '1px solid #ecd9a0', borderRadius: 7, background: '#fffdf6', padding: '0.4rem 0.55rem', fontSize: 11.5, color: '#6b5320' }}>
+              <div style={{ marginTop: 5, border: '1px solid #ecd9a0', borderRadius: 7, background: 'var(--bp-panel-alt)', padding: '0.4rem 0.55rem', fontSize: 11.5, color: 'var(--bp-text)' }}>
                 Arancel {formatoMoneda(desg.arancel)} + IVA {formatoMoneda(desg.iva)} + DTA {formatoMoneda(desg.dta)} + agente {formatoMoneda(desg.honorarios)} + otros {formatoMoneda(desg.otros)} = <strong>{formatoMoneda(desg.total)}</strong>
                 <button style={{ ...btnSm, marginLeft: 8, fontSize: 11 }} onClick={() => set('aduana', String(Math.round(costoAduana(imp) * 100) / 100))}>💡 Pasar a “Aduana” ({formatoMoneda(desg.total)})</button>
               </div>
@@ -773,13 +773,13 @@ function EmbarqueEditor({ e, ocs, trps, onPatch, onClose, onDelete }: {
       </details>
 
       {/* Panel landed cost */}
-      <div style={{ marginTop: '0.5rem', border: '1px solid #bcd8e6', borderRadius: 8, background: '#f7fbfd', padding: '0.5rem 0.6rem' }}>
+      <div style={{ marginTop: '0.5rem', border: '1px solid #bcd8e6', borderRadius: 8, background: 'var(--bp-panel-alt)', padding: '0.5rem 0.6rem' }}>
         <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#2b7a93' }}>📦 Landed cost</div>
-        <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>Mercancía {formatoMoneda(lc.valor)} + logística {formatoMoneda(lc.logistica)} = <strong>{formatoMoneda(lc.total)}</strong> <span style={{ color: '#888' }}>(×{lc.factor.toFixed(2)} sobre el precio)</span></div>
+        <div style={{ fontSize: 12, color: 'var(--bp-muted)', marginTop: 2 }}>Mercancía {formatoMoneda(lc.valor)} + logística {formatoMoneda(lc.logistica)} = <strong>{formatoMoneda(lc.total)}</strong> <span style={{ color: 'var(--bp-muted)' }}>(×{lc.factor.toFixed(2)} sobre el precio)</span></div>
         {prorr.length > 0 && lc.logistica > 0 && (
           <div style={{ marginTop: 4 }}>
             {prorr.map((p) => (
-              <div key={p.ordenId} style={{ fontSize: 11, color: '#666', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e6eef1', padding: '1px 0' }}>
+              <div key={p.ordenId} style={{ fontSize: 11, color: 'var(--bp-muted)', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e6eef1', padding: '1px 0' }}>
                 <span>{p.descripcion || '(orden)'}</span>
                 <span>{formatoMoneda(p.valor)} + {formatoMoneda(p.logistica)} log = <strong>{formatoMoneda(p.landed)}</strong></span>
               </div>
@@ -804,16 +804,16 @@ function TransportistasLista({ trps, sel, onSel, onPatch, onDelete, movil }: {
   const tSel = trps.find((t) => t.id === sel) ?? null;
   return (
     <>
-      <p style={{ fontSize: 12, color: '#777', margin: '0 0 0.5rem' }}>Directorio de fletes. La <strong>paquetería</strong> cobra por <strong>base + $/kg</strong> por zona; la <strong>carga</strong> por <strong>$/viaje</strong>. El Centro IA y el botón “Estimar flete” usan estas tarifas.</p>
-      {trps.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay transportistas. Pulsa <strong>＋ Transportista</strong> (Estafeta, DHL, un flete local…).</p>}
+      <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0 0 0.5rem' }}>Directorio de fletes. La <strong>paquetería</strong> cobra por <strong>base + $/kg</strong> por zona; la <strong>carga</strong> por <strong>$/viaje</strong>. El Centro IA y el botón “Estimar flete” usan estas tarifas.</p>
+      {trps.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay transportistas. Pulsa <strong>＋ Transportista</strong> (Estafeta, DHL, un flete local…).</p>}
       <div style={{ display: 'grid', gridTemplateColumns: movil || !tSel ? '1fr' : 'minmax(0, 1fr) 400px', gap: '0.75rem', alignItems: 'start' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
           {trps.map((t) => (
             <div key={t.id} onClick={() => onSel(t.id)}
               style={{ border: `1px solid ${sel === t.id ? '#a9720f' : '#e0d3b0'}`, borderLeft: '4px solid #3bb0c9', borderRadius: 9, padding: '0.5rem 0.6rem', background: sel === t.id ? '#fdf6e3' : '#fff', cursor: 'pointer' }}>
               <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>🚛 {t.nombre || '(sin nombre)'}</div>
-              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{t.modalidades.map((m) => modalidadEnvioInfo(m).emoji).join(' ')} {t.modalidades.join(', ') || 'sin modalidad'}{t.tarifas.length ? ` · ${t.tarifas.length} tarifa(s)` : ''}</div>
-              {t.zonas.length > 0 && <div style={{ fontSize: 10.5, color: '#999', marginTop: 1 }}>{t.zonas.join(' · ')}</div>}
+              <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2 }}>{t.modalidades.map((m) => modalidadEnvioInfo(m).emoji).join(' ')} {t.modalidades.join(', ') || 'sin modalidad'}{t.tarifas.length ? ` · ${t.tarifas.length} tarifa(s)` : ''}</div>
+              {t.zonas.length > 0 && <div style={{ fontSize: 10.5, color: 'var(--bp-muted)', marginTop: 1 }}>{t.zonas.join(' · ')}</div>}
             </div>
           ))}
         </div>
@@ -835,7 +835,7 @@ function TransportistaEditor({ t, onPatch, onClose, onDelete }: {
   const delTarifa = (i: number) => set('tarifas', t.tarifas.filter((_, j) => j !== i));
   const toggleMod = (m: string) => set('modalidades', t.modalidades.includes(m) ? t.modalidades.filter((x) => x !== m) : [...t.modalidades, m]);
   return (
-    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
+    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: 'var(--bp-panel-alt)', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong style={{ fontSize: 14 }}>🚛 Transportista</strong>
         <button style={btnSm} onClick={onClose}>✕</button>
@@ -845,7 +845,7 @@ function TransportistaEditor({ t, onPatch, onClose, onDelete }: {
       <label style={lbl}>Modalidades que maneja</label>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
         {MODALIDADES_ENVIO.filter((m) => m.id !== 'digital').map((m) => (
-          <label key={m.id} style={{ fontSize: 12, color: '#555', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+          <label key={m.id} style={{ fontSize: 12, color: 'var(--bp-muted)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
             <input type="checkbox" checked={t.modalidades.includes(m.id)} onChange={() => toggleMod(m.id)} /> {m.emoji} {m.label.split(' ')[0]}
           </label>
         ))}
@@ -858,9 +858,9 @@ function TransportistaEditor({ t, onPatch, onClose, onDelete }: {
 
       {/* Tarifas */}
       <div style={{ borderTop: '1px solid #e8dcc0', marginTop: '0.6rem', paddingTop: '0.4rem' }}>
-        <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#6b5320' }}>💲 Tarifas ({t.tarifas.length})</div>
+        <div style={{ fontSize: 12.5, fontWeight: 'bold', color: 'var(--bp-text)' }}>💲 Tarifas ({t.tarifas.length})</div>
         {t.tarifas.map((x, i) => (
-          <div key={i} style={{ border: '1px solid #e8dcc0', borderRadius: 7, padding: '0.35rem 0.45rem', marginTop: 4, background: '#fff' }}>
+          <div key={i} style={{ border: '1px solid #e8dcc0', borderRadius: 7, padding: '0.35rem 0.45rem', marginTop: 4, background: 'var(--bp-panel)' }}>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               <select style={{ ...inp, width: 110, padding: '0.2rem' }} value={x.modalidad} onChange={(e) => setTarifa(i, { modalidad: e.target.value })}>
                 <option value="paqueteria">📮 Paquetería</option><option value="carga">🚚 Carga</option><option value="mensajeria">🛵 Mensajería</option>
@@ -900,12 +900,12 @@ function ContratosLista({ ctrs, sel, onSel, provs, provNombre, hoy, onPatch, onD
   return (
     <>
       {alertas.length > 0 && (
-        <div style={{ background: '#fdecea', border: '1px solid #f0c9c2', borderRadius: 9, padding: '0.45rem 0.7rem', marginBottom: '0.5rem' }}>
+        <div style={{ background: 'var(--bp-panel-alt)', border: '1px solid #f0c9c2', borderRadius: 9, padding: '0.45rem 0.7rem', marginBottom: '0.5rem' }}>
           <strong style={{ fontSize: 12.5, color: '#c0392b' }}>🔔 {alertas.length} contrato(s) requieren atención:</strong>
           <span style={{ fontSize: 12, color: '#a33', marginLeft: 6 }}>{alertas.map((x) => `${x.c.titulo || '(sin título)'} (${x.info.diasRestantes! < 0 ? 'vencido' : `${x.info.diasRestantes}d`})`).join(' · ')}</span>
         </div>
       )}
-      {ctrs.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Aún no hay contratos. Pulsa <strong>＋ Contrato</strong> para registrar fechas, montos, cláusulas y alertas de vencimiento.</p>}
+      {ctrs.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay contratos. Pulsa <strong>＋ Contrato</strong> para registrar fechas, montos, cláusulas y alertas de vencimiento.</p>}
       <div style={{ display: 'grid', gridTemplateColumns: movil || !cSel ? '1fr' : 'minmax(0, 1fr) 400px', gap: '0.75rem', alignItems: 'start' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
           {infos.map(({ c, info }) => {
@@ -914,7 +914,7 @@ function ContratosLista({ ctrs, sel, onSel, provs, provNombre, hoy, onPatch, onD
               <div key={c.id} onClick={() => onSel(c.id)}
                 style={{ border: `1px solid ${sel === c.id ? '#a9720f' : '#e0d3b0'}`, borderLeft: `4px solid ${est.color}`, borderRadius: 9, padding: '0.5rem 0.6rem', background: sel === c.id ? '#fdf6e3' : '#fff', cursor: 'pointer' }}>
                 <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>📄 {c.titulo || '(sin título)'}</div>
-                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{c.proveedorId ? provNombre(c.proveedorId) : c.tipo || '—'}</div>
+                <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2 }}>{c.proveedorId ? provNombre(c.proveedorId) : c.tipo || '—'}</div>
                 <div style={{ fontSize: 11, color: est.color, marginTop: 2, fontWeight: 'bold' }}>
                   {est.emoji} {est.label}{info.diasRestantes !== null ? (info.diasRestantes < 0 ? ` (hace ${-info.diasRestantes}d)` : ` · ${info.diasRestantes}d`) : ''}{c.renovacionAutomatica ? ' · 🔄 auto' : ''}
                 </div>
@@ -937,7 +937,7 @@ function ContratoEditor({ c, provs, info, onPatch, onClose, onDelete }: {
   );
   const est = ESTADOS_CONTRATO[info.estado as keyof typeof ESTADOS_CONTRATO];
   return (
-    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
+    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: 'var(--bp-panel-alt)', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong style={{ fontSize: 14 }}>📄 Contrato</strong>
         <button style={btnSm} onClick={onClose}>✕</button>
@@ -955,12 +955,12 @@ function ContratoEditor({ c, provs, info, onPatch, onClose, onDelete }: {
         {F('Monto', 'monto')}{F('Moneda', 'moneda', 'MXN')}
         {F('Alertar (días antes)', 'alertaDias', '30')}{F('Responsables', 'responsables')}
       </div>
-      <label style={{ fontSize: 12, color: '#2e7a4d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
+      <label style={{ fontSize: 12, color: 'var(--bp-text)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
         <input type="checkbox" checked={c.renovacionAutomatica} onChange={(e) => set('renovacionAutomatica', e.target.checked)} /> 🔄 Renovación automática
       </label>
       <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-        <label style={{ fontSize: 12, color: '#555', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}><input type="checkbox" checked={c.exclusividad} onChange={(e) => set('exclusividad', e.target.checked)} /> Exclusividad</label>
-        <label style={{ fontSize: 12, color: '#555', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}><input type="checkbox" checked={c.confidencialidad} onChange={(e) => set('confidencialidad', e.target.checked)} /> Confidencialidad</label>
+        <label style={{ fontSize: 12, color: 'var(--bp-muted)', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}><input type="checkbox" checked={c.exclusividad} onChange={(e) => set('exclusividad', e.target.checked)} /> Exclusividad</label>
+        <label style={{ fontSize: 12, color: 'var(--bp-muted)', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}><input type="checkbox" checked={c.confidencialidad} onChange={(e) => set('confidencialidad', e.target.checked)} /> Confidencialidad</label>
       </div>
       <label style={lbl}>Cláusulas importantes</label>
       <textarea style={{ ...inp, resize: 'vertical' }} rows={2} defaultValue={c.clausulas} key={`cl-${c.id}`} onBlur={(e) => set('clausulas', e.target.value)} />
@@ -992,7 +992,7 @@ function ProveedorEditor({ prov, incidencias, score, interacciones, ultContacto,
   const niv = NIVELES_SCORE[score.nivel];
   const setEval = (crit: string, val: number) => onPatch({ evaluacion: { ...prov.evaluacion, [crit]: val } });
   return (
-    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
+    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: 'var(--bp-panel-alt)', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong style={{ fontSize: 14 }}>🏭 Proveedor</strong>
         <button style={btnSm} onClick={onClose}>✕</button>
@@ -1037,18 +1037,18 @@ function ProveedorEditor({ prov, incidencias, score, interacciones, ultContacto,
       {/* ==== EVALUACIÓN Y SCORE ==== */}
       <div style={{ borderTop: '2px solid #e0d3b0', marginTop: '0.6rem', paddingTop: '0.4rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 'bold', color: '#6b5320', flex: 1 }}>⭐ Evaluación</span>
+          <span style={{ fontSize: 12.5, fontWeight: 'bold', color: 'var(--bp-text)', flex: 1 }}>⭐ Evaluación</span>
           <span style={{ fontSize: 12, fontWeight: 'bold', color: '#fff', background: niv.color, borderRadius: 10, padding: '1px 10px' }}>
             {niv.emoji} {score.score !== null ? `Score ${score.score}` : 'Sin evaluar'}
           </span>
         </div>
-        {score.score !== null && <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{niv.label} · promedio {score.base} de {score.nCriterios} criterios{score.penalizacion ? ` − ${score.penalizacion} por ${score.incidencias} incidencia(s)` : ''}</div>}
+        {score.score !== null && <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2 }}>{niv.label} · promedio {score.base} de {score.nCriterios} criterios{score.penalizacion ? ` − ${score.penalizacion} por ${score.incidencias} incidencia(s)` : ''}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.2rem 0.6rem', marginTop: 4 }}>
           {CRITERIOS_EVAL.map((c) => {
             const val = prov.evaluacion[c.id] ?? 0;
             return (
               <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ fontSize: 11, color: '#666', flex: 1 }}>{c.label}</span>
+                <span style={{ fontSize: 11, color: 'var(--bp-muted)', flex: 1 }}>{c.label}</span>
                 <input type="range" min={0} max={100} step={5} value={val} style={{ width: 70 }} onChange={(e) => setEval(c.id, Number(e.target.value))} />
                 <span style={{ fontSize: 11, width: 24, textAlign: 'right', color: val ? '#6b5320' : '#bbb' }}>{val || '—'}</span>
               </div>
@@ -1068,7 +1068,7 @@ function ProveedorEditor({ prov, incidencias, score, interacciones, ultContacto,
           <div><label style={lbl}>Próximo seguimiento</label><input style={inp} type="date" defaultValue={prov.proximoSeguimiento} key={`ps-${prov.id}`} onBlur={(e) => { if (e.target.value !== prov.proximoSeguimiento) onPatch({ proximoSeguimiento: e.target.value }); }} /></div>
         </div>
         {T('Responsable de la relación (firma correos)', 'responsable', 'nombre real')}
-        <div style={{ fontSize: 11, color: '#888', marginTop: 3 }}>Último contacto: <strong>{ultContacto || 'nunca'}</strong>{prov.proximoSeguimiento && prov.proximoSeguimiento <= new Date().toISOString().slice(0, 10) ? ' · ⏰ seguimiento pendiente' : ''}</div>
+        <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 3 }}>Último contacto: <strong>{ultContacto || 'nunca'}</strong>{prov.proximoSeguimiento && prov.proximoSeguimiento <= new Date().toISOString().slice(0, 10) ? ' · ⏰ seguimiento pendiente' : ''}</div>
         {interacciones.length > 0 && (
           <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: 4, borderTop: '1px solid #f0ead9' }}>
             {interacciones.map((it) => (
@@ -1094,7 +1094,7 @@ function ProveedorEditor({ prov, incidencias, score, interacciones, ultContacto,
           {T('% Cumplimiento', 'cumplimiento')}{T('Tiempo promedio', 'tiempoPromedio')}
         </div>
         {incidencias.map((i) => (
-          <div key={i.id} style={{ border: '1px solid #e8dcc0', borderRadius: 7, padding: '0.35rem 0.45rem', marginTop: 4, background: '#fff' }}>
+          <div key={i.id} style={{ border: '1px solid #e8dcc0', borderRadius: 7, padding: '0.35rem 0.45rem', marginTop: 4, background: 'var(--bp-panel)' }}>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               <select style={{ ...inp, width: 110, padding: '0.2rem' }} value={i.tipo} onChange={(e) => onPatchInc({ ...i, tipo: e.target.value })}>
                 {TIPOS_INCIDENCIA.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -1158,7 +1158,7 @@ function ProductoEditor({ prod, provs, vinculos, provNombre, hoy, onPatch, onClo
   const ac = ACCIONES_COMPRA[plan.accion];
 
   return (
-    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: '#fdf6e3', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
+    <div style={{ border: '1px solid #e0d3b0', borderRadius: 10, background: 'var(--bp-panel-alt)', padding: '0.7rem', position: 'sticky', top: 8, maxHeight: '86vh', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong style={{ fontSize: 14 }}>🏷️ Producto</strong>
         <button style={btnSm} onClick={onClose}>✕</button>
@@ -1195,7 +1195,7 @@ function ProductoEditor({ prod, provs, vinculos, provNombre, hoy, onPatch, onClo
 
       {/* ==== INVENTARIO Y PLANEACIÓN ==== */}
       <div style={{ borderTop: '2px solid #e0d3b0', marginTop: '0.7rem', paddingTop: '0.4rem' }}>
-        <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#6b5320' }}>📦 Inventario y planeación</div>
+        <div style={{ fontSize: 12.5, fontWeight: 'bold', color: 'var(--bp-text)' }}>📦 Inventario y planeación</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
           {T('Stock actual', 'stockActual')}{T('Stock mínimo', 'stockMinimo')}{T('Stock máximo', 'stockMaximo')}
           {T('Punto de reorden', 'puntoReorden')}{T('Stock de seguridad', 'stockSeguridad')}{T('Lead time (días)', 'leadTimeDias')}
@@ -1206,18 +1206,18 @@ function ProductoEditor({ prod, provs, vinculos, provNombre, hoy, onPatch, onClo
         {T('📍 Ubicación del inventario', 'ubicacion')}
 
         {/* Recomendación automática */}
-        <div style={{ marginTop: '0.5rem', border: `1px solid ${ac.color}`, borderRadius: 8, background: '#fff', padding: '0.5rem 0.6rem' }}>
+        <div style={{ marginTop: '0.5rem', border: `1px solid ${ac.color}`, borderRadius: 8, background: 'var(--bp-panel)', padding: '0.5rem 0.6rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 'bold', color: '#fff', background: ac.color, borderRadius: 8, padding: '1px 8px' }}>{ac.emoji} {ac.label}</span>
-            {plan.diasCobertura !== null && <span style={{ fontSize: 12, color: '#555' }}>~{plan.diasCobertura} días de cobertura</span>}
+            {plan.diasCobertura !== null && <span style={{ fontSize: 12, color: 'var(--bp-muted)' }}>~{plan.diasCobertura} días de cobertura</span>}
           </div>
-          <div style={{ fontSize: 11.5, color: '#666', marginTop: 4 }}>{plan.motivo}</div>
-          <div style={{ fontSize: 11.5, color: '#888', marginTop: 2 }}>
+          <div style={{ fontSize: 11.5, color: 'var(--bp-muted)', marginTop: 4 }}>{plan.motivo}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--bp-muted)', marginTop: 2 }}>
             {plan.seAgotaEn !== '—' ? `Se agota ~${plan.seAgotaEn}` : 'Sin pronóstico (falta consumo)'}
             {plan.cantidadSugerida !== null ? ` · sugerido pedir: ${plan.cantidadSugerida} ${prod.unidad}`.trimEnd() : ''}
           </div>
           {(plan.accion === 'comprar-urgente' || plan.accion === 'comprar-hoy' || plan.accion === 'comprar-pronto') && (
-            <button style={{ ...btnSm, marginTop: 6, background: '#fff3e6', borderColor: ac.color, color: ac.color, fontWeight: 'bold' }} onClick={onSolicitud}>🛒 Generar solicitud de compra</button>
+            <button style={{ ...btnSm, marginTop: 6, background: 'var(--bp-panel-alt)', borderColor: ac.color, color: ac.color, fontWeight: 'bold' }} onClick={onSolicitud}>🛒 Generar solicitud de compra</button>
           )}
         </div>
       </div>
@@ -1232,8 +1232,8 @@ function ProductoEditor({ prod, provs, vinculos, provNombre, hoy, onPatch, onClo
 
       {/* ==== VÍNCULOS con proveedores (muchos-a-muchos) ==== */}
       <div style={{ borderTop: '2px solid #e0d3b0', marginTop: '0.7rem', paddingTop: '0.5rem' }}>
-        <div style={{ fontSize: 12.5, fontWeight: 'bold', color: '#6b5320' }}>🏭 Proveedores de este producto ({vinculos.length})</div>
-        <p style={{ fontSize: 11, color: '#999', margin: '2px 0 6px' }}>El mismo producto puede tener varios proveedores; cada uno con su precio, SKU y condiciones.</p>
+        <div style={{ fontSize: 12.5, fontWeight: 'bold', color: 'var(--bp-text)' }}>🏭 Proveedores de este producto ({vinculos.length})</div>
+        <p style={{ fontSize: 11, color: 'var(--bp-muted)', margin: '2px 0 6px' }}>El mismo producto puede tener varios proveedores; cada uno con su precio, SKU y condiciones.</p>
         <div style={{ display: 'flex', gap: 4, marginBottom: '0.5rem' }}>
           <select style={{ ...inp, flex: 1 }} value={addSel} onChange={(e) => setAddSel(e.target.value)}>
             <option value="">＋ Vincular un proveedor…</option>
@@ -1273,14 +1273,14 @@ function VinculoRow({ v, proveedor, onGuardar, onBorrar }: {
     setPPrecio(''); setPMotivo(''); setPFecha('');
   }
   return (
-    <div style={{ border: '1px solid #e0d3b0', borderRadius: 8, background: '#fff', padding: '0.4rem 0.55rem', marginBottom: '0.4rem' }}>
+    <div style={{ border: '1px solid #e0d3b0', borderRadius: 8, background: 'var(--bp-panel)', padding: '0.4rem 0.55rem', marginBottom: '0.4rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} onClick={() => setAbierto((a) => !a)}>
         <span style={{ fontWeight: 'bold', fontSize: 13, flex: 1 }}>🏭 {proveedor}</span>
-        <span style={{ fontSize: 12.5, color: '#6b5320' }}>{precioVigente(v) || 'sin precio'}{v.moneda ? ` ${v.moneda}` : ''}</span>
-        <span style={{ fontSize: 11, color: '#888' }}>{abierto ? '▲' : '▼'}</span>
+        <span style={{ fontSize: 12.5, color: 'var(--bp-text)' }}>{precioVigente(v) || 'sin precio'}{v.moneda ? ` ${v.moneda}` : ''}</span>
+        <span style={{ fontSize: 11, color: 'var(--bp-muted)' }}>{abierto ? '▲' : '▼'}</span>
       </div>
       {!abierto && (v.tiempoEntrega || v.cantidadMinima) && (
-        <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>{v.tiempoEntrega ? `🚚 ${v.tiempoEntrega}` : ''}{v.cantidadMinima ? ` · mín ${v.cantidadMinima}` : ''}</div>
+        <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 2 }}>{v.tiempoEntrega ? `🚚 ${v.tiempoEntrega}` : ''}{v.cantidadMinima ? ` · mín ${v.cantidadMinima}` : ''}</div>
       )}
       {abierto && (
         <div style={{ marginTop: 4 }}>
@@ -1295,20 +1295,20 @@ function VinculoRow({ v, proveedor, onGuardar, onBorrar }: {
             {C('Incoterms', 'incoterms')}{C('Penalizaciones', 'penalizaciones')}
             {C('Lugar de entrega', 'lugarEntrega')}{C('Lugar de recolección', 'lugarRecoleccion')}
           </div>
-          <label style={{ fontSize: 12, color: '#2e7a4d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
+          <label style={{ fontSize: 12, color: 'var(--bp-text)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: '0.5rem' }}>
             <input type="checkbox" checked={v.credito} onChange={(e) => set('credito', e.target.checked)} /> 💳 Da crédito
           </label>
 
           {/* Historial de precios */}
           <div style={{ marginTop: '0.5rem', borderTop: '1px solid #f0ead9', paddingTop: 4 }}>
-            <div style={{ fontSize: 12, fontWeight: 'bold', color: '#6b5320' }}>📈 Historial de precios ({v.historial.length})</div>
+            <div style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--bp-text)' }}>📈 Historial de precios ({v.historial.length})</div>
             {v.historial.length > 0 && (
               <div style={{ maxHeight: 120, overflowY: 'auto', marginTop: 3 }}>
                 {[...v.historial].reverse().map((h, i) => (
-                  <div key={i} style={{ fontSize: 11, color: '#555', display: 'flex', gap: 6, borderBottom: '1px solid #f5efdd', padding: '1px 0' }}>
-                    <span style={{ color: '#999', minWidth: 74 }}>{h.fecha}</span>
+                  <div key={i} style={{ fontSize: 11, color: 'var(--bp-muted)', display: 'flex', gap: 6, borderBottom: '1px solid #f5efdd', padding: '1px 0' }}>
+                    <span style={{ color: 'var(--bp-muted)', minWidth: 74 }}>{h.fecha}</span>
                     <span style={{ fontWeight: 'bold' }}>{h.precio}{h.moneda ? ' ' + h.moneda : ''}</span>
-                    {h.motivo ? <span style={{ color: '#888' }}>· {h.motivo}</span> : null}
+                    {h.motivo ? <span style={{ color: 'var(--bp-muted)' }}>· {h.motivo}</span> : null}
                   </div>
                 ))}
               </div>
@@ -1370,7 +1370,7 @@ function Adjuntos({ valores, onChange }: { valores: Adjunto[]; onChange: (v: Adj
       {valores.map((a, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '2px 0' }}>
           <span>{icono[a.tipo]}</span>
-          <a href={a.url} target="_blank" rel="noreferrer" style={{ flex: 1, color: '#2b5a97', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</a>
+          <a href={a.url} target="_blank" rel="noreferrer" style={{ flex: 1, color: 'var(--bp-gold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</a>
           <span style={{ cursor: 'pointer', color: '#b33' }} onClick={() => onChange(valores.filter((_, j) => j !== i))}>×</span>
         </div>
       ))}

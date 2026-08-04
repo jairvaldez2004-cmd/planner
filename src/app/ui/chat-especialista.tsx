@@ -9,9 +9,9 @@ import type { MensajeChat } from '@/adapters/ai/especialista-agent';
 import type { Readiness } from '@/app/readiness/readiness-engine';
 import { conversarEspecialista } from '@/app/actions/especialista.actions';
 
-const card: CSSProperties = { border: '1px solid #ddd', borderRadius: 8, padding: '0.75rem 1rem', background: '#fff' };
-const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer', fontSize: 14 };
-const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid #ccc' };
+const card: CSSProperties = { border: '1px solid var(--bp-border)', borderRadius: 8, padding: '0.75rem 1rem', background: 'var(--bp-panel)' };
+const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 14 };
+const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--bp-border)' };
 const burbuja = (rol: 'user' | 'assistant'): CSSProperties => ({
   alignSelf: rol === 'user' ? 'flex-end' : 'flex-start',
   background: rol === 'user' ? '#e8f0fe' : '#f1f1f1',
