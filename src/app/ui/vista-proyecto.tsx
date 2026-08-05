@@ -153,7 +153,14 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   const posOf = (i: number, n: number) => { const a = (i / Math.max(1, n)) * Math.PI * 2 - Math.PI / 2; return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) }; };
   const abrev = (t: NodoGrafo['tipo']) => t === 'uc' ? 'UC' : t === 'admin' ? '📄' : t === 'sedes' ? 'SED' : t === 'mapa' ? 'MAP' : t === 'personas' ? '👥' : t === 'recursos' ? '📦' : t === 'logistica' ? '🚚' : t === 'marketing' ? '📣' : 'NEG';
 
-  // Forma del nodo: UC = círculo · Planos = cuadrado · el resto (sedes/mapa/personas/recursos/logística/marketing/negocio) = triángulo.
+  // Forma del nodo: UC = círculo · Planos = cuadrado · Negocio = hexágono · el resto
+  // (sedes/mapa/personas/recursos/logística/marketing) = triángulo.
+  function poligono(x: number, y: number, r: number, angulosDeg: number[]) {
+    return angulosDeg.map((deg) => {
+      const a = (deg * Math.PI) / 180;
+      return `${x + r * Math.cos(a)},${y + r * Math.sin(a)}`;
+    }).join(' ');
+  }
   function formaNodo(tipo: NodoGrafo['tipo'], x: number, y: number, r: number, fill: string) {
     const comun = { fill, stroke: '#fff', strokeWidth: 2 };
     if (tipo === 'admin') {
@@ -161,11 +168,8 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
       return <rect x={x - lado / 2} y={y - lado / 2} width={lado} height={lado} rx={5} {...comun} />;
     }
     if (tipo === 'uc') return <circle cx={x} cy={y} r={r} {...comun} />;
-    const puntos = [-90, 150, 30].map((deg) => {
-      const a = (deg * Math.PI) / 180;
-      return `${x + r * 1.15 * Math.cos(a)},${y + r * 1.15 * Math.sin(a)}`;
-    }).join(' ');
-    return <polygon points={puntos} {...comun} />;
+    if (tipo === 'negocio') return <polygon points={poligono(x, y, r * 1.05, [-90, -30, 30, 90, 150, 210])} {...comun} />;
+    return <polygon points={poligono(x, y, r * 1.15, [-90, 150, 30])} {...comun} />;
   }
 
   function abrirNodo(n: NodoGrafo) {
