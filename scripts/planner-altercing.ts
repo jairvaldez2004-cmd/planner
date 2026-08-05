@@ -26,12 +26,13 @@ import { recursoVacio, proveedorVacio, numero, subtotalRecurso, normalizarProvee
 import type { Recurso, ProductoProveedor, Producto, Contrato, Incidencia } from '@/domain/recursos';
 import { indiceRecursos, costearProceso, indiceCosto } from '@/domain/costeo';
 import { costosDeProductos, costosDeEmbarques, ingresosDeOfertas, kpisDeProcesos, legalesDeContratos, unidadesDeUCs, legalesDeEmpleados, rondasDeRuta } from '@/domain/proyeccion';
-import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque, normalizarEmbarque, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista, planArranque } from '@/domain/recursos';
-import type { Transportista, Importacion } from '@/domain/recursos';
-import { importacionVacia, desgloseAduana, costoAduana, estadoRecepcion } from '@/domain/recursos';
+import { embarqueVacio, landedCostEmbarque, prorrateoLanded, embarqueRetrasado, costoLogisticoEmbarque, normalizarEmbarque, modalidadEnvioInfo, transportistaVacio, cotizarFlete, mejorTransportista } from '@/domain/logistica';
+import type { Transportista, Importacion } from '@/domain/logistica';
+import { importacionVacia, desgloseAduana, costoAduana } from '@/domain/logistica';
+import { planArranque, estadoRecepcion } from '@/domain/recursos';
 import { RIESGOS_LOGISTICA, contingenciaDesdePlantilla, contingenciasDeProceso, normalizarContingencia } from '@/domain/contingencia';
 import type { Contingencia } from '@/domain/contingencia';
-import type { Embarque } from '@/domain/recursos';
+import type { Embarque } from '@/domain/logistica';
 import { areaEspacio, reporteEscaneo } from '@/domain/escaneo';
 import { simular } from '@/domain/simulacion';
 import { normalizarPrimitivas, leerModelo3D, alturaModelo } from '@/domain/modelo-parametrico';

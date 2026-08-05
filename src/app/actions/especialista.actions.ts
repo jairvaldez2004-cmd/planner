@@ -26,13 +26,14 @@ import { generarDocumentoPlano } from '@/domain/plano-doc';
 import type { DocumentoPlano } from '@/domain/plano-doc';
 import { normalizarCatalogo } from '@/domain/mkt-catalogo';
 import type { CatalogoMkt } from '@/domain/mkt-catalogo';
-import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, costosDeProductos, costosDeEmbarques, componentesDeEquipo, componentesDeAutomatizacion, agentesDeProcesos, proveedoresATabla, ingresosDeOfertas, kpisDeProcesos, legalesDeContratos, legalesDeEmpleados, unidadesDeUCs, rondasDeRuta } from '@/domain/proyeccion';
+import { ambientesDeEspacios, procesosDeMapa, personasDeSuperficies, puestosDeEmpleados, costosDeRecursos, costosDeProductos, costosDeEmbarques, costosDeEntregas, componentesDeEquipo, componentesDeAutomatizacion, agentesDeProcesos, proveedoresATabla, ingresosDeOfertas, kpisDeProcesos, legalesDeContratos, legalesDeEmpleados, unidadesDeUCs, rondasDeRuta } from '@/domain/proyeccion';
 import { listarSedes, listarEspacios } from '@/app/actions/espacios.actions';
 import { listarProcesos, listarContingencias } from '@/app/actions/mapa.actions';
 import { simularEmpresa, SUPUESTOS_DEFAULT } from '@/domain/simulacion-empresa';
 import type { SupuestosSim, ReporteSimulacion } from '@/domain/simulacion-empresa';
 import { listarEmpleados } from '@/app/actions/rh.actions';
-import { listarRecursos, listarProveedores, listarProductos, listarVinculos, listarEmbarques, listarContratos } from '@/app/actions/recursos.actions';
+import { listarRecursos, listarProveedores, listarProductos, listarVinculos, listarContratos } from '@/app/actions/recursos.actions';
+import { listarEmbarques, listarEntregas } from '@/app/actions/logistica.actions';
 
 function toJson(v: unknown): Prisma.InputJsonValue { return v as unknown as Prisma.InputJsonValue; }
 function nowISO(): string { return new Date().toISOString(); }
@@ -74,6 +75,8 @@ async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<R
   const getVinculos = async () => { if (!vinculos) vinculos = await listarVinculos(proyectoId); return vinculos; };
   let embarques: Awaited<ReturnType<typeof listarEmbarques>> | null = null;
   const getEmbarques = async () => { if (!embarques) embarques = await listarEmbarques(proyectoId); return embarques; };
+  let entregas: Awaited<ReturnType<typeof listarEntregas>> | null = null;
+  const getEntregas = async () => { if (!entregas) entregas = await listarEntregas(proyectoId); return entregas; };
   let contratos: Awaited<ReturnType<typeof listarContratos>> | null = null;
   const getContratos = async () => { if (!contratos) contratos = await listarContratos(proyectoId); return contratos; };
   // Ofertas (fuentes de ingreso) y Unidades Comerciales, con el nombre de su UC.
@@ -115,7 +118,7 @@ async function proyectarTablas(proyectoId: string, refs: Set<string>): Promise<R
   if (refs.has('puestos')) out['puestos'] = puestosDeEmpleados(await getEmpleados());
   if (refs.has('personas')) out['personas'] = personasDeSuperficies(await getEspacios(), await getProcesos(), await getEmpleados());
   // Financiero = activos/obra (Recursos) + insumos recurrentes (Productos), sin duplicar el ítem.
-  if (refs.has('costos')) out['costos'] = [...costosDeRecursos(await getRecursos()), ...costosDeProductos(await getProductos(), await getVinculos()), ...costosDeEmbarques(await getEmbarques())];
+  if (refs.has('costos')) out['costos'] = [...costosDeRecursos(await getRecursos()), ...costosDeProductos(await getProductos(), await getVinculos()), ...costosDeEmbarques(await getEmbarques()), ...costosDeEntregas(await getEntregas())];
   // Componentes técnicos = inventario de equipo (Recursos) + automatizaciones n8n/software (Mapa).
   if (refs.has('componentes')) out['componentes'] = [...componentesDeEquipo(await getRecursos()), ...componentesDeAutomatizacion(await getProcesos())];
   // Fichas de agente = procesos que el Organizador (IA) decidió automatizar con IA.

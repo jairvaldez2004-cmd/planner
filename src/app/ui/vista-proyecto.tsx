@@ -31,6 +31,7 @@ import { VistaSedes } from './vista-sedes';
 import { VistaUnidad } from './vista-unidad';
 import { VistaPersonas } from './vista-personas';
 import { VistaRecursos } from './vista-recursos';
+import { VistaLogistica } from './vista-logistica';
 import { VistaMarketing } from './vista-marketing';
 
 const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 14 };
@@ -48,8 +49,8 @@ function BannerEnriquece({ superficie }: { superficie: Superficie }) {
   );
 }
 
-type Nodo = { tipo: 'admin' | 'sedes' | 'mapa' | 'personas' | 'recursos' | 'marketing' | 'uc'; id?: string } | null;
-type NodoGrafo = { key: string; tipo: 'admin' | 'sedes' | 'mapa' | 'personas' | 'recursos' | 'marketing' | 'uc' | 'negocio'; id?: string; label: string; color: string };
+type Nodo = { tipo: 'admin' | 'sedes' | 'mapa' | 'personas' | 'recursos' | 'logistica' | 'marketing' | 'uc'; id?: string } | null;
+type NodoGrafo = { key: string; tipo: 'admin' | 'sedes' | 'mapa' | 'personas' | 'recursos' | 'logistica' | 'marketing' | 'uc' | 'negocio'; id?: string; label: string; color: string };
 
 export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo del workspace' }: { proyectoId: string; onVolver: () => void; volverLabel?: string }) {
   const [nombre, setNombre] = useState('');
@@ -109,6 +110,15 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
       <div style={{ marginTop: '0.25rem' }}><VistaRecursos proyectoId={proyectoId} /></div>
     </section>
   );
+  if (nodo?.tipo === 'logistica') return (
+    <section>
+      <button style={btn} onClick={() => { setNodo(null); cargar(); }}>← {nombre || 'Proyecto'}</button>
+      <BannerEnriquece superficie="logistica" />
+      <div style={{ marginTop: '0.25rem' }}>
+        <VistaLogistica proyectoId={proyectoId} onIrMapa={() => setNodo({ tipo: 'mapa' })} onIrPersonas={() => setNodo({ tipo: 'personas' })} />
+      </div>
+    </section>
+  );
   if (nodo?.tipo === 'marketing') return (
     <section>
       <button style={btn} onClick={() => { setNodo(null); cargar(); }}>← {nombre || 'Proyecto'}</button>
@@ -132,6 +142,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
     { key: 'mapa', tipo: 'mapa', label: 'Mapa Operativo', color: '#d9a23b' },
     { key: 'personas', tipo: 'personas', label: 'Personas & RH', color: '#8a4fbf' },
     { key: 'recursos', tipo: 'recursos', label: 'Recursos & Proveedores', color: '#a9720f' },
+    { key: 'logistica', tipo: 'logistica', label: 'Logística', color: '#2f8f8f' },
     { key: 'marketing', tipo: 'marketing', label: 'Marketing', color: '#c95b7c' },
     ...hijos.map((h): NodoGrafo => ({ key: h.proyectoId, tipo: 'negocio', id: h.proyectoId, label: h.nombre, color: '#b06be0' })),
     ...ucs.map((u): NodoGrafo => ({ key: u.id, tipo: 'uc', id: u.id, label: u.nombre, color: '#3b9e63' })),
@@ -140,12 +151,12 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   const W = 780, H = 560, cx = W / 2, cy = H / 2;
   const R = Math.min(220, 120 + nodos.length * 10);
   const posOf = (i: number, n: number) => { const a = (i / Math.max(1, n)) * Math.PI * 2 - Math.PI / 2; return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) }; };
-  const abrev = (t: NodoGrafo['tipo']) => t === 'uc' ? 'UC' : t === 'admin' ? '📄' : t === 'sedes' ? 'SED' : t === 'mapa' ? 'MAP' : t === 'personas' ? '👥' : t === 'recursos' ? '📦' : t === 'marketing' ? '📣' : 'NEG';
+  const abrev = (t: NodoGrafo['tipo']) => t === 'uc' ? 'UC' : t === 'admin' ? '📄' : t === 'sedes' ? 'SED' : t === 'mapa' ? 'MAP' : t === 'personas' ? '👥' : t === 'recursos' ? '📦' : t === 'logistica' ? '🚚' : t === 'marketing' ? '📣' : 'NEG';
 
   function abrirNodo(n: NodoGrafo) {
     if (n.tipo === 'negocio' && n.id) { setHijoAbierto(n.id); return; }
     if (n.tipo === 'uc' && n.id) { setNodo({ tipo: 'uc', id: n.id }); return; }
-    if (n.tipo === 'admin' || n.tipo === 'sedes' || n.tipo === 'mapa' || n.tipo === 'personas' || n.tipo === 'recursos' || n.tipo === 'marketing') setNodo({ tipo: n.tipo });
+    if (n.tipo === 'admin' || n.tipo === 'sedes' || n.tipo === 'mapa' || n.tipo === 'personas' || n.tipo === 'recursos' || n.tipo === 'logistica' || n.tipo === 'marketing') setNodo({ tipo: n.tipo });
   }
 
   async function crearUC() { if (!nuevaUC.trim()) return; await crearUnidad(proyectoId, nuevaUC.trim()); setNuevaUC(''); cargar(); }
@@ -233,7 +244,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
                 );
               })}
             </svg>
-            <p style={{ fontSize: 12, color: 'var(--bp-muted)', padding: '0 0.75rem 0.5rem' }}><span style={{ color: 'var(--bp-text)' }}>📄 Planos = ver y descargar los documentos</span> · SED = Sedes & Espacios · <span style={{ color: '#b8860b' }}>MAP = Mapa Operativo</span> · <span style={{ color: '#8a4fbf' }}>👥 Personas & RH</span> · <span style={{ color: '#a9720f' }}>📦 Recursos & Proveedores</span> · <span style={{ color: '#c95b7c' }}>📣 Marketing</span> · <span style={{ color: '#8a4fbf' }}>NEG = Negocio</span> · UC = Unidad Comercial. Los nodos <strong>alimentan</strong> los planos; en 📄 los ves. Clic para entrar.</p>
+            <p style={{ fontSize: 12, color: 'var(--bp-muted)', padding: '0 0.75rem 0.5rem' }}><span style={{ color: 'var(--bp-text)' }}>📄 Planos = ver y descargar los documentos</span> · SED = Sedes & Espacios · <span style={{ color: '#b8860b' }}>MAP = Mapa Operativo</span> · <span style={{ color: '#8a4fbf' }}>👥 Personas & RH</span> · <span style={{ color: '#a9720f' }}>📦 Recursos & Proveedores</span> · <span style={{ color: '#2f8f8f' }}>🚚 Logística</span> · <span style={{ color: '#c95b7c' }}>📣 Marketing</span> · <span style={{ color: '#8a4fbf' }}>NEG = Negocio</span> · UC = Unidad Comercial. Los nodos <strong>alimentan</strong> los planos; en 📄 los ves. Clic para entrar.</p>
           </div>
         </div>
       )}

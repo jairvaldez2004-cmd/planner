@@ -9,12 +9,14 @@
 import type { Fila } from './plano-doc';
 import type { Empleado } from './rh';
 import type { Automatizacion } from './mapa';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, Embarque, Contrato } from './recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, Contrato } from './recursos';
+import type { Embarque, Entrega } from './logistica';
 import { ETAPAS_OBJETIVO } from './etapas';
-import { subtotalRecurso, formatoMoneda, categoriaRecurso, numero, proveedorMasBarato, precioVigente, costoLogisticoEmbarque } from './recursos';
+import { subtotalRecurso, formatoMoneda, categoriaRecurso, numero, proveedorMasBarato, precioVigente } from './recursos';
+import { costoLogisticoEmbarque, costoEnvioEntrega } from './logistica';
 
 // ---------- Registro declarativo: qué planos enriquece cada superficie (para UI) ----------
-export type Superficie = 'sedes' | 'mapa' | 'uc' | 'personas' | 'recursos';
+export type Superficie = 'sedes' | 'mapa' | 'uc' | 'personas' | 'recursos' | 'logistica';
 
 export interface Aporte {
   planoId: string;
@@ -57,10 +59,13 @@ export const ENRIQUECE: Record<Superficie, Aporte[]> = {
     { planoId: 'COM', tablaRef: 'proveedores', nota: 'proveedores de todo' },
     { planoId: 'JUR', tablaRef: 'legales', nota: 'cada contrato de proveedor → un documento legal' },
   ],
+  logistica: [
+    { planoId: 'FIN', tablaRef: 'costos', nota: 'costo logístico de embarques (landed cost) y de entregas al cliente' },
+  ],
 };
 
 export const LABEL_SUPERFICIE: Record<Superficie, string> = {
-  sedes: 'Sedes & Espacios', mapa: 'Mapa Operativo', uc: 'Unidad Comercial', personas: 'Personas & RH', recursos: 'Recursos & Proveedores',
+  sedes: 'Sedes & Espacios', mapa: 'Mapa Operativo', uc: 'Unidad Comercial', personas: 'Personas & RH', recursos: 'Recursos & Proveedores', logistica: 'Logística',
 };
 
 // Inverso: qué superficies alimentan un plano dado (para la vista del plano).
@@ -201,6 +206,17 @@ export function costosDeEmbarques(embarques: Embarque[]): Fila[] {
     tipo: 'costo logístico',
     centro: 'Logística',
     monto: formatoMoneda(log),
+  }));
+}
+
+// Entregas → filas de `costos` (plano Financiero) = costo de envío al cliente final.
+// Contraparte de salida de costosDeEmbarques (que cubre la entrada/abasto).
+export function costosDeEntregas(entregas: Entrega[]): Fila[] {
+  return entregas.map((e) => ({ e, costo: costoEnvioEntrega(e) })).filter((x) => x.costo > 0).map(({ e, costo }): Fila => ({
+    concepto: `Entrega ${e.destinatario || e.referencia || 'cliente'}${e.transportista ? ` · ${e.transportista}` : ''}`,
+    tipo: 'costo logístico',
+    centro: 'Logística',
+    monto: formatoMoneda(costo),
   }));
 }
 

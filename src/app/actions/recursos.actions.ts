@@ -5,15 +5,24 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/adapters/persistence/prisma-client';
-import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato, normalizarIncidencia, normalizarInteraccion, normalizarEmbarque, normalizarTransportista } from '@/domain/recursos';
-import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato, Incidencia, Interaccion, Embarque, Transportista } from '@/domain/recursos';
+import { normalizarRecurso, normalizarProveedor, normalizarProducto, normalizarVinculo, normalizarOrden, normalizarContrato, normalizarIncidencia, normalizarInteraccion } from '@/domain/recursos';
+import type { Recurso, Proveedor, Producto, ProductoProveedor, OrdenCompra, Contrato, Incidencia, Interaccion } from '@/domain/recursos';
 import {
   planearCompra, precioVigente, proveedorMasBarato, vinculosDeProducto, estadoContrato, scoreProveedor,
   solicitudDesdeProducto, incidenciaVacia, ordenVacia, redactarSolicitudCotizacion,
   interaccionVacia, vinculoVacio, registrarCambioPrecio, seguimientosPendientes, ultimoContacto,
-  embarqueVacio, landedCostEmbarque, embarqueRetrasado, estadoEmbarqueInfo, modalidadEnvioInfo,
-  cotizarFlete, mejorTransportista, planArranque,
+  planArranque,
 } from '@/domain/recursos';
+import {
+  listarEmbarques, guardarEmbarque, eliminarEmbarque,
+  listarTransportistas, guardarTransportista, eliminarTransportista,
+  listarEntregas,
+} from '@/app/actions/logistica.actions';
+import {
+  embarqueVacio, landedCostEmbarque, embarqueRetrasado, estadoEmbarqueInfo, modalidadEnvioInfo,
+  cotizarFlete, mejorTransportista, entregaRetrasada,
+} from '@/domain/logistica';
+import type { Embarque } from '@/domain/logistica';
 import { enviarCorreo } from '@/adapters/email/enviar';
 import { correrCentroAbastecimiento } from '@/adapters/ai/arquitecto-agent';
 import type { EjecutorHerramienta, MensajeChat } from '@/adapters/ai/arquitecto-agent';
@@ -145,21 +154,6 @@ export async function eliminarIncidencia(proyectoId: string, id: string): Promis
   await guardarLista(proyectoId, 'incidencias', (await listarIncidencias(proyectoId)).filter((x) => x.id !== id));
 }
 
-// --- Embarques (logística: consolidación + landed cost) ---
-export async function listarEmbarques(proyectoId: string): Promise<Embarque[]> { return listar(proyectoId, 'embarques', normalizarEmbarque); }
-export async function guardarEmbarque(proyectoId: string, e: Embarque): Promise<Embarque> {
-  const lista = await listarEmbarques(proyectoId);
-  const id = e.id?.trim() || nid('EMB');
-  const norm = normalizarEmbarque({ ...e, id });
-  const i = lista.findIndex((x) => x.id === id);
-  if (i >= 0) lista[i] = norm; else lista.push(norm);
-  await guardarLista(proyectoId, 'embarques', lista);
-  return norm;
-}
-export async function eliminarEmbarque(proyectoId: string, id: string): Promise<void> {
-  await guardarLista(proyectoId, 'embarques', (await listarEmbarques(proyectoId)).filter((x) => x.id !== id));
-}
-
 // --- Arranque del negocio: genera las órdenes de compra iniciales (idempotente) ---
 export async function generarOrdenesArranque(proyectoId: string): Promise<{ creados: number; omitidos: number }> {
   const [recs, prods, vinc, ocs] = await Promise.all([
@@ -183,21 +177,6 @@ export async function generarOrdenesArranque(proyectoId: string): Promise<{ crea
   }
   if (nuevas.length) await guardarLista(proyectoId, 'ordenes_compra', [...ocs, ...nuevas]);
   return { creados, omitidos };
-}
-
-// --- Transportistas (directorio de fletes + tarifas) ---
-export async function listarTransportistas(proyectoId: string): Promise<Transportista[]> { return listar(proyectoId, 'transportistas', normalizarTransportista); }
-export async function guardarTransportista(proyectoId: string, t: Transportista): Promise<Transportista> {
-  const lista = await listarTransportistas(proyectoId);
-  const id = t.id?.trim() || nid('TRP');
-  const norm = normalizarTransportista({ ...t, id });
-  const i = lista.findIndex((x) => x.id === id);
-  if (i >= 0) lista[i] = norm; else lista.push(norm);
-  await guardarLista(proyectoId, 'transportistas', lista);
-  return norm;
-}
-export async function eliminarTransportista(proyectoId: string, id: string): Promise<void> {
-  await guardarLista(proyectoId, 'transportistas', (await listarTransportistas(proyectoId)).filter((x) => x.id !== id));
 }
 
 // --- Bitácora de interacciones con proveedores (CRM / relación comercial) ---
@@ -225,9 +204,9 @@ function sumarDias(iso: string, n: number): string {
 // Snapshot que ve la IA cada turno: productos con plan de compra, proveedores con score/riesgo,
 // órdenes abiertas y contratos con estado. Es la base sobre la que razona y actúa.
 async function snapshotAbastecimiento(proyectoId: string): Promise<string> {
-  const [prods, vinc, provs, ocs, ctrs, incs, ints, embs, trps] = await Promise.all([
+  const [prods, vinc, provs, ocs, ctrs, incs, ints, embs, trps, ents] = await Promise.all([
     listarProductos(proyectoId), listarVinculos(proyectoId), listarProveedores(proyectoId),
-    listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId), listarEmbarques(proyectoId), listarTransportistas(proyectoId),
+    listarOrdenes(proyectoId), listarContratos(proyectoId), listarIncidencias(proyectoId), listarInteracciones(proyectoId), listarEmbarques(proyectoId), listarTransportistas(proyectoId), listarEntregas(proyectoId),
   ]);
   const hoy = new Date().toISOString().slice(0, 10);
   const provById = new Map(provs.map((p) => [p.id, p]));
@@ -270,6 +249,11 @@ async function snapshotAbastecimiento(proyectoId: string): Promise<string> {
   for (const t of trps) {
     const tar = t.tarifas.map((x) => `${x.modalidad}${x.zona ? `/${x.zona}` : ''}: ${x.modalidad === 'carga' ? `$${x.porViaje || '?'}/viaje` : `$${x.base || '0'}+$${x.porKg || '0'}/kg`}${x.tiempoDias ? ` (${x.tiempoDias}d)` : ''}`).join(' · ');
     L.push(`  · "${t.nombre}" [${t.modalidades.join(', ') || '?'}]${t.zonas.length ? ` zonas: ${t.zonas.join(', ')}` : ''}${tar ? ` — tarifas: ${tar}` : ' — sin tarifa'}`);
+  }
+  const entRetrasadas = ents.filter((e) => entregaRetrasada(e, hoy));
+  L.push(`Entregas al cliente (${ents.length}${entRetrasadas.length ? `, ${entRetrasadas.length} RETRASADA(S)` : ''}):`);
+  for (const e of ents) {
+    L.push(`  · "${e.destinatario || e.referencia || 'entrega'}" — ${modalidadEnvioInfo(e.modalidad).label} · ${e.estado}${e.transportista ? ` · ${e.transportista}` : ''}${e.fechaCompromiso ? ` · compromiso ${e.fechaCompromiso}${entregaRetrasada(e, hoy) ? ' ⚠RETRASADA' : ''}` : ''}`);
   }
   return L.join('\n');
 }
