@@ -153,6 +153,21 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   const posOf = (i: number, n: number) => { const a = (i / Math.max(1, n)) * Math.PI * 2 - Math.PI / 2; return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) }; };
   const abrev = (t: NodoGrafo['tipo']) => t === 'uc' ? 'UC' : t === 'admin' ? '📄' : t === 'sedes' ? 'SED' : t === 'mapa' ? 'MAP' : t === 'personas' ? '👥' : t === 'recursos' ? '📦' : t === 'logistica' ? '🚚' : t === 'marketing' ? '📣' : 'NEG';
 
+  // Forma del nodo: UC = círculo · Planos = cuadrado · el resto (sedes/mapa/personas/recursos/logística/marketing/negocio) = triángulo.
+  function formaNodo(tipo: NodoGrafo['tipo'], x: number, y: number, r: number, fill: string) {
+    const comun = { fill, stroke: '#fff', strokeWidth: 2 };
+    if (tipo === 'admin') {
+      const lado = r * Math.SQRT2;
+      return <rect x={x - lado / 2} y={y - lado / 2} width={lado} height={lado} rx={5} {...comun} />;
+    }
+    if (tipo === 'uc') return <circle cx={x} cy={y} r={r} {...comun} />;
+    const puntos = [-90, 150, 30].map((deg) => {
+      const a = (deg * Math.PI) / 180;
+      return `${x + r * 1.15 * Math.cos(a)},${y + r * 1.15 * Math.sin(a)}`;
+    }).join(' ');
+    return <polygon points={puntos} {...comun} />;
+  }
+
   function abrirNodo(n: NodoGrafo) {
     if (n.tipo === 'negocio' && n.id) { setHijoAbierto(n.id); return; }
     if (n.tipo === 'uc' && n.id) { setNodo({ tipo: 'uc', id: n.id }); return; }
@@ -237,7 +252,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
                   <g key={n.key} style={{ cursor: 'pointer' }}
                     onMouseEnter={() => setHover(n.key)} onMouseLeave={() => setHover(null)}
                     onClick={() => abrirNodo(n)}>
-                    <circle cx={p.x} cy={p.y} r={activo ? 40 : 34} fill={n.color} stroke="#fff" strokeWidth={2} />
+                    {formaNodo(n.tipo, p.x, p.y, activo ? 40 : 34, n.color)}
                     <text x={p.x} y={p.y + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight="bold">{abrev(n.tipo)}</text>
                     <text x={p.x} y={p.y + 52} textAnchor="middle" fill="#EDEDED" fontSize={12}>{n.label.slice(0, 18)}</text>
                   </g>
