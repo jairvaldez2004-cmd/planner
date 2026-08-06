@@ -3,6 +3,7 @@
 
 import type { EstadoInstancia } from './states';
 import type { EtapaObjetivo } from './etapas';
+import type { TaxonomiaEntidad } from './taxonomia-entidad';
 
 export type ACL = 'N2' | 'N3' | 'N4' | 'N5' | 'N6';
 export type TipoWorkspace = 'INT' | 'CLT' | 'GLOB';
@@ -13,7 +14,10 @@ export interface Workspace {
   tipo: TipoWorkspace;
 }
 
-export interface Proyecto {
+// Un Proyecto puede representar niveles muy distintos del ecosistema (holding, empresa,
+// unidad, marca, producto…). La TAXONOMÍA lo declara para que no se mezclen: ver
+// `taxonomia-entidad.ts`. Los campos son ADITIVOS y viven en el mismo JSON (sin migración).
+export interface Proyecto extends TaxonomiaEntidad {
   id: string;
   workspaceId: string;
   nombre: string;

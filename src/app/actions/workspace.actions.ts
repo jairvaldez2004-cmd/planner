@@ -11,6 +11,7 @@ import {
 import type { Workspace, Proyecto } from '@/domain/workspace';
 import type { Blueprint, Diagnostico } from '@/domain/diagnostico';
 import type { EtapaObjetivo } from '@/domain/etapas';
+import type { TaxonomiaEntidad, TipoEntidad, EstadoEntidad } from '@/domain/taxonomia-entidad';
 
 function toJson(v: unknown): Prisma.InputJsonValue {
   return v as unknown as Prisma.InputJsonValue;
@@ -60,6 +61,9 @@ export interface ProyectoNodo {
   comExp: boolean;
   actualizadoEn: string;
   padreId?: string; // proyecto padre en la jerarquía (undefined = nivel superior)
+  // Taxonomía: qué NIVEL del ecosistema representa este nodo (holding/empresa/unidad/producto…).
+  tipoEntidad?: TipoEntidad;
+  estadoEntidad?: EstadoEntidad;
 }
 
 export async function listarProyectosDeWorkspace(workspaceId: string): Promise<ProyectoNodo[]> {
@@ -78,8 +82,19 @@ export async function listarProyectosDeWorkspace(workspaceId: string): Promise<P
       comExp: bp?.modulos.find((m) => m.modulo === 'COM-EXP')?.activo ?? false,
       actualizadoEn: d?.actualizadoEn ?? '',
       ...(p.padreId ? { padreId: p.padreId } : {}),
+      ...(p.tipoEntidad ? { tipoEntidad: p.tipoEntidad } : {}),
+      ...(p.estadoEntidad ? { estadoEntidad: p.estadoEntidad } : {}),
     };
   });
+}
+
+// Declara QUÉ ES este nodo dentro del ecosistema (holding, empresa, unidad, marca, producto…).
+// Aditivo: se guarda en el JSON del proyecto, sin cambio de esquema.
+export async function fijarTaxonomiaEntidad(proyectoId: string, patch: TaxonomiaEntidad): Promise<void> {
+  const repo = new PrismaProyectoRepository(prisma);
+  const p = await repo.get(proyectoId);
+  if (!p) return;
+  await repo.save({ ...p, ...patch });
 }
 
 // Proyecto "en crudo" (sin diagnóstico): sirve para negocios hijos creados ligeros.

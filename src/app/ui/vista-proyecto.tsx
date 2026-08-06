@@ -14,7 +14,9 @@ import { listarUnidades, crearUnidad } from '@/app/actions/espacios.actions';
 import { obtenerGrafoPlanos } from '@/app/actions/especialista.actions';
 import { conversarCuradorProyecto } from '@/app/actions/arquitecto.actions';
 import { cargarConversacionProyecto } from '@/app/actions/contexto.actions';
-import { listarHijosDeProyecto, crearNegocioHijo, obtenerProyectoBase, fijarEtapaObjetivo } from '@/app/actions/workspace.actions';
+import { listarHijosDeProyecto, crearNegocioHijo, obtenerProyectoBase, fijarEtapaObjetivo, fijarTaxonomiaEntidad } from '@/app/actions/workspace.actions';
+import { TIPOS_ENTIDAD, ESTADOS_ENTIDAD, infoTipoEntidad, infoEstadoEntidad, validarJerarquia, esEntidadReal } from '@/domain/taxonomia-entidad';
+import type { TipoEntidad, EstadoEntidad } from '@/domain/taxonomia-entidad';
 import type { GrafoPlanos } from '@/app/actions/especialista.actions';
 import type { ProyectoNodo } from '@/app/actions/workspace.actions';
 import type { UnidadComercial } from '@/domain/espacios';
@@ -50,11 +52,20 @@ function BannerEnriquece({ superficie }: { superficie: Superficie }) {
 }
 
 type Nodo = { tipo: 'admin' | 'sedes' | 'mapa' | 'personas' | 'recursos' | 'logistica' | 'marketing' | 'uc'; id?: string } | null;
-type NodoGrafo = { key: string; tipo: 'admin' | 'sedes' | 'mapa' | 'personas' | 'recursos' | 'logistica' | 'marketing' | 'uc' | 'negocio'; id?: string; label: string; color: string };
+type NodoGrafo = {
+  key: string;
+  tipo: 'admin' | 'sedes' | 'mapa' | 'personas' | 'recursos' | 'logistica' | 'marketing' | 'uc' | 'negocio';
+  id?: string; label: string; color: string;
+  // Taxonomía del nodo (solo negocios): define su abreviatura y si es una entidad real o solo objetivo.
+  tipoEntidad?: TipoEntidad | undefined;
+  estadoEntidad?: EstadoEntidad | undefined;
+};
 
 export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo del workspace' }: { proyectoId: string; onVolver: () => void; volverLabel?: string }) {
   const [nombre, setNombre] = useState('');
   const [etapa, setEtapa] = useState<EtapaObjetivo | ''>('');
+  const [tipoEnt, setTipoEnt] = useState<TipoEntidad | ''>('');
+  const [estadoEnt, setEstadoEnt] = useState<EstadoEntidad | ''>('');
   const [ucs, setUcs] = useState<UnidadComercial[]>([]);
   const [hijos, setHijos] = useState<ProyectoNodo[]>([]);
   const [grafo, setGrafo] = useState<GrafoPlanos | null>(null);
@@ -69,7 +80,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   const cargar = () => {
     setLoading(true);
     Promise.all([listarUnidades(proyectoId), obtenerGrafoPlanos(proyectoId), listarHijosDeProyecto(proyectoId), obtenerProyectoBase(proyectoId)])
-      .then(([u, g, h, base]) => { setUcs(u); setGrafo(g); setHijos(h); setNombre(base?.nombre ?? ''); setEtapa(base?.etapaObjetivo ?? ''); })
+      .then(([u, g, h, base]) => { setUcs(u); setGrafo(g); setHijos(h); setNombre(base?.nombre ?? ''); setEtapa(base?.etapaObjetivo ?? ''); setTipoEnt(base?.tipoEntidad ?? ''); setEstadoEnt(base?.estadoEntidad ?? ''); })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
@@ -144,14 +155,25 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
     { key: 'recursos', tipo: 'recursos', label: 'Recursos & Proveedores', color: '#a9720f' },
     { key: 'logistica', tipo: 'logistica', label: 'Logística', color: '#2f8f8f' },
     { key: 'marketing', tipo: 'marketing', label: 'Marketing', color: '#c95b7c' },
-    ...hijos.map((h): NodoGrafo => ({ key: h.proyectoId, tipo: 'negocio', id: h.proyectoId, label: h.nombre, color: '#b06be0' })),
+    ...hijos.map((h): NodoGrafo => ({
+      key: h.proyectoId, tipo: 'negocio', id: h.proyectoId, label: h.nombre,
+      // Los holdings se pintan en dorado; el resto conserva el morado de negocio.
+      color: h.tipoEntidad === 'holding_matriz' || h.tipoEntidad === 'holding_sectorial' ? '#c9922b' : '#b06be0',
+      tipoEntidad: h.tipoEntidad, estadoEntidad: h.estadoEntidad,
+    })),
     ...ucs.map((u): NodoGrafo => ({ key: u.id, tipo: 'uc', id: u.id, label: u.nombre, color: '#3b9e63' })),
   ];
 
   const W = 780, H = 560, cx = W / 2, cy = H / 2;
   const R = Math.min(220, 120 + nodos.length * 10);
   const posOf = (i: number, n: number) => { const a = (i / Math.max(1, n)) * Math.PI * 2 - Math.PI / 2; return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) }; };
-  const abrev = (t: NodoGrafo['tipo']) => t === 'uc' ? 'UC' : t === 'admin' ? '📄' : t === 'sedes' ? 'SED' : t === 'mapa' ? 'MAP' : t === 'personas' ? '👥' : t === 'recursos' ? '📦' : t === 'logistica' ? '🚚' : t === 'marketing' ? '📣' : 'NEG';
+  // Abreviatura del nodo. Los negocios muestran el emoji de su TIPO DE ENTIDAD si está
+  // declarado (holding/empresa/unidad/marca/producto…); si no, caen a "NEG".
+  const abrev = (n: NodoGrafo) => {
+    const t = n.tipo;
+    if (t === 'negocio') return infoTipoEntidad(n.tipoEntidad)?.emoji ?? 'NEG';
+    return t === 'uc' ? 'UC' : t === 'admin' ? '📄' : t === 'sedes' ? 'SED' : t === 'mapa' ? 'MAP' : t === 'personas' ? '👥' : t === 'recursos' ? '📦' : t === 'logistica' ? '🚚' : t === 'marketing' ? '📣' : 'NEG';
+  };
 
   // Forma del nodo: UC = círculo · Planos = cuadrado · Negocio = hexágono · el resto
   // (sedes/mapa/personas/recursos/logística/marketing) = triángulo.
@@ -161,14 +183,22 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
       return `${x + r * Math.cos(a)},${y + r * Math.sin(a)}`;
     }).join(' ');
   }
-  function formaNodo(tipo: NodoGrafo['tipo'], x: number, y: number, r: number, fill: string) {
-    const comun = { fill, stroke: '#fff', strokeWidth: 2 };
-    if (tipo === 'admin') {
+  function formaNodo(n: NodoGrafo, x: number, y: number, r: number, fill: string) {
+    // Las entidades no constituidas (objetivo/propuesta) se dibujan con borde punteado:
+    // se ven, pero se distinguen de las que operan de verdad.
+    const real = !n.estadoEntidad || esEntidadReal(n.estadoEntidad);
+    const comun = { fill, stroke: '#fff', strokeWidth: 2, ...(real ? {} : { strokeDasharray: '5 4', fillOpacity: 0.55 }) };
+    if (n.tipo === 'admin') {
       const lado = r * Math.SQRT2;
       return <rect x={x - lado / 2} y={y - lado / 2} width={lado} height={lado} rx={5} {...comun} />;
     }
-    if (tipo === 'uc') return <circle cx={x} cy={y} r={r} {...comun} />;
-    if (tipo === 'negocio') return <polygon points={poligono(x, y, r * 1.05, [-90, -30, 30, 90, 150, 210])} {...comun} />;
+    if (n.tipo === 'uc') return <circle cx={x} cy={y} r={r} {...comun} />;
+    if (n.tipo === 'negocio') {
+      // Un holding es un contenedor, no un negocio: se dibuja como rombo para distinguirlo.
+      const esHolding = n.tipoEntidad === 'holding_matriz' || n.tipoEntidad === 'holding_sectorial';
+      if (esHolding) return <polygon points={poligono(x, y, r * 1.2, [-90, 0, 90, 180])} {...comun} />;
+      return <polygon points={poligono(x, y, r * 1.05, [-90, -30, 30, 90, 150, 210])} {...comun} />;
+    }
     return <polygon points={poligono(x, y, r * 1.15, [-90, 150, 30])} {...comun} />;
   }
 
@@ -181,7 +211,17 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   async function crearUC() { if (!nuevaUC.trim()) return; await crearUnidad(proyectoId, nuevaUC.trim()); setNuevaUC(''); cargar(); }
   async function crearNeg() { if (!nuevoNegocio.trim()) return; await crearNegocioHijo(proyectoId, nuevoNegocio.trim()); setNuevoNegocio(''); cargar(); }
   async function cambiarEtapa(e: EtapaObjetivo | '') { setEtapa(e); if (e) await fijarEtapaObjetivo(proyectoId, e); }
+  async function cambiarTipoEnt(t: TipoEntidad | '') { setTipoEnt(t); if (t) await fijarTaxonomiaEntidad(proyectoId, { tipoEntidad: t }); }
+  async function cambiarEstadoEnt(e: EstadoEntidad | '') { setEstadoEnt(e); if (e) await fijarTaxonomiaEntidad(proyectoId, { estadoEntidad: e }); }
   const etapaSel = etapaInfo(etapa || undefined);
+  const tipoSel = infoTipoEntidad(tipoEnt || undefined);
+
+  // Conflictos de jerarquía: hijos cuyo tipo NO puede colgar del tipo de este proyecto.
+  // Hace visible el error antes de que se propague al grafo del cerebro.
+  const conflictos = hijos
+    .filter((h) => h.tipoEntidad && tipoEnt)
+    .map((h) => ({ key: h.proyectoId, label: h.nombre, ...validarJerarquia(tipoEnt, h.tipoEntidad) }))
+    .filter((v) => !v.valido);
 
   const seleccionados = grafo?.nodos.filter((n) => n.seleccionado).length ?? 0;
 
@@ -211,6 +251,30 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
                 {ETAPAS_OBJETIVO.map((et) => <option key={et.id} value={et.id}>{et.n}. {et.label}</option>)}
               </select>
               {etapaSel && <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 4 }}>{etapaSel.descripcion} <span style={{ color: 'var(--bp-gold)' }}>Foco: {etapaSel.foco.join(' · ')}.</span></div>}
+            </div>
+
+            {/* TAXONOMÍA: qué ES esta entidad dentro del ecosistema */}
+            <div style={{ border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.5rem 0.6rem', background: 'var(--bp-panel-alt)', marginBottom: '0.6rem' }}>
+              <label style={{ fontSize: 11, color: 'var(--bp-gold)', fontWeight: 'bold', display: 'block', marginBottom: 3 }}>🏛️ Tipo de entidad (qué ES en el ecosistema)</label>
+              <select style={{ ...inp, width: '100%', fontSize: 13 }} value={tipoEnt} onChange={(e) => void cambiarTipoEnt(e.target.value as TipoEntidad | '')}>
+                <option value="">— Sin declarar —</option>
+                {TIPOS_ENTIDAD.map((t) => <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>)}
+              </select>
+              {tipoSel && <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 4 }}>{tipoSel.descripcion}</div>}
+              <label style={{ fontSize: 11, color: 'var(--bp-gold)', fontWeight: 'bold', display: 'block', margin: '0.5rem 0 3px' }}>Estado</label>
+              <select style={{ ...inp, width: '100%', fontSize: 13 }} value={estadoEnt} onChange={(e) => void cambiarEstadoEnt(e.target.value as EstadoEntidad | '')}>
+                <option value="">— Sin declarar —</option>
+                {ESTADOS_ENTIDAD.map((e) => <option key={e.id} value={e.id}>{e.emoji} {e.label}</option>)}
+              </select>
+              {estadoEnt && !esEntidadReal(estadoEnt) && (
+                <div style={{ fontSize: 11, color: '#d9781f', marginTop: 4, fontWeight: 'bold' }}>⚠ No constituida: es arquitectura, no operación real.</div>
+              )}
+              {conflictos.length > 0 && (
+                <div style={{ marginTop: 6, border: '1px solid #f0c9c2', borderRadius: 7, background: 'var(--bp-panel)', padding: '0.35rem 0.5rem' }}>
+                  <strong style={{ fontSize: 11.5, color: '#c0392b' }}>⚠ {conflictos.length} conflicto(s) de jerarquía:</strong>
+                  {conflictos.map((c) => <div key={c.key} style={{ fontSize: 11, color: '#a33', marginTop: 2 }}>· <strong>{c.label}</strong>: {c.motivo}</div>)}
+                </div>
+              )}
             </div>
 
             {/* Crear negocio (sub-empresa) */}
@@ -256,14 +320,20 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
                   <g key={n.key} style={{ cursor: 'pointer' }}
                     onMouseEnter={() => setHover(n.key)} onMouseLeave={() => setHover(null)}
                     onClick={() => abrirNodo(n)}>
-                    {formaNodo(n.tipo, p.x, p.y, activo ? 40 : 34, n.color)}
-                    <text x={p.x} y={p.y + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight="bold">{abrev(n.tipo)}</text>
+                    {formaNodo(n, p.x, p.y, activo ? 40 : 34, n.color)}
+                    <text x={p.x} y={p.y + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight="bold">{abrev(n)}</text>
                     <text x={p.x} y={p.y + 52} textAnchor="middle" fill="#EDEDED" fontSize={12}>{n.label.slice(0, 18)}</text>
+                    {n.tipoEntidad && (
+                      <text x={p.x} y={p.y + 66} textAnchor="middle" fill="#9A9AA5" fontSize={10}>
+                        {infoTipoEntidad(n.tipoEntidad)?.label}{n.estadoEntidad && !esEntidadReal(n.estadoEntidad) ? ` · ${infoEstadoEntidad(n.estadoEntidad).label}` : ''}
+                      </text>
+                    )}
                   </g>
                 );
               })}
             </svg>
-            <p style={{ fontSize: 12, color: 'var(--bp-muted)', padding: '0 0.75rem 0.5rem' }}><span style={{ color: 'var(--bp-text)' }}>📄 Planos = ver y descargar los documentos</span> · SED = Sedes & Espacios · <span style={{ color: '#b8860b' }}>MAP = Mapa Operativo</span> · <span style={{ color: '#8a4fbf' }}>👥 Personas & RH</span> · <span style={{ color: '#a9720f' }}>📦 Recursos & Proveedores</span> · <span style={{ color: '#2f8f8f' }}>🚚 Logística</span> · <span style={{ color: '#c95b7c' }}>📣 Marketing</span> · <span style={{ color: '#8a4fbf' }}>NEG = Negocio</span> · UC = Unidad Comercial. Los nodos <strong>alimentan</strong> los planos; en 📄 los ves. Clic para entrar.</p>
+            <p style={{ fontSize: 12, color: 'var(--bp-muted)', padding: '0 0.75rem 0.5rem' }}><span style={{ color: 'var(--bp-text)' }}>📄 Planos = ver y descargar los documentos</span> · SED = Sedes & Espacios · <span style={{ color: '#b8860b' }}>MAP = Mapa Operativo</span> · <span style={{ color: '#8a4fbf' }}>👥 Personas & RH</span> · <span style={{ color: '#a9720f' }}>📦 Recursos & Proveedores</span> · <span style={{ color: '#2f8f8f' }}>🚚 Logística</span> · <span style={{ color: '#c95b7c' }}>📣 Marketing</span> · <span style={{ color: '#8a4fbf' }}>NEG = Negocio</span> · UC = Unidad Comercial. Los nodos <strong>alimentan</strong> los planos; en 📄 los ves. Clic para entrar.<br />
+              <span style={{ color: 'var(--bp-text)' }}>Formas:</span> ▢ Planos · ○ Unidad Comercial · ⬡ Negocio/Empresa · <span style={{ color: '#c9922b' }}>◇ Holding</span> · ▲ superficies de captura. Un nodo con <strong>borde punteado</strong> es una entidad <strong>no constituida</strong> (objetivo o propuesta), no una operación real.</p>
           </div>
         </div>
       )}
