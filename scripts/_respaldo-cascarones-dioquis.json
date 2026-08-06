@@ -1,0 +1,333 @@
+[
+  {
+    "proyectoId": "WS-GRUPO-DIOQUIS--ALTERCING-STUDIO",
+    "nombre": "Altercing Studio",
+    "proyecto": {
+      "id": "WS-GRUPO-DIOQUIS--ALTERCING-STUDIO",
+      "nombre": "Altercing Studio",
+      "padreId": "WS-GRUPO-DIOQUIS--GIRLY-ZONE",
+      "notaEntidad": "Los datos operativos reales viven en el workspace WS-GIRLY-ZONE. Solo relación de UBICACIÓN confirmada con Girly Zone.",
+      "tipoEntidad": "empresa_operativa",
+      "workspaceId": "WS-GRUPO-DIOQUIS",
+      "estadoEntidad": "existente"
+    },
+    "diagnostico": {
+      "proyectoId": "WS-GRUPO-DIOQUIS--ALTERCING-STUDIO",
+      "diagnostico": {
+        "etapa": "early",
+        "escala": "local",
+        "resumen": "Negocio B2C de servicios de belleza/estudio contenido dentro de Girly Zone.",
+        "objetivo": "escalar",
+        "recursos": "equipo-pequeno",
+        "urgencia": "normal",
+        "industria": "Belleza / Wellness",
+        "complejidad": "media",
+        "presupuesto": "medio",
+        "tipoNegocio": "servicio",
+        "nombreEntidad": "Altercing Studio",
+        "restricciones": "Hijo de Girly Zone dentro del Holding Consumer."
+      },
+      "blueprint": {
+        "planos": [
+          {
+            "id": "META",
+            "nombre": "Meta",
+            "razones": [
+              "Núcleo: toda entidad se define primero (R-A1)."
+            ],
+            "formulario": "CAPTURA_META",
+            "minOperable": true,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "EST",
+            "nombre": "Estratégico",
+            "razones": [
+              "Núcleo: norte y prioridades (R-A2)."
+            ],
+            "formulario": "CAPTURA_EST",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "COM",
+            "nombre": "Comercial",
+            "razones": [
+              "Servicios (R-C5)."
+            ],
+            "formulario": "CAPTURA_COM",
+            "minOperable": true,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "MKT",
+            "nombre": "Marketing",
+            "razones": [
+              "Salida al mercado: atracción y demanda (R-E2)."
+            ],
+            "formulario": "CAPTURA_MKT",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "CUL",
+            "nombre": "Cultural",
+            "razones": [
+              "Hay equipo / madurez (R-D1)."
+            ],
+            "formulario": "CAPTURA_CUL",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "ORG",
+            "nombre": "Organizacional",
+            "razones": [
+              "Servicios (R-C5)."
+            ],
+            "formulario": "CAPTURA_ORG",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "RH",
+            "nombre": "Recursos Humanos",
+            "razones": [
+              "Hay equipo que contratar y desarrollar (R-E3)."
+            ],
+            "formulario": "CAPTURA_RH",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "OPE",
+            "nombre": "Operativo",
+            "razones": [
+              "Servicios (R-C5)."
+            ],
+            "formulario": "CAPTURA_OPE",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "PRO",
+            "nombre": "Procesos",
+            "razones": [
+              "Complejidad/operación (R-D4)."
+            ],
+            "formulario": "CAPTURA_PRO",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "ARQ",
+            "nombre": "Arquitectónico",
+            "razones": [
+              "Presencia física: requiere programa de espacios (R-E1)."
+            ],
+            "formulario": "CAPTURA_ARQ",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "CTR",
+            "nombre": "Control",
+            "razones": [
+              "Control del crecimiento (R-B3).",
+              "Escala/regulación (R-D3)."
+            ],
+            "formulario": "CAPTURA_CTR",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "ESC",
+            "nombre": "Escalamiento",
+            "razones": [
+              "Escalamiento (R-B3)."
+            ],
+            "formulario": "CAPTURA_ESC",
+            "minOperable": false,
+            "profundidad": "completo"
+          }
+        ],
+        "modulos": [
+          {
+            "razon": "No es comercio internacional de bienes físicos → COM-EXP NO se activa.",
+            "activo": false,
+            "modulo": "COM-EXP"
+          }
+        ],
+        "resumen": "Negocio B2C de servicios de belleza/estudio contenido dentro de Girly Zone.",
+        "generadoEn": "2026-08-05T03:27:11.324Z",
+        "formularios": [
+          "CAPTURA_META",
+          "CAPTURA_EST",
+          "CAPTURA_COM",
+          "CAPTURA_MKT",
+          "CAPTURA_CUL",
+          "CAPTURA_ORG",
+          "CAPTURA_RH",
+          "CAPTURA_OPE",
+          "CAPTURA_PRO",
+          "CAPTURA_ARQ",
+          "CAPTURA_CTR",
+          "CAPTURA_ESC"
+        ],
+        "clasificacion": [
+          "Servicios/Consultoría"
+        ],
+        "flujosMinimos": [
+          "META",
+          "COM"
+        ],
+        "nombreEntidad": "Altercing Studio",
+        "profundidadProyecto": "estandar"
+      },
+      "actualizadoEn": "2026-08-05T03:27:11.326Z"
+    }
+  },
+  {
+    "proyectoId": "WS-GRUPO-DIOQUIS--GIRLY-ZONE",
+    "nombre": "Girly Zone",
+    "proyecto": {
+      "id": "WS-GRUPO-DIOQUIS--GIRLY-ZONE",
+      "nombre": "Girly Zone",
+      "padreId": "WS-GRUPO-DIOQUIS--HOLDING-CONSUMER",
+      "notaEntidad": "Naturaleza en revisión. Ver ficha del vault.",
+      "tipoEntidad": "concepto_comercial",
+      "workspaceId": "WS-GRUPO-DIOQUIS",
+      "estadoEntidad": "existente"
+    },
+    "diagnostico": {
+      "proyectoId": "WS-GRUPO-DIOQUIS--GIRLY-ZONE",
+      "diagnostico": {
+        "etapa": "early",
+        "escala": "local",
+        "resumen": "Empresa B2C del Holding Consumer; desarrollo que agrupa negocios de consumo femenino.",
+        "objetivo": "escalar",
+        "recursos": "equipo-pequeno",
+        "urgencia": "normal",
+        "industria": "Consumo / Retail / Belleza",
+        "complejidad": "media",
+        "presupuesto": "medio",
+        "tipoNegocio": "hibrido",
+        "nombreEntidad": "Girly Zone",
+        "restricciones": "Contenedor de Altercing Studio; pertenece al Holding Consumer."
+      },
+      "blueprint": {
+        "planos": [
+          {
+            "id": "META",
+            "nombre": "Meta",
+            "razones": [
+              "Núcleo: toda entidad se define primero (R-A1)."
+            ],
+            "formulario": "CAPTURA_META",
+            "minOperable": true,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "EST",
+            "nombre": "Estratégico",
+            "razones": [
+              "Núcleo: norte y prioridades (R-A2)."
+            ],
+            "formulario": "CAPTURA_EST",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "MKT",
+            "nombre": "Marketing",
+            "razones": [
+              "Salida al mercado: atracción y demanda (R-E2)."
+            ],
+            "formulario": "CAPTURA_MKT",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "CUL",
+            "nombre": "Cultural",
+            "razones": [
+              "Hay equipo / madurez (R-D1)."
+            ],
+            "formulario": "CAPTURA_CUL",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "RH",
+            "nombre": "Recursos Humanos",
+            "razones": [
+              "Hay equipo que contratar y desarrollar (R-E3)."
+            ],
+            "formulario": "CAPTURA_RH",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "PRO",
+            "nombre": "Procesos",
+            "razones": [
+              "Complejidad/operación (R-D4)."
+            ],
+            "formulario": "CAPTURA_PRO",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "CTR",
+            "nombre": "Control",
+            "razones": [
+              "Control del crecimiento (R-B3).",
+              "Escala/regulación (R-D3)."
+            ],
+            "formulario": "CAPTURA_CTR",
+            "minOperable": false,
+            "profundidad": "estandar"
+          },
+          {
+            "id": "ESC",
+            "nombre": "Escalamiento",
+            "razones": [
+              "Escalamiento (R-B3)."
+            ],
+            "formulario": "CAPTURA_ESC",
+            "minOperable": false,
+            "profundidad": "completo"
+          }
+        ],
+        "modulos": [
+          {
+            "razon": "No es comercio internacional de bienes físicos → COM-EXP NO se activa.",
+            "activo": false,
+            "modulo": "COM-EXP"
+          }
+        ],
+        "resumen": "Empresa B2C del Holding Consumer; desarrollo que agrupa negocios de consumo femenino.",
+        "generadoEn": "2026-08-05T03:27:11.319Z",
+        "formularios": [
+          "CAPTURA_META",
+          "CAPTURA_EST",
+          "CAPTURA_MKT",
+          "CAPTURA_CUL",
+          "CAPTURA_RH",
+          "CAPTURA_PRO",
+          "CAPTURA_CTR",
+          "CAPTURA_ESC"
+        ],
+        "clasificacion": [
+          "General"
+        ],
+        "flujosMinimos": [
+          "META"
+        ],
+        "nombreEntidad": "Girly Zone",
+        "profundidadProyecto": "estandar"
+      },
+      "actualizadoEn": "2026-08-05T03:27:11.320Z"
+    }
+  }
+]
