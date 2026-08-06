@@ -67,6 +67,7 @@ export interface Recurso {
   impuesto: string;     // ej. "16% IVA"
   logistica: string;    // dónde se consigue / tiempo de entrega
   existe: boolean;      // true = YA lo tenemos (inventario actual); false = por adquirir
+  ucIds: string[];       // Unidad(es) Comercial(es); [] = compartido (todo el proyecto)
   notas: string;
 }
 
@@ -161,6 +162,7 @@ export interface Producto {
   consumoMensual: string; // cuánto se consume por mes (para pronóstico)
   frecuenciaCompra: string; // cada cuánto se compra (texto)
   leadTimeDias: string;   // días típicos de reabasto
+  ucIds: string[];         // Unidad(es) Comercial(es); [] = compartido (todo el proyecto)
   // Docs: fichas técnicas, MSDS, manual, fotografías
   adjuntos: Adjunto[];
   notas: string;
@@ -207,7 +209,7 @@ export interface ProductoProveedor {
 }
 
 export function recursoVacio(id: string): Recurso {
-  return { id, nombre: '', categoria: 'insumo', grupo: '', proveedor: '', unidad: '', costo: '', cantidad: '', impuesto: '', logistica: '', existe: false, notas: '' };
+  return { id, nombre: '', categoria: 'insumo', grupo: '', proveedor: '', unidad: '', costo: '', cantidad: '', impuesto: '', logistica: '', existe: false, ucIds: [], notas: '' };
 }
 export function proveedorVacio(id: string): Proveedor {
   return {
@@ -226,7 +228,7 @@ export function productoVacio(id: string): Producto {
     cantidadPorCaja: '', cantidadPorPallet: '', vidaUtil: '', caducidad: '', tiempoAnaquel: '', almacenamiento: '',
     temperatura: '', humedad: '', rotacion: '', garantia: '',
     stockActual: '', stockMinimo: '', stockMaximo: '', puntoReorden: '', stockSeguridad: '', ubicacion: '',
-    consumoMensual: '', frecuenciaCompra: '', leadTimeDias: '', adjuntos: [], notas: '',
+    consumoMensual: '', frecuenciaCompra: '', leadTimeDias: '', ucIds: [], adjuntos: [], notas: '',
   };
 }
 export function vinculoVacio(id: string, productoId: string, proveedorId: string): ProductoProveedor {
@@ -256,7 +258,7 @@ export function normalizarRecurso(v: unknown): Recurso {
   return {
     id: s(d.id) || `REC-${s(d.nombre).slice(0, 6)}`, nombre: s(d.nombre), categoria: cat,
     grupo: s(d.grupo), proveedor: s(d.proveedor), unidad: s(d.unidad), costo: s(d.costo),
-    cantidad: s(d.cantidad), impuesto: s(d.impuesto), logistica: s(d.logistica), existe: d.existe === true, notas: s(d.notas),
+    cantidad: s(d.cantidad), impuesto: s(d.impuesto), logistica: s(d.logistica), existe: d.existe === true, ucIds: sa(d.ucIds), notas: s(d.notas),
   };
 }
 export function normalizarProveedor(v: unknown): Proveedor {
@@ -302,7 +304,7 @@ export function normalizarProducto(v: unknown): Producto {
     garantia: s(d.garantia),
     stockActual: s(d.stockActual), stockMinimo: s(d.stockMinimo), stockMaximo: s(d.stockMaximo), puntoReorden: s(d.puntoReorden),
     stockSeguridad: s(d.stockSeguridad), ubicacion: s(d.ubicacion), consumoMensual: s(d.consumoMensual),
-    frecuenciaCompra: s(d.frecuenciaCompra), leadTimeDias: s(d.leadTimeDias),
+    frecuenciaCompra: s(d.frecuenciaCompra), leadTimeDias: s(d.leadTimeDias), ucIds: sa(d.ucIds),
     adjuntos: Array.isArray(d.adjuntos) ? d.adjuntos.map(normAdjunto) : [], notas: s(d.notas),
   };
 }

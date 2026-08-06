@@ -44,14 +44,18 @@ const tag: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 
 
 const ANCHO_NODO = 200;
 
-interface Props { proyectoId: string; onVolver: () => void; onIrSedes: () => void; nombreProyecto?: string }
+// `ucId`: si se pasa, el mapa queda SCOPEADO a esa Unidad Comercial — solo se ven los
+// procesos de su carril (Departamento.ucId === ucId) + los del carril "Administración"
+// (transversal, siempre visible). Los nuevos procesos nacen ahí por defecto y no se puede
+// crear un departamento nuevo desde dentro de una UC. Sin `ucId`: comportamiento igual a hoy.
+interface Props { proyectoId: string; onVolver: () => void; onIrSedes: () => void; nombreProyecto?: string; ucId?: string; ucNombre?: string }
 
 type Rect = { x: number; y: number; w: number; h: number };
 
 // `etapaHasta: null` = quitar la jubilación (vuelve a ser vigente para siempre).
 type PatchProceso = Partial<Omit<ProcesoNodo, 'etapaHasta'>> & { etapaHasta?: EtapaObjetivo | null | undefined };
 
-export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto }: Props) {
+export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto, ucId, ucNombre }: Props) {
   const [deptos, setDeptos] = useState<Departamento[]>([]);
   const [procesos, setProcesos] = useState<ProcesoNodo[]>([]);
   const [recursos, setRecursos] = useState<RecursosProyecto>({ espacios: [], roles: [], herramientas: [] });
@@ -118,9 +122,15 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   const subCount = contarSubprocesos(procesos);   // nº de subprocesos por paso (badge ⤵)
   // El mapa de una etapa = lo acumulado hasta ella (herencia). La numeración cronológica
   // se calcula SOLO sobre lo vigente, para que cada etapa tenga su propio "primer paso".
-  const vigentes = procesosDeEtapa(procesosNivel, etapa);
+  const vigentesTodo = procesosDeEtapa(procesosNivel, etapa);
+  // Alcance por UC: sin ucId (nivel proyecto) ve todo; con ucId, solo su carril + "Administración"
+  // (transversal). La numeración cronológica se recalcula sobre lo visible, para que la UC
+  // tenga su propio "primer paso".
+  const vigentes = ucId
+    ? vigentesTodo.filter((p) => { const d = deptos.find((x) => x.id === p.departamentoId); return !d || d.tipo === 'admin' || d.ucId === ucId; })
+    : vigentesTodo;
   const numeracion = ordenCronologico(vigentes);
-  const byId = new Map(procesosNivel.map((p) => [p.id, p]));
+  const byId = new Map(procesosNivel.map((p) => [p.id, p])); // TODOS (incluso fuera del scope) para resolver destinos de ramas
   const colorDe = (deptoId: string) => { const i = deptos.findIndex((d) => d.id === deptoId); return i >= 0 ? colorDepto(deptos[i]!, i) : '#888'; };
   const deptoNombre = (id: string) => deptos.find((d) => d.id === id)?.nombre ?? '?';
   const enFase = vigentes.filter((p) => p.fase === fase);
@@ -149,9 +159,10 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   async function altaProceso(x?: number, y?: number) {
     const nombre = window.prompt(nivel ? 'Nombre del subproceso:' : 'Nombre del proceso:');
     if (!nombre?.trim()) return;
-    const admin = deptos.find((d) => d.tipo === 'admin') ?? deptos[0];
-    if (!admin) return;
-    const nuevo = await crearProceso(proyectoId, admin.id, nombre.trim(), fase, x !== undefined && y !== undefined ? { x, y } : undefined, etapa, nivel ?? undefined);
+    // Dentro de una UC, el proceso nace en su propio carril; a nivel proyecto, en Administración.
+    const deptoDefault = (ucId ? deptos.find((d) => d.ucId === ucId) : undefined) ?? deptos.find((d) => d.tipo === 'admin') ?? deptos[0];
+    if (!deptoDefault) return;
+    const nuevo = await crearProceso(proyectoId, deptoDefault.id, nombre.trim(), fase, x !== undefined && y !== undefined ? { x, y } : undefined, etapa, nivel ?? undefined);
     setProcesos((ps) => [...ps, nuevo]);
     setSelProc(nuevo.id); setSelDepto(null);
   }
@@ -283,7 +294,7 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>🗺️ Mapa Operativo <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· {nombreProyecto ?? 'proyecto'} · un solo flujo cronológico</span></h2>
+        <h2 style={{ margin: 0 }}>🗺️ Mapa Operativo <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· {nombreProyecto ?? 'proyecto'} · un solo flujo cronológico{ucId ? ` · dentro de ${ucNombre ?? 'esta UC'}` : ''}</span></h2>
         <button style={btn} onClick={onVolver}>← Proyecto</button>
       </div>
 
@@ -358,17 +369,19 @@ export function MapaOperativo({ proyectoId, onVolver, onIrSedes, nombreProyecto 
         {!nivel && <button style={btnSm} onClick={() => void rescatarTiempos()} title="Lee el tiempo que traen las presentaciones del catálogo y lo baja a los pasos">⏱ Rescatar tiempos</button>}
       </div>
 
-      {/* etiquetas de departamento */}
+      {/* etiquetas de departamento — dentro de una UC solo se muestran su carril + Administración */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', alignItems: 'center', margin: '0.2rem 0 0.5rem' }}>
         <span style={{ fontSize: 11, color: 'var(--bp-muted)', fontWeight: 'bold' }}>Departamentos (etiquetas):</span>
-        {deptos.map((d, i) => (
+        {deptos.filter((d) => !ucId || d.tipo === 'admin' || d.ucId === ucId).map((d, i) => (
           <span key={d.id} onClick={() => { setSelDepto(d.id); setSelProc(null); }}
             style={{ ...tag, cursor: 'pointer', borderColor: colorDepto(d, i), background: selDepto === d.id ? colorDepto(d, i) : '#fff', color: selDepto === d.id ? '#fff' : colorDepto(d, i), fontWeight: 'bold' }}>
             {d.nombre}
           </span>
         ))}
-        <input style={{ ...inp, width: 150, fontSize: 12, padding: '0.2rem 0.45rem' }} placeholder="＋ nuevo departamento…" value={nuevoDepto} onChange={(e) => setNuevoDepto(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void altaDepto(); }} />
-        {nuevoDepto.trim() && <button style={btnSm} onClick={() => void altaDepto()}>＋</button>}
+        {!ucId && <>
+          <input style={{ ...inp, width: 150, fontSize: 12, padding: '0.2rem 0.45rem' }} placeholder="＋ nuevo departamento…" value={nuevoDepto} onChange={(e) => setNuevoDepto(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void altaDepto(); }} />
+          {nuevoDepto.trim() && <button style={btnSm} onClick={() => void altaDepto()}>＋</button>}
+        </>}
       </div>
 
       {msg && <p style={{ fontSize: 12, color: 'var(--bp-gold)', margin: '0 0 0.4rem' }}>{msg}</p>}

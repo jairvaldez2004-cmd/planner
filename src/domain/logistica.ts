@@ -109,12 +109,13 @@ export interface Embarque {
   aduana: string;
   maniobras: string;
   otros: string;
+  ucIds: string[];       // Unidad(es) Comercial(es); [] = compartido (todo el proyecto)
   notas: string;
 }
 export function embarqueVacio(id: string): Embarque {
   return {
     id, folio: '', modalidad: 'paqueteria', importacion: importacionVacia(), ordenIds: [], transportista: '', origen: '', destino: '', incoterm: '', estado: 'preparando',
-    fechaRecoleccion: '', fechaEstimada: '', fechaEntrega: '', tracking: '', peso: '', bultos: '', flete: '', seguro: '', aduana: '', maniobras: '', otros: '', notas: '',
+    fechaRecoleccion: '', fechaEstimada: '', fechaEntrega: '', tracking: '', peso: '', bultos: '', flete: '', seguro: '', aduana: '', maniobras: '', otros: '', ucIds: [], notas: '',
   };
 }
 export function normalizarEmbarque(v: unknown): Embarque {
@@ -126,7 +127,7 @@ export function normalizarEmbarque(v: unknown): Embarque {
     transportista: s(d.transportista), origen: s(d.origen), destino: s(d.destino), incoterm: s(d.incoterm), estado,
     fechaRecoleccion: s(d.fechaRecoleccion), fechaEstimada: s(d.fechaEstimada), fechaEntrega: s(d.fechaEntrega), tracking: s(d.tracking),
     peso: s(d.peso), bultos: s(d.bultos),
-    flete: s(d.flete), seguro: s(d.seguro), aduana: s(d.aduana), maniobras: s(d.maniobras), otros: s(d.otros), notas: s(d.notas),
+    flete: s(d.flete), seguro: s(d.seguro), aduana: s(d.aduana), maniobras: s(d.maniobras), otros: s(d.otros), ucIds: sa(d.ucIds), notas: s(d.notas),
   };
 }
 // Costo logístico total del embarque (flete + seguro + aduana + maniobras + otros).
@@ -253,10 +254,11 @@ export interface Entrega {
   fechaEntrega: string;    // entrega real
   tracking: string;
   costoEnvio: string;
+  ucIds: string[];       // Unidad(es) Comercial(es); [] = compartido (todo el proyecto)
   notas: string;
 }
 export function entregaVacia(id: string): Entrega {
-  return { id, destinatario: '', referencia: '', direccion: '', modalidad: 'paqueteria', transportista: '', estado: 'preparando', fechaCompromiso: '', fechaEntrega: '', tracking: '', costoEnvio: '', notas: '' };
+  return { id, destinatario: '', referencia: '', direccion: '', modalidad: 'paqueteria', transportista: '', estado: 'preparando', fechaCompromiso: '', fechaEntrega: '', tracking: '', costoEnvio: '', ucIds: [], notas: '' };
 }
 export function normalizarEntrega(v: unknown): Entrega {
   const d = (v && typeof v === 'object') ? v as Record<string, unknown> : {};
@@ -265,7 +267,7 @@ export function normalizarEntrega(v: unknown): Entrega {
   return {
     id: s(d.id) || `ENT-${Math.random().toString(36).slice(2, 8)}`, destinatario: s(d.destinatario), referencia: s(d.referencia),
     direccion: s(d.direccion), modalidad, transportista: s(d.transportista), estado,
-    fechaCompromiso: s(d.fechaCompromiso), fechaEntrega: s(d.fechaEntrega), tracking: s(d.tracking), costoEnvio: s(d.costoEnvio), notas: s(d.notas),
+    fechaCompromiso: s(d.fechaCompromiso), fechaEntrega: s(d.fechaEntrega), tracking: s(d.tracking), costoEnvio: s(d.costoEnvio), ucIds: sa(d.ucIds), notas: s(d.notas),
   };
 }
 export function costoEnvioEntrega(e: Entrega): number { return numero(e.costoEnvio) ?? 0; }

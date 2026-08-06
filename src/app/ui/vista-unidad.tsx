@@ -8,6 +8,10 @@ import type { CSSProperties } from 'react';
 import { actualizarUnidad, espaciosDeUnidad } from '@/app/actions/espacios.actions';
 import type { UnidadComercial } from '@/domain/espacios';
 import { CatalogoUC } from './catalogo-uc';
+import { MapaOperativo } from './mapa-operativo';
+import { VistaPersonas } from './vista-personas';
+import { VistaRecursos } from './vista-recursos';
+import { VistaLogistica } from './vista-logistica';
 import { useEsMovil } from './use-movil';
 
 const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 14 };
@@ -17,11 +21,39 @@ const lbl: CSSProperties = { display: 'block', fontSize: 12, color: 'var(--bp-mu
 
 interface Props { proyectoId: string; uc: UnidadComercial; onVolver: () => void; onIrSedes: () => void }
 
+type Superficie = 'mapa' | 'personas' | 'recursos' | 'logistica';
+
 export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
   const [espacios, setEspacios] = useState<{ id: string; nombre: string; tipo: string; sedeNombre: string }[]>([]);
+  const [superficie, setSuperficie] = useState<Superficie | null>(null);
   const movil = useEsMovil();
 
   useEffect(() => { espaciosDeUnidad(proyectoId, uc.id).then(setEspacios).catch(() => {}); }, [proyectoId, uc.id]);
+
+  // Superficies de captura SCOPEADAS a esta UC — mismos componentes de siempre, con ucId
+  // puesto: solo ven/crean lo compartido + lo etiquetado a esta UC. Al volver, el proyecto
+  // completo (Mapa/Personas/Recursos/Logística a nivel proyecto) ya ve todo lo capturado aquí.
+  if (superficie === 'mapa') return (
+    <MapaOperativo proyectoId={proyectoId} onVolver={() => setSuperficie(null)} onIrSedes={onIrSedes} nombreProyecto={uc.nombre} ucId={uc.id} ucNombre={uc.nombre} />
+  );
+  if (superficie === 'personas') return (
+    <section>
+      <button style={btn} onClick={() => setSuperficie(null)}>← {uc.nombre}</button>
+      <div style={{ marginTop: '0.5rem' }}><VistaPersonas proyectoId={proyectoId} nombreProyecto={uc.nombre} ucId={uc.id} ucNombre={uc.nombre} /></div>
+    </section>
+  );
+  if (superficie === 'recursos') return (
+    <section>
+      <button style={btn} onClick={() => setSuperficie(null)}>← {uc.nombre}</button>
+      <div style={{ marginTop: '0.5rem' }}><VistaRecursos proyectoId={proyectoId} ucId={uc.id} ucNombre={uc.nombre} /></div>
+    </section>
+  );
+  if (superficie === 'logistica') return (
+    <section>
+      <button style={btn} onClick={() => setSuperficie(null)}>← {uc.nombre}</button>
+      <div style={{ marginTop: '0.5rem' }}><VistaLogistica proyectoId={proyectoId} ucId={uc.id} ucNombre={uc.nombre} /></div>
+    </section>
+  );
 
   return (
     <section>
@@ -44,6 +76,17 @@ export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
 
         {/* Desarrollo de la UC */}
         <div>
+          <div style={{ ...card, background: 'var(--bp-panel-alt)', borderColor: '#cdd8ef' }}>
+            <strong style={{ fontSize: 14 }}>Superficies de esta unidad</strong>
+            <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.25rem 0 0.5rem' }}>Captura solo para "{uc.nombre}". Lo compartido (sin UC asignada) y lo que captures aquí conviven; al volver al proyecto se ve todo junto.</p>
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+              <button style={btn} onClick={() => setSuperficie('mapa')}>🗺️ Mapa</button>
+              <button style={btn} onClick={() => setSuperficie('personas')}>👥 Personas</button>
+              <button style={btn} onClick={() => setSuperficie('recursos')}>📦 Recursos</button>
+              <button style={btn} onClick={() => setSuperficie('logistica')}>🚚 Logística</button>
+            </div>
+          </div>
+
           <div style={{ ...card, background: 'var(--bp-panel-alt)', borderColor: '#cdd8ef' }}>
             <strong style={{ fontSize: 14 }}>Espacios de esta unidad</strong>
             <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.25rem 0' }}>Habitaciones/áreas asignadas a "{uc.nombre}" en las sedes.</p>

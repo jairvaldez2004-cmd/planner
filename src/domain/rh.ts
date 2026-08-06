@@ -24,6 +24,7 @@ export interface Empleado {
   nombre: string;            // persona real (o "Vacante" si aún no se contrata)
   puesto: string;            // descripción de puesto
   departamento: string;      // etiqueta de departamento (del Mapa Operativo)
+  ucIds: string[];           // Unidad(es) Comercial(es) a las que pertenece; [] = compartida (todo el proyecto)
   estado: EstadoEmpleado;    // ciclo de vida: candidato→…→activo→baja
   roles: string[];           // roles que desempeña (se reusan en el Mapa)
   procesos: string[];        // procesos que ejecuta (nombres del Mapa)
@@ -52,7 +53,7 @@ export interface Empleado {
 
 // Empleado vacío para el formulario de alta.
 export function empleadoVacio(id: string): Empleado {
-  return { id, nombre: '', puesto: '', departamento: '', estado: 'candidato', roles: [], procesos: [], responsabilidades: '', competencias: [], nomina: '', kpis: '', notas: '', email: '', telefono: '', rfc: '', curp: '', nss: '', direccion: '', nacimiento: '', emergencia: '', externo: false, proveedor: '', entregamos: '', recibimos: '' };
+  return { id, nombre: '', puesto: '', departamento: '', ucIds: [], estado: 'candidato', roles: [], procesos: [], responsabilidades: '', competencias: [], nomina: '', kpis: '', notas: '', email: '', telefono: '', rfc: '', curp: '', nss: '', direccion: '', nacimiento: '', emergencia: '', externo: false, proveedor: '', entregamos: '', recibimos: '' };
 }
 
 // Normaliza una fila JSON cualquiera a un Empleado (retrocompatible/defensivo).
@@ -63,7 +64,7 @@ export function normalizarEmpleado(v: unknown): Empleado {
   const estado = ESTADOS_EMPLEADO.some((e) => e.id === d.estado) ? d.estado as EstadoEmpleado : 'candidato';
   return {
     id: s(d.id) || `EMP-${s(d.nombre).slice(0, 6)}`,
-    nombre: s(d.nombre), puesto: s(d.puesto), departamento: s(d.departamento), estado,
+    nombre: s(d.nombre), puesto: s(d.puesto), departamento: s(d.departamento), ucIds: a(d.ucIds), estado,
     roles: a(d.roles), procesos: a(d.procesos), responsabilidades: s(d.responsabilidades),
     competencias: a(d.competencias), nomina: s(d.nomina), kpis: s(d.kpis), notas: s(d.notas),
     email: s(d.email), telefono: s(d.telefono), rfc: s(d.rfc), curp: s(d.curp), nss: s(d.nss),

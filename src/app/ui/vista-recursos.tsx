@@ -36,6 +36,7 @@ import {
 } from '@/domain/recursos';
 import type { Recurso, Proveedor, Producto, ProductoProveedor, Adjunto, PrecioHistorico, OrdenCompra, Contrato, EtapaCompra, Incidencia, Interaccion } from '@/domain/recursos';
 import { useEsMovil } from './use-movil';
+import { enUC, ucIdsIniciales } from '@/domain/uc-scope';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
 const btnSm: CSSProperties = { ...btn, padding: '0.15rem 0.5rem', fontSize: 12 };
@@ -47,7 +48,10 @@ const sum: CSSProperties = { cursor: 'pointer', fontSize: 12, fontWeight: 'bold'
 type Agrupar = 'categoria' | 'grupo' | 'proveedor' | 'ninguno';
 type Tab = 'recursos' | 'proveedores' | 'productos' | 'compras' | 'contratos' | 'ia';
 
-export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
+// `ucId`: si se pasa, esta vista queda SCOPEADA a esa Unidad Comercial — solo ve
+// recursos/productos compartidos (sin ucIds) o etiquetados con esa UC, y lo que se da de
+// alta aquí queda etiquetado a ella. Sin `ucId` (uso a nivel proyecto): ve TODO, igual que hoy.
+export function VistaRecursos({ proyectoId, ucId, ucNombre }: { proyectoId: string; ucId?: string; ucNombre?: string }) {
   const [recs, setRecs] = useState<Recurso[]>([]);
   const [provs, setProvs] = useState<Proveedor[]>([]);
   const [prods, setProds] = useState<Producto[]>([]);
@@ -82,7 +86,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   const provNombre = (id: string) => provs.find((p) => p.id === id)?.nombre ?? '(proveedor)';
   const prodNombre = (id: string) => prods.find((p) => p.id === id)?.nombre ?? '';
 
-  async function nuevoRec() { const n = await guardarRecurso(proyectoId, { ...recursoVacio(''), nombre: 'Nuevo recurso' }); setRecs((l) => [...l, n]); setSelR(n.id); }
+  async function nuevoRec() { const n = await guardarRecurso(proyectoId, { ...recursoVacio(''), nombre: 'Nuevo recurso', ucIds: ucIdsIniciales(ucId) }); setRecs((l) => [...l, n]); setSelR(n.id); }
   async function patchRec(partial: Partial<Recurso>) { if (!rSel) return; const u = { ...rSel, ...partial }; setRecs((l) => l.map((x) => x.id === u.id ? u : x)); await guardarRecurso(proyectoId, u); }
   async function borrarRec() { if (!rSel) return; if (!window.confirm(`¿Eliminar "${rSel.nombre}"?`)) return; await eliminarRecurso(proyectoId, rSel.id); setSelR(null); cargar(); }
 
@@ -98,7 +102,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   async function patchInt(it: Interaccion) { setInts((l) => l.map((x) => x.id === it.id ? it : x)); await guardarInteraccion(proyectoId, it); }
   async function borrarInt(id: string) { setInts((l) => l.filter((x) => x.id !== id)); await eliminarInteraccion(proyectoId, id); }
 
-  async function nuevoProd() { const n = await guardarProducto(proyectoId, { ...productoVacio(''), nombre: 'Nuevo producto' }); setProds((l) => [...l, n]); setSelProd(n.id); }
+  async function nuevoProd() { const n = await guardarProducto(proyectoId, { ...productoVacio(''), nombre: 'Nuevo producto', ucIds: ucIdsIniciales(ucId) }); setProds((l) => [...l, n]); setSelProd(n.id); }
   async function patchProd(partial: Partial<Producto>) { if (!prodSel) return; const u = { ...prodSel, ...partial }; setProds((l) => l.map((x) => x.id === u.id ? u : x)); await guardarProducto(proyectoId, u); }
   async function borrarProd() { if (!prodSel) return; if (!window.confirm(`¿Eliminar "${prodSel.nombre}"?`)) return; await eliminarProducto(proyectoId, prodSel.id); setSelProd(null); cargar(); }
 
@@ -127,21 +131,25 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
   async function patchCtr(c: Contrato) { setCtrs((l) => l.map((x) => x.id === c.id ? c : x)); await guardarContrato(proyectoId, c); }
   async function borrarCtr(id: string) { if (!window.confirm('¿Eliminar este contrato?')) return; setCtrs((l) => l.filter((x) => x.id !== id)); setSelCtr(null); await eliminarContrato(proyectoId, id); }
 
+  // Alcance por UC: sin ucId (nivel proyecto) ve todo; con ucId, solo lo compartido + lo de esta UC.
+  const recsEnUC = ucId ? recs.filter((r) => enUC(r.ucIds, ucId)) : recs;
+  const prodsEnUC = ucId ? prods.filter((p) => enUC(p.ucIds, ucId)) : prods;
+
   // Agrupación libre de recursos + subtotales
   const claveGrupo = (r: Recurso) => agrupar === 'categoria' ? categoriaRecurso(r.categoria).label : agrupar === 'grupo' ? (r.grupo || '(sin grupo)') : agrupar === 'proveedor' ? (r.proveedor || '(sin proveedor)') : 'Todos';
   const grupos = new Map<string, Recurso[]>();
-  for (const r of recs) { const k = claveGrupo(r); grupos.set(k, [...(grupos.get(k) ?? []), r]); }
+  for (const r of recsEnUC) { const k = claveGrupo(r); grupos.set(k, [...(grupos.get(k) ?? []), r]); }
   const subtotalDe = (arr: Recurso[]) => arr.reduce((s, r) => s + (subtotalRecurso(r) ?? 0), 0);
-  const total = subtotalDe(recs);
+  const total = subtotalDe(recsEnUC);
 
   const q = buscar.trim().toLowerCase();
   const provsVis = q ? provs.filter((p) => (p.nombre + ' ' + p.razonSocial + ' ' + p.categorias.join(' ') + ' ' + p.ciudad).toLowerCase().includes(q)) : provs;
-  const prodsVis = q ? prods.filter((p) => (p.nombre + ' ' + p.marca + ' ' + p.modelo + ' ' + p.skuInterno + ' ' + p.categoria).toLowerCase().includes(q)) : prods;
+  const prodsVis = q ? prodsEnUC.filter((p) => (p.nombre + ' ' + p.marca + ' ' + p.modelo + ' ' + p.skuInterno + ' ' + p.categoria).toLowerCase().includes(q)) : prodsEnUC;
 
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>📦 Recursos & Proveedores <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· abastecimiento</span></h2>
+        <h2 style={{ margin: 0 }}>📦 Recursos & Proveedores <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· abastecimiento{ucId ? ` · dentro de ${ucNombre ?? 'esta UC'}` : ''}</span></h2>
         {tab === 'recursos' && <button style={btn} onClick={() => void nuevoRec()}>＋ Recurso</button>}
         {tab === 'proveedores' && <button style={btn} onClick={() => void nuevoProv()}>＋ Proveedor</button>}
         {tab === 'productos' && <button style={btn} onClick={() => void nuevoProd()}>＋ Producto</button>}
@@ -169,12 +177,12 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
               <option value="proveedor">Proveedor</option>
               <option value="ninguno">Sin agrupar</option>
             </select>
-            <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--bp-text)' }}>Total estimado: <strong>{formatoMoneda(total)}</strong> <span style={{ color: 'var(--bp-muted)' }}>({recs.length} recursos)</span></span>
+            <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--bp-text)' }}>Total estimado: <strong>{formatoMoneda(total)}</strong> <span style={{ color: 'var(--bp-muted)' }}>({recsEnUC.length} recursos)</span></span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: movil || !rSel ? '1fr' : 'minmax(0, 1fr) 340px', gap: '0.75rem', alignItems: 'start' }}>
             <div>
-              {!loading && recs.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay recursos. Pulsa <strong>＋ Recurso</strong>.</p>}
+              {!loading && recsEnUC.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay recursos. Pulsa <strong>＋ Recurso</strong>.</p>}
               {Array.from(grupos.entries()).map(([g, arr]) => (
                 <div key={g} style={{ marginBottom: '0.7rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 'bold', color: 'var(--bp-text)', borderBottom: '2px solid #e0d3b0', padding: '2px 2px 3px' }}>
@@ -313,7 +321,7 @@ export function VistaRecursos({ proyectoId }: { proyectoId: string }) {
           <input style={{ ...inp, maxWidth: 340, marginBottom: '0.5rem' }} placeholder="🔎 Buscar producto (nombre, marca, SKU)…" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
           <div style={{ display: 'grid', gridTemplateColumns: movil || !prodSel ? '1fr' : 'minmax(0, 1fr) 400px', gap: '0.75rem', alignItems: 'start' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
-              {!loading && prods.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay productos. Pulsa <strong>＋ Producto</strong>. Cada producto se vincula a los proveedores que lo ofrecen (uno o muchos), cada uno con su precio.</p>}
+              {!loading && prodsEnUC.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay productos. Pulsa <strong>＋ Producto</strong>. Cada producto se vincula a los proveedores que lo ofrecen (uno o muchos), cada uno con su precio.</p>}
               {prodsVis.map((p) => {
                 const nProv = vinculosDeProducto(vinc, p.id).length;
                 const barato = proveedorMasBarato(vinc, p.id);

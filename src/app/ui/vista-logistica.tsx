@@ -28,6 +28,7 @@ import type { ProcesoNodo } from '@/domain/mapa';
 import type { Contingencia } from '@/domain/contingencia';
 import type { Empleado } from '@/domain/rh';
 import { useEsMovil } from './use-movil';
+import { enUC, ucIdsIniciales } from '@/domain/uc-scope';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
 const btnSm: CSSProperties = { ...btn, padding: '0.15rem 0.5rem', fontSize: 12 };
@@ -38,7 +39,11 @@ const sum: CSSProperties = { cursor: 'pointer', fontSize: 12, fontWeight: 'bold'
 
 type Tab = 'compra' | 'transportistas' | 'entrega' | 'interna' | 'capital-humano';
 
-export function VistaLogistica({ proyectoId, onIrMapa, onIrPersonas }: { proyectoId: string; onIrMapa: () => void; onIrPersonas: () => void }) {
+// `ucId`: si se pasa, Compra/Entrega quedan SCOPEADAS a esa Unidad Comercial — solo ven
+// embarques/entregas compartidos (sin ucIds) o etiquetados con esa UC, y lo que se da de
+// alta aquí queda etiquetado a ella. Interna/Capital Humano siguen siendo lentes de solo
+// lectura a nivel proyecto (no se acotan: son enlaces al Mapa/Personas, no captura).
+export function VistaLogistica({ proyectoId, onIrMapa, onIrPersonas, ucId, ucNombre }: { proyectoId: string; onIrMapa?: () => void; onIrPersonas?: () => void; ucId?: string; ucNombre?: string }) {
   const [embs, setEmbs] = useState<Embarque[]>([]);
   const [ocs, setOcs] = useState<OrdenCompra[]>([]);
   const [selEmb, setSelEmb] = useState<string | null>(null);
@@ -66,7 +71,7 @@ export function VistaLogistica({ proyectoId, onIrMapa, onIrPersonas }: { proyect
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [proyectoId]);
 
   // Embarques (compra/abasto)
-  async function nuevoEmb() { const n = await guardarEmbarque(proyectoId, { ...embarqueVacio(''), fechaRecoleccion: hoy }); setEmbs((l) => [...l, n]); setSelEmb(n.id); }
+  async function nuevoEmb() { const n = await guardarEmbarque(proyectoId, { ...embarqueVacio(''), fechaRecoleccion: hoy, ucIds: ucIdsIniciales(ucId) }); setEmbs((l) => [...l, n]); setSelEmb(n.id); }
   async function patchEmb(e: Embarque) { setEmbs((l) => l.map((x) => x.id === e.id ? e : x)); await guardarEmbarque(proyectoId, e); }
   async function borrarEmb(id: string) { if (!window.confirm('¿Eliminar este embarque?')) return; setEmbs((l) => l.filter((x) => x.id !== id)); setSelEmb(null); await eliminarEmbarque(proyectoId, id); }
   // Transportistas
@@ -74,17 +79,21 @@ export function VistaLogistica({ proyectoId, onIrMapa, onIrPersonas }: { proyect
   async function patchTrp(t: Transportista) { setTrps((l) => l.map((x) => x.id === t.id ? t : x)); await guardarTransportista(proyectoId, t); }
   async function borrarTrp(id: string) { if (!window.confirm('¿Eliminar este transportista?')) return; setTrps((l) => l.filter((x) => x.id !== id)); setSelTrp(null); await eliminarTransportista(proyectoId, id); }
   // Entregas
-  async function nuevaEnt() { const n = await guardarEntrega(proyectoId, { ...entregaVacia('') }); setEnts((l) => [...l, n]); setSelEnt(n.id); }
+  async function nuevaEnt() { const n = await guardarEntrega(proyectoId, { ...entregaVacia(''), ucIds: ucIdsIniciales(ucId) }); setEnts((l) => [...l, n]); setSelEnt(n.id); }
   async function patchEnt(e: Entrega) { setEnts((l) => l.map((x) => x.id === e.id ? e : x)); await guardarEntrega(proyectoId, e); }
   async function borrarEnt(id: string) { if (!window.confirm('¿Eliminar esta entrega?')) return; setEnts((l) => l.filter((x) => x.id !== id)); setSelEnt(null); await eliminarEntrega(proyectoId, id); }
 
   const contingenciasLogistica = contingencias.filter((c) => c.categoria === 'logística');
   const empleadosLogistica = empleados.filter((e) => /log[íi]stica/i.test(e.departamento));
 
+  // Alcance por UC: sin ucId (nivel proyecto) ve todo; con ucId, solo lo compartido + lo de esta UC.
+  const embsEnUC = ucId ? embs.filter((e) => enUC(e.ucIds, ucId)) : embs;
+  const entsEnUC = ucId ? ents.filter((e) => enUC(e.ucIds, ucId)) : ents;
+
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>🚚 Logística <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· compra, entrega y su gente</span></h2>
+        <h2 style={{ margin: 0 }}>🚚 Logística <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· compra, entrega y su gente{ucId ? ` · dentro de ${ucNombre ?? 'esta UC'}` : ''}</span></h2>
         {tab === 'compra' && <button style={btn} onClick={() => void nuevoEmb()}>＋ Embarque</button>}
         {tab === 'transportistas' && <button style={btn} onClick={() => void nuevoTrp()}>＋ Transportista</button>}
         {tab === 'entrega' && <button style={btn} onClick={() => void nuevaEnt()}>＋ Entrega</button>}
@@ -99,11 +108,11 @@ export function VistaLogistica({ proyectoId, onIrMapa, onIrPersonas }: { proyect
 
       {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando…</p>}
 
-      {!loading && tab === 'compra' && <EmbarquesLista embs={embs} ocs={ocs} trps={trps} sel={selEmb} onSel={setSelEmb} hoy={hoy} onPatch={patchEmb} onDelete={borrarEmb} movil={movil} />}
+      {!loading && tab === 'compra' && <EmbarquesLista embs={embsEnUC} ocs={ocs} trps={trps} sel={selEmb} onSel={setSelEmb} hoy={hoy} onPatch={patchEmb} onDelete={borrarEmb} movil={movil} />}
       {!loading && tab === 'transportistas' && <TransportistasLista trps={trps} sel={selTrp} onSel={setSelTrp} onPatch={patchTrp} onDelete={borrarTrp} movil={movil} />}
-      {!loading && tab === 'entrega' && <EntregasLista ents={ents} trps={trps} sel={selEnt} onSel={setSelEnt} hoy={hoy} onPatch={patchEnt} onDelete={borrarEnt} movil={movil} />}
-      {!loading && tab === 'interna' && <PanelInterna contingencias={contingenciasLogistica} procesos={procesos} onIrMapa={onIrMapa} />}
-      {!loading && tab === 'capital-humano' && <PanelCapitalHumano empleados={empleadosLogistica} onIrPersonas={onIrPersonas} />}
+      {!loading && tab === 'entrega' && <EntregasLista ents={entsEnUC} trps={trps} sel={selEnt} onSel={setSelEnt} hoy={hoy} onPatch={patchEnt} onDelete={borrarEnt} movil={movil} />}
+      {!loading && tab === 'interna' && <PanelInterna contingencias={contingenciasLogistica} procesos={procesos} onIrMapa={onIrMapa ?? (() => {})} />}
+      {!loading && tab === 'capital-humano' && <PanelCapitalHumano empleados={empleadosLogistica} onIrPersonas={onIrPersonas ?? (() => {})} />}
     </section>
   );
 }

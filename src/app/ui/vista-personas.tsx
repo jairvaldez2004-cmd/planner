@@ -17,6 +17,7 @@ import type { PasoFlujoPersona, ProveedorFlujo } from '@/domain/flujo-persona';
 import { FASES_MAPA, ordenFaseMapa } from '@/domain/mapa';
 import type { ProcesoNodo } from '@/domain/mapa';
 import { useEsMovil } from './use-movil';
+import { enUC, ucIdsIniciales } from '@/domain/uc-scope';
 
 const btn: CSSProperties = { padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 13 };
 const btnSm: CSSProperties = { ...btn, padding: '0.15rem 0.5rem', fontSize: 12 };
@@ -24,7 +25,10 @@ const inp: CSSProperties = { padding: '0.35rem 0.55rem', borderRadius: 6, border
 const lbl: CSSProperties = { display: 'block', fontSize: 11, color: 'var(--bp-muted)', marginTop: '0.5rem', fontWeight: 'bold' };
 const tag: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bp-panel-alt)', border: '1px solid #ddcdef', borderRadius: 12, padding: '0.1rem 0.5rem', fontSize: 12, margin: '2px 3px 0 0' };
 
-export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: string; nombreProyecto?: string }) {
+// `ucId`: si se pasa, esta vista queda SCOPEADA a esa Unidad Comercial — solo ve empleados
+// compartidos (sin ucIds) o etiquetados con esa UC, y quien se da de alta aquí queda
+// etiquetado a ella. Sin `ucId` (uso a nivel proyecto): ve TODO, igual que hoy.
+export function VistaPersonas({ proyectoId, nombreProyecto, ucId, ucNombre }: { proyectoId: string; nombreProyecto?: string; ucId?: string; ucNombre?: string }) {
   const [emps, setEmps] = useState<Empleado[]>([]);
   const [depts, setDepts] = useState<string[]>([]);
   const [procs, setProcs] = useState<string[]>([]);
@@ -66,7 +70,7 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
   }
 
   async function agregar() {
-    const nuevo = await guardarEmpleado(proyectoId, { ...empleadoVacio(''), nombre: 'Nueva persona', estado: 'candidato' });
+    const nuevo = await guardarEmpleado(proyectoId, { ...empleadoVacio(''), nombre: 'Nueva persona', estado: 'candidato', ucIds: ucIdsIniciales(ucId) });
     setEmps((l) => [...l, nuevo]); setSel(nuevo.id);
   }
   async function patch(partial: Partial<Empleado>) {
@@ -81,12 +85,14 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
     await eliminarEmpleado(proyectoId, se.id); setSel(null); cargar();
   }
 
-  const activos = emps.filter((e) => e.estado === 'activo').length;
+  // Alcance por UC: sin ucId (nivel proyecto) ve todo; con ucId, solo lo compartido + lo de esta UC.
+  const empsEnUC = ucId ? emps.filter((e) => enUC(e.ucIds, ucId)) : emps;
+  const activos = empsEnUC.filter((e) => e.estado === 'activo').length;
 
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>👥 Personas & RH <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· plantilla del negocio</span></h2>
+        <h2 style={{ margin: 0 }}>👥 Personas & RH <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· plantilla del negocio{ucId ? ` · dentro de ${ucNombre ?? 'esta UC'}` : ''}</span></h2>
         {vista === 'personas' && <button style={btn} onClick={() => void agregar()}>＋ Dar de alta persona</button>}
       </div>
 
@@ -111,14 +117,14 @@ export function VistaPersonas({ proyectoId, nombreProyecto }: { proyectoId: stri
       {vista === 'personas' && (
        <>
       <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0 0 0.6rem' }}>
-        {emps.length} personas ({activos} activas). Cada alta alimenta <strong>RH</strong>, <strong>Organizacional</strong>, <strong>Operativo</strong> y (con datos fiscales) <strong>Jurídico</strong> / <strong>Financiero</strong>.
+        {empsEnUC.length} personas ({activos} activas). Cada alta alimenta <strong>RH</strong>, <strong>Organizacional</strong>, <strong>Operativo</strong> y (con datos fiscales) <strong>Jurídico</strong> / <strong>Financiero</strong>.
       </p>
-      {!loading && emps.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay nadie. Pulsa <strong>＋ Dar de alta persona</strong> para empezar.</p>}
+      {!loading && empsEnUC.length === 0 && <p style={{ color: 'var(--bp-muted)', fontSize: 13 }}>Aún no hay nadie. Pulsa <strong>＋ Dar de alta persona</strong> para empezar.</p>}
 
       <div style={{ display: 'grid', gridTemplateColumns: movil || !se ? '1fr' : 'minmax(0, 1fr) 360px', gap: '0.75rem', alignItems: 'start' }}>
         {/* Lista de personas */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem', alignContent: 'start' }}>
-          {emps.map((e) => {
+          {empsEnUC.map((e) => {
             const est = estadoEmpleado(e.estado);
             return (
               <div key={e.id} onClick={() => setSel(e.id)}
