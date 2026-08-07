@@ -2,6 +2,7 @@
 // Sin dependencias externas. Maneja comillas y comas dentro de campos.
 
 import type { Columna } from '@/domain/tablas';
+import { todasLasTraducciones } from '@/domain/i18n';
 
 export type Fila = Record<string, string>;
 
@@ -58,10 +59,19 @@ export function desdeCSV(columnas: Columna[], texto: string): ResultadoImport {
   if (lineas.length === 0) return { filas: [], errores: ['CSV vacío.'], pendientes: [] };
 
   const headers = parsearLinea(lineas[0]!).map((h) => h.trim());
-  // mapea cada encabezado a una columna (por etiqueta o por id, sin distinguir mayúsculas)
+  // Mapea cada encabezado a una columna, sin distinguir mayúsculas, aceptando:
+  //   · el id de la columna,
+  //   · su etiqueta en el idioma actual,
+  //   · su etiqueta en CUALQUIER otro idioma.
+  // Lo último importa para el round-trip: un CSV exportado en español debe seguir
+  // importando con la app en inglés (y viceversa), en vez de perder la columna en silencio.
   const idxToCol = headers.map((h) => {
     const lc = h.toLowerCase();
-    return columnas.find((c) => c.etiqueta.toLowerCase() === lc || c.id.toLowerCase() === lc);
+    return columnas.find((c) =>
+      c.etiqueta.toLowerCase() === lc ||
+      c.id.toLowerCase() === lc ||
+      todasLasTraducciones(`columna.${c.id}`).some((tr) => tr.toLowerCase() === lc),
+    );
   });
   if (idxToCol.every((c) => !c)) errores.push('Ningún encabezado coincide con la plantilla.');
 

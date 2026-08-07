@@ -15,11 +15,17 @@ import type { EstadoPlano } from '@/app/readiness/readiness-engine';
 import { etapaInfo, objetivoDe, esFoco } from '@/domain/etapas';
 import { VistaPlano } from './vista-plano';
 import { useEsMovil } from './use-movil';
+import { useT } from './i18n';
+import { etiqueta } from '@/domain/i18n';
 
 const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 14 };
 const ENTREGA_ICON: Record<string, string> = { documento: '📄', tabla: '📊', diagrama: '🔀', dashboard: '📈' };
 
 export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVolver: () => void }) {
+  const { t, locale } = useT();
+  // Los nombres de plano llegan resueltos en español desde el servidor; aquí se re-resuelven
+  // por planoId al idioma activo, con el valor del servidor como fallback.
+  const nombreDe = (planoId: string, fallback: string) => etiqueta(locale, 'plano', planoId, fallback);
   const [grafo, setGrafo] = useState<GrafoPlanos | null>(null);
   const [loading, setLoading] = useState(true);
   const movil = useEsMovil();
@@ -54,26 +60,26 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>Administración · Planos <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· Coordinador + grafo</span></h2>
+        <h2 style={{ margin: 0 }}>{t('planosAdmin.titulo')} <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· {t('planosAdmin.subtitulo')}</span></h2>
         <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={{ ...btn, borderColor: '#2b7a93', color: 'var(--bp-text)', fontWeight: 'bold' }} onClick={() => setVerSimulacion(true)}>🏢 Simular empresa</button>
-          <button style={{ ...btn, borderColor: '#8a4fbf', color: '#6a3aa0', fontWeight: 'bold' }} onClick={() => setVerEntregables(true)}>📦 Generar entregables</button>
-          <button style={btn} onClick={onVolver}>← Proyecto</button>
+          <button style={{ ...btn, borderColor: '#2b7a93', color: 'var(--bp-text)', fontWeight: 'bold' }} onClick={() => setVerSimulacion(true)}>{t('planos.simularEmpresa')}</button>
+          <button style={{ ...btn, borderColor: '#8a4fbf', color: '#6a3aa0', fontWeight: 'bold' }} onClick={() => setVerEntregables(true)}>{t('planos.generarEntregables')}</button>
+          <button style={btn} onClick={onVolver}>← {t('nav.proyecto')}</button>
         </div>
       </div>
 
-      {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando planos…</p>}
+      {loading && <p style={{ color: 'var(--bp-muted)' }}>{t('planosAdmin.cargando')}</p>}
       {!loading && grafo && (
         <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(300px, 4fr) 8fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
           <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.75rem', background: 'var(--bp-panel-alt)' }}>
-            <strong style={{ fontSize: 14 }}>Coordinador del proyecto</strong>
+            <strong style={{ fontSize: 14 }}>{t('planosAdmin.coordinador')}</strong>
             <p style={{ margin: '0.25rem 0 0.5rem', fontSize: 12, color: 'var(--bp-muted)' }}>
-              Profundidad: <strong>{grafo.profundidadProyecto}</strong> · {seleccionados.length} planos · {publicados} publicados · {minOp} mín. operable.
+              {t('planosAdmin.profundidad', { p: grafo.profundidadProyecto, sel: seleccionados.length, pub: publicados, min: minOp })}
             </p>
             {etInfo ? (
               <div style={{ border: '1px solid #b3d4ff', borderRadius: 8, padding: '0.4rem 0.6rem', background: 'var(--bp-panel-alt)', marginBottom: '0.5rem', fontSize: 12 }}>
-                🎚️ Etapa <strong>{etInfo.n}. {etInfo.label}</strong>
-                <div style={{ color: 'var(--bp-gold)', marginTop: 2 }}>Foco: {etInfo.foco.join(' · ')}</div>
+                {t('planosAdmin.etapa')} <strong>{etInfo.n}. {etiqueta(locale, 'etapa', etInfo.id, etInfo.label)}</strong>
+                <div style={{ color: 'var(--bp-gold)', marginTop: 2 }}>{t('planosAdmin.foco', { foco: etInfo.foco.join(' · ') })}</div>
               </div>
             ) : (
               <div style={{ border: '1px dashed #b3b3b3', borderRadius: 8, padding: '0.4rem 0.6rem', background: 'var(--bp-panel-alt)', marginBottom: '0.5rem', fontSize: 11.5, color: 'var(--bp-muted)' }}>
@@ -83,9 +89,9 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
             {siguiente ? (
               <div style={{ border: '1px solid #b3d4ff', borderRadius: 8, padding: '0.5rem 0.7rem', background: 'var(--bp-panel-alt)', marginBottom: '0.5rem' }}>
                 <div style={{ fontSize: 12, color: 'var(--bp-muted)' }}>Siguiente recomendado:</div>
-                <strong>{ENTREGA_ICON[siguiente.entrega]} {siguiente.nombre}</strong>
+                <strong>{ENTREGA_ICON[siguiente.entrega]} {nombreDe(siguiente.planoId, siguiente.nombre)}</strong>
                 <div style={{ fontSize: 12, color: 'var(--bp-muted)' }}>{LABEL_ESTADO[siguiente.estado]} · {Math.round(siguiente.progreso * 100)}%</div>
-                <button style={{ ...btn, marginTop: '0.4rem' }} onClick={() => setPlanoAbierto(siguiente.planoId)}>Trabajar este plano →</button>
+                <button style={{ ...btn, marginTop: '0.4rem' }} onClick={() => setPlanoAbierto(siguiente.planoId)}>{t('planosAdmin.trabajarPlano')}</button>
               </div>
             ) : <p style={{ fontSize: 13, color: '#2e9e63' }}>✅ Todos los planos seleccionados están publicados.</p>}
             <div style={{ fontSize: 13 }}>
@@ -98,7 +104,7 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
                   <div key={n.planoId} onClick={() => setPlanoAbierto(n.planoId)}
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '0.25rem 0.3rem', borderRadius: 6, background: hover === n.planoId ? '#eef4ff' : (foco ? '#f3f8ff' : 'transparent') }}
                     onMouseEnter={() => setHover(n.planoId)} onMouseLeave={() => setHover(null)}>
-                    <span>{foco && <span title="Foco de la etapa" style={{ color: 'var(--bp-gold)' }}>★ </span>}{ENTREGA_ICON[n.entrega]} {n.nombre} {n.minOperable && <span style={{ color: '#a60', fontSize: 11 }}>·mín</span>}</span>
+                    <span>{foco && <span title="Foco de la etapa" style={{ color: 'var(--bp-gold)' }}>★ </span>}{ENTREGA_ICON[n.entrega]} {nombreDe(n.planoId, n.nombre)} {n.minOperable && <span style={{ color: '#a60', fontSize: 11 }}>·mín</span>}</span>
                     <span style={{ display: 'inline-flex', gap: 5, alignItems: 'center' }}>
                       <span style={{ background: COLOR_ESTADO[n.estado], color: '#fff', borderRadius: 5, padding: '0 0.4rem', fontSize: 11 }}>{pct}%</span>
                       {etapa && obj > 0 && <span title="Objetivo de la etapa" style={{ fontSize: 10, color: faltaParaObj ? '#a60' : '#2e9e63' }}>/ {obj}%</span>}
@@ -125,12 +131,12 @@ export function VistaPlanos({ proyectoId, onVolver }: { proyectoId: string; onVo
                   <g key={n.planoId} style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(n.planoId)} onMouseLeave={() => setHover(null)} onClick={() => setPlanoAbierto(n.planoId)}>
                     <circle cx={p.x} cy={p.y} r={activo ? 30 : 26} fill={col} opacity={n.seleccionado ? 1 : 0.35} stroke="#fff" strokeWidth={2} />
                     <text x={p.x} y={p.y + 3} textAnchor="middle" fill="#fff" fontSize={10} fontWeight="bold">{n.planoId}</text>
-                    <text x={p.x} y={p.y + 40} textAnchor="middle" fill="#333" fontSize={11}>{n.nombre}</text>
+                    <text x={p.x} y={p.y + 40} textAnchor="middle" fill="#333" fontSize={11}>{nombreDe(n.planoId, n.nombre)}</text>
                   </g>
                 );
               })}
             </svg>
-            <p style={{ fontSize: 12, color: 'var(--bp-muted)', padding: '0 0.75rem 0.5rem' }}>Nodos = 13 planos (atenuados = no seleccionados). Color = estado. Clic para entrar.</p>
+            <p style={{ fontSize: 12, color: 'var(--bp-muted)', padding: '0 0.75rem 0.5rem' }}>{t('planosAdmin.leyendaGrafo')}</p>
           </div>
         </div>
       )}
@@ -254,6 +260,7 @@ function PanelSimulacion({ proyectoId, onVolver }: { proyectoId: string; onVolve
 
 // ===== GENERACIÓN DE ENTREGABLES: cada paquete = un LIBRO estilizado con índice de capítulos =====
 function PanelEntregables({ proyectoId, onVolver }: { proyectoId: string; onVolver: () => void }) {
+  const { locale } = useT();
   const [gen, setGen] = useState<string | null>(null);
   const [pkg, setPkg] = useState<PaqueteDetallado | null>(null);
   const [exportando, setExportando] = useState(false);
@@ -289,8 +296,8 @@ function PanelEntregables({ proyectoId, onVolver }: { proyectoId: string; onVolv
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.6rem' }}>
         {PAQUETES.map((p) => (
           <div key={p.id} style={{ border: '1px solid #ddcdef', borderLeft: '4px solid #8a4fbf', borderRadius: 9, padding: '0.6rem 0.7rem', background: 'var(--bp-panel)' }}>
-            <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{p.icono} {p.nombre}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--bp-muted)', margin: '2px 0 6px' }}>{p.descripcion}</div>
+            <div style={{ fontWeight: 'bold', fontSize: 13.5 }}>{p.icono} {etiqueta(locale, 'paquete', p.id, p.nombre)}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--bp-muted)', margin: '2px 0 6px' }}>{etiqueta(locale, 'paquete', `${p.id}.desc`, p.descripcion)}</div>
             <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginBottom: 6 }}>{p.planos.length} capítulo(s)</div>
             <button style={{ ...btn, fontSize: 13, background: '#8a4fbf', color: '#fff', borderColor: '#8a4fbf' }} disabled={gen === p.id} onClick={() => void abrir(p.id)}>{gen === p.id ? 'Abriendo…' : '📖 Abrir libro'}</button>
           </div>

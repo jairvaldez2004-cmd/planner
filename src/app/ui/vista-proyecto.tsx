@@ -9,7 +9,7 @@
 // al entrar a un negocio, este mismo componente lo muestra con SUS unidades comerciales.
 
 import { useEffect, useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { listarUnidades, crearUnidad } from '@/app/actions/espacios.actions';
 import { obtenerGrafoPlanos } from '@/app/actions/especialista.actions';
 import { conversarCuradorProyecto } from '@/app/actions/arquitecto.actions';
@@ -17,6 +17,8 @@ import { cargarConversacionProyecto } from '@/app/actions/contexto.actions';
 import { listarHijosDeProyecto, crearNegocioHijo, obtenerProyectoBase, fijarEtapaObjetivo, fijarTaxonomiaEntidad } from '@/app/actions/workspace.actions';
 import { TIPOS_ENTIDAD, ESTADOS_ENTIDAD, infoTipoEntidad, infoEstadoEntidad, validarJerarquia, esEntidadReal } from '@/domain/taxonomia-entidad';
 import type { TipoEntidad, EstadoEntidad } from '@/domain/taxonomia-entidad';
+import { useT } from './i18n';
+import { etiqueta } from '@/domain/i18n';
 import type { GrafoPlanos } from '@/app/actions/especialista.actions';
 import type { ProyectoNodo } from '@/app/actions/workspace.actions';
 import type { UnidadComercial } from '@/domain/espacios';
@@ -40,12 +42,28 @@ const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: 
 const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 14 };
 
 // Banner "lo que captures aquí enriquece estos planos" — hace visible el flujo de datos.
+// Renderiza una frase traducida que lleva markup en medio: los `{param}` se sustituyen por
+// nodos React. Se traduce la frase ENTERA (una sola clave), así otro idioma puede reordenar
+// las piezas libremente — que es justo lo que se rompe al concatenar fragmentos sueltos.
+function Frase({ texto, partes }: { texto: string; partes: Record<string, ReactNode> }) {
+  const trozos = texto.split(/(\{\w+\})/g);
+  return <>{trozos.map((tz, i) => {
+    const m = /^\{(\w+)\}$/.exec(tz);
+    if (m && m[1] && m[1] in partes) return <span key={i}>{partes[m[1]]}</span>;
+    return <span key={i}>{tz}</span>;
+  })}</>;
+}
+
 function BannerEnriquece({ superficie }: { superficie: Superficie }) {
+  const { t, locale } = useT();
+  // La frase lleva markup en medio, así que se parte en dos claves en vez de concatenar
+  // fragmentos traducidos (que rompería el orden en otros idiomas).
+  const [antes, despues] = t('enriquece.prefijo').split('{enriquece}');
   return (
     <div style={{ fontSize: 12.5, color: 'var(--bp-text)', background: 'var(--bp-panel-alt)', border: '1px solid #ecd9a0', borderRadius: 8, padding: '0.45rem 0.7rem', margin: '0.4rem 0' }}>
-      🔗 Lo que captures aquí <strong>enriquece</strong> los planos:{' '}
+      {antes}<strong>{t('enriquece.verbo')}</strong>{despues}{' '}
       {ENRIQUECE[superficie].map((a, i) => (
-        <span key={a.planoId}>{i > 0 ? ' · ' : ''}<strong>{PLANOS_MAESTROS[a.planoId] ?? a.planoId}</strong> ({a.nota})</span>
+        <span key={a.planoId}>{i > 0 ? ' · ' : ''}<strong>{etiqueta(locale, 'plano', a.planoId, PLANOS_MAESTROS[a.planoId] ?? a.planoId)}</strong> ({a.nota})</span>
       ))}
     </div>
   );
@@ -61,7 +79,8 @@ type NodoGrafo = {
   estadoEntidad?: EstadoEntidad | undefined;
 };
 
-export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo del workspace' }: { proyectoId: string; onVolver: () => void; volverLabel?: string }) {
+export function VistaProyecto({ proyectoId, onVolver, volverLabel }: { proyectoId: string; onVolver: () => void; volverLabel?: string }) {
+  const { t, locale } = useT();
   const [nombre, setNombre] = useState('');
   const [etapa, setEtapa] = useState<EtapaObjetivo | ''>('');
   const [tipoEnt, setTipoEnt] = useState<TipoEntidad | ''>('');
@@ -148,13 +167,13 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
 
   // --- grafo del proyecto ---
   const nodos: NodoGrafo[] = [
-    { key: 'admin', tipo: 'admin', label: 'Planos', color: '#4A4F5C' },
-    { key: 'sedes', tipo: 'sedes', label: 'Sedes & Espacios', color: '#e0795b' },
-    { key: 'mapa', tipo: 'mapa', label: 'Mapa Operativo', color: '#d9a23b' },
-    { key: 'personas', tipo: 'personas', label: 'Personas & RH', color: '#8a4fbf' },
-    { key: 'recursos', tipo: 'recursos', label: 'Recursos & Proveedores', color: '#a9720f' },
-    { key: 'logistica', tipo: 'logistica', label: 'Logística', color: '#2f8f8f' },
-    { key: 'marketing', tipo: 'marketing', label: 'Marketing', color: '#c95b7c' },
+    { key: 'admin', tipo: 'admin', label: t('nodo.planos'), color: '#4A4F5C' },
+    { key: 'sedes', tipo: 'sedes', label: t('nodo.sedes'), color: '#e0795b' },
+    { key: 'mapa', tipo: 'mapa', label: t('nodo.mapa'), color: '#d9a23b' },
+    { key: 'personas', tipo: 'personas', label: t('nodo.personas'), color: '#8a4fbf' },
+    { key: 'recursos', tipo: 'recursos', label: t('nodo.recursos'), color: '#a9720f' },
+    { key: 'logistica', tipo: 'logistica', label: t('nodo.logistica'), color: '#2f8f8f' },
+    { key: 'marketing', tipo: 'marketing', label: t('nodo.marketing'), color: '#c95b7c' },
     ...hijos.map((h): NodoGrafo => ({
       key: h.proyectoId, tipo: 'negocio', id: h.proyectoId, label: h.nombre,
       // Los holdings se pintan en dorado; el resto conserva el morado de negocio.
@@ -228,72 +247,84 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>{nombre || 'Proyecto'} <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· negocios y unidades comerciales</span></h2>
-        <button style={btn} onClick={onVolver}>{volverLabel}</button>
+        <h2 style={{ margin: 0 }}>{nombre || t('nav.proyecto')} <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· {t('proyecto.subtitulo')}</span></h2>
+        <button style={btn} onClick={onVolver}>{volverLabel ?? t('proyecto.volverGrafo')}</button>
       </div>
 
-      {loading && <p style={{ color: 'var(--bp-muted)' }}>Cargando…</p>}
+      {loading && <p style={{ color: 'var(--bp-muted)' }}>{t('comun.cargando')}</p>}
       {!loading && (
         <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'minmax(280px, 4fr) 8fr', gap: '1rem', alignItems: 'start', marginTop: '0.75rem' }}>
           {/* Panel */}
           <div style={{ border: '1px solid #cdd8ef', borderRadius: 10, padding: '0.75rem', background: 'var(--bp-panel-alt)' }}>
-            <strong style={{ fontSize: 14 }}>Estructura</strong>
+            <strong style={{ fontSize: 14 }}>{t('proyecto.estructura')}</strong>
             <p style={{ margin: '0.25rem 0 0.5rem', fontSize: 12, color: 'var(--bp-muted)' }}>
-              El nodo <strong>📄 Planos</strong> es donde <strong>ves y descargas</strong> los documentos; los nodos <strong>Sedes</strong>, <strong>Mapa</strong> y <strong>Unidades</strong> son donde <strong>capturas</strong> y desde ahí alimentan varios planos. Un proyecto también puede contener <strong>Negocios</strong> (sub-empresas). Clic en un nodo para entrar.
+              <Frase texto={t('proyecto.explicacion')} partes={{
+                planos: <strong>📄 {t('nodo.planos')}</strong>,
+                ves: <strong>{t('proyecto.explicacion.ves')}</strong>,
+                sedes: <strong>{t('nodo.sedes')}</strong>,
+                mapa: <strong>{t('nodo.mapa')}</strong>,
+                unidades: <strong>{t('proyecto.leyenda.uc')}</strong>,
+                capturas: <strong>{t('proyecto.explicacion.capturas')}</strong>,
+                negocios: <strong>{t('nodo.negocio')}</strong>,
+              }} />
             </p>
-            <div style={{ fontSize: 12, color: 'var(--bp-muted)', marginBottom: '0.5rem' }}>📄 Planos: {seleccionados} seleccionados · {hijos.length} negocios · {ucs.length} unidades comerciales.</div>
+            <div style={{ fontSize: 12, color: 'var(--bp-muted)', marginBottom: '0.5rem' }}>
+              {t('proyecto.resumen', { planos: '📄', n: seleccionados, negocios: hijos.length, ucs: ucs.length })}
+            </div>
 
             {/* Etapa objetivo del negocio (la ruta de 5 fases) */}
             <div style={{ border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.5rem 0.6rem', background: 'var(--bp-panel-alt)', marginBottom: '0.6rem' }}>
-              <label style={{ fontSize: 11, color: 'var(--bp-gold)', fontWeight: 'bold', display: 'block', marginBottom: 3 }}>🎚️ Etapa del negocio (define el foco de los planos)</label>
+              <label style={{ fontSize: 11, color: 'var(--bp-gold)', fontWeight: 'bold', display: 'block', marginBottom: 3 }}>{t('proyecto.etapaLabel')}</label>
               <select style={{ ...inp, width: '100%', fontSize: 13 }} value={etapa} onChange={(e) => void cambiarEtapa(e.target.value as EtapaObjetivo | '')}>
-                <option value="">— Sin definir (fíjala tú o el Curador) —</option>
-                {ETAPAS_OBJETIVO.map((et) => <option key={et.id} value={et.id}>{et.n}. {et.label}</option>)}
+                <option value="">{t('proyecto.etapaSinDefinir')}</option>
+                {ETAPAS_OBJETIVO.map((et) => <option key={et.id} value={et.id}>{et.n}. {etiqueta(locale, 'etapa', et.id, et.label)}</option>)}
               </select>
-              {etapaSel && <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 4 }}>{etapaSel.descripcion} <span style={{ color: 'var(--bp-gold)' }}>Foco: {etapaSel.foco.join(' · ')}.</span></div>}
+              {etapaSel && <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 4 }}>{etiqueta(locale, 'etapa', `${etapaSel.id}.desc`, etapaSel.descripcion)} <span style={{ color: 'var(--bp-gold)' }}>{t('proyecto.etapaFoco', { foco: etapaSel.foco.join(' · ') })}</span></div>}
             </div>
 
             {/* TAXONOMÍA: qué ES esta entidad dentro del ecosistema */}
             <div style={{ border: '1px solid #cdd8ef', borderRadius: 8, padding: '0.5rem 0.6rem', background: 'var(--bp-panel-alt)', marginBottom: '0.6rem' }}>
-              <label style={{ fontSize: 11, color: 'var(--bp-gold)', fontWeight: 'bold', display: 'block', marginBottom: 3 }}>🏛️ Tipo de entidad (qué ES en el ecosistema)</label>
+              <label style={{ fontSize: 11, color: 'var(--bp-gold)', fontWeight: 'bold', display: 'block', marginBottom: 3 }}>{t('proyecto.tipoEntidadLabel')}</label>
               <select style={{ ...inp, width: '100%', fontSize: 13 }} value={tipoEnt} onChange={(e) => void cambiarTipoEnt(e.target.value as TipoEntidad | '')}>
-                <option value="">— Sin declarar —</option>
-                {TIPOS_ENTIDAD.map((t) => <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>)}
+                <option value="">{t('proyecto.sinDeclarar')}</option>
+                {TIPOS_ENTIDAD.map((ti) => <option key={ti.id} value={ti.id}>{ti.emoji} {etiqueta(locale, 'tipoEntidad', ti.id, ti.label)}</option>)}
               </select>
               {tipoSel && <div style={{ fontSize: 11, color: 'var(--bp-muted)', marginTop: 4 }}>{tipoSel.descripcion}</div>}
-              <label style={{ fontSize: 11, color: 'var(--bp-gold)', fontWeight: 'bold', display: 'block', margin: '0.5rem 0 3px' }}>Estado</label>
+              <label style={{ fontSize: 11, color: 'var(--bp-gold)', fontWeight: 'bold', display: 'block', margin: '0.5rem 0 3px' }}>{t('proyecto.estadoLabel')}</label>
               <select style={{ ...inp, width: '100%', fontSize: 13 }} value={estadoEnt} onChange={(e) => void cambiarEstadoEnt(e.target.value as EstadoEntidad | '')}>
-                <option value="">— Sin declarar —</option>
-                {ESTADOS_ENTIDAD.map((e) => <option key={e.id} value={e.id}>{e.emoji} {e.label}</option>)}
+                <option value="">{t('proyecto.sinDeclarar')}</option>
+                {ESTADOS_ENTIDAD.map((e) => <option key={e.id} value={e.id}>{e.emoji} {etiqueta(locale, 'estadoEntidad', e.id, e.label)}</option>)}
               </select>
               {estadoEnt && !esEntidadReal(estadoEnt) && (
-                <div style={{ fontSize: 11, color: '#d9781f', marginTop: 4, fontWeight: 'bold' }}>⚠ No constituida: es arquitectura, no operación real.</div>
+                <div style={{ fontSize: 11, color: '#d9781f', marginTop: 4, fontWeight: 'bold' }}>{t('proyecto.noConstituida')}</div>
               )}
               {conflictos.length > 0 && (
                 <div style={{ marginTop: 6, border: '1px solid #f0c9c2', borderRadius: 7, background: 'var(--bp-panel)', padding: '0.35rem 0.5rem' }}>
-                  <strong style={{ fontSize: 11.5, color: '#c0392b' }}>⚠ {conflictos.length} conflicto(s) de jerarquía:</strong>
+                  <strong style={{ fontSize: 11.5, color: '#c0392b' }}>{t('proyecto.conflictos', { n: conflictos.length })}</strong>
                   {conflictos.map((c) => <div key={c.key} style={{ fontSize: 11, color: '#a33', marginTop: 2 }}>· <strong>{c.label}</strong>: {c.motivo}</div>)}
                 </div>
               )}
             </div>
 
             {/* Crear negocio (sub-empresa) */}
-            <label style={{ fontSize: 11, color: '#8a4fbf', fontWeight: 'bold' }}>Negocio dentro de este proyecto</label>
+            <label style={{ fontSize: 11, color: '#8a4fbf', fontWeight: 'bold' }}>{t('proyecto.negocioDentro')}</label>
             <div style={{ display: 'flex', gap: '0.4rem', margin: '0.2rem 0 0.5rem' }}>
-              <input style={{ ...inp, flex: 1 }} placeholder="Nuevo negocio (ej. Altercing Studio)" value={nuevoNegocio} onChange={(e) => setNuevoNegocio(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void crearNeg(); }} />
+              <input style={{ ...inp, flex: 1 }} placeholder={t('proyecto.negocioPlaceholder')} value={nuevoNegocio} onChange={(e) => setNuevoNegocio(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void crearNeg(); }} />
               <button style={btn} onClick={() => void crearNeg()} disabled={!nuevoNegocio.trim()}>＋</button>
             </div>
 
             {/* Crear unidad comercial */}
-            <label style={{ fontSize: 11, color: 'var(--bp-text)', fontWeight: 'bold' }}>Unidad comercial de este proyecto</label>
+            <label style={{ fontSize: 11, color: 'var(--bp-text)', fontWeight: 'bold' }}>{t('proyecto.ucDeEsteProyecto')}</label>
             <div style={{ display: 'flex', gap: '0.4rem', margin: '0.2rem 0 0.5rem' }}>
-              <input style={{ ...inp, flex: 1 }} placeholder="Nueva UC (ej. Tatuajes)" value={nuevaUC} onChange={(e) => setNuevaUC(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void crearUC(); }} />
+              <input style={{ ...inp, flex: 1 }} placeholder={t('proyecto.ucPlaceholder')} value={nuevaUC} onChange={(e) => setNuevaUC(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void crearUC(); }} />
               <button style={btn} onClick={() => void crearUC()} disabled={!nuevaUC.trim()}>＋</button>
             </div>
 
             <div style={{ marginTop: '0.6rem', borderTop: '1px solid #dde6fb', paddingTop: '0.5rem' }}>
-              <strong style={{ fontSize: 13 }}>🟢 Curador de este proyecto</strong>
-              <p style={{ fontSize: 11, color: 'var(--bp-muted)', margin: '0.2rem 0 0.4rem' }}>Dile qué negocios contiene o qué vende, y crea negocios o unidades comerciales conversando.</p>
+              <strong style={{ fontSize: 13 }}>🟢 {t('proyecto.curador')}</strong>
+              <p style={{ fontSize: 11, color: 'var(--bp-muted)', margin: '0.2rem 0 0.4rem' }}>{t('proyecto.curadorAyuda')}</p>
+              {/* El saludo y el placeholder del chat siguen en español a propósito: el agente
+                  responde en español hasta la Fase 3 (idioma de los agentes). */}
               <ChatArquitecto
                 conversar={(h) => conversarCuradorProyecto(h, proyectoId)}
                 cargarHistorial={() => cargarConversacionProyecto(proyectoId)}
@@ -332,8 +363,15 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel = '← Grafo d
                 );
               })}
             </svg>
-            <p style={{ fontSize: 12, color: 'var(--bp-muted)', padding: '0 0.75rem 0.5rem' }}><span style={{ color: 'var(--bp-text)' }}>📄 Planos = ver y descargar los documentos</span> · SED = Sedes & Espacios · <span style={{ color: '#b8860b' }}>MAP = Mapa Operativo</span> · <span style={{ color: '#8a4fbf' }}>👥 Personas & RH</span> · <span style={{ color: '#a9720f' }}>📦 Recursos & Proveedores</span> · <span style={{ color: '#2f8f8f' }}>🚚 Logística</span> · <span style={{ color: '#c95b7c' }}>📣 Marketing</span> · <span style={{ color: '#8a4fbf' }}>NEG = Negocio</span> · UC = Unidad Comercial. Los nodos <strong>alimentan</strong> los planos; en 📄 los ves. Clic para entrar.<br />
-              <span style={{ color: 'var(--bp-text)' }}>Formas:</span> ▢ Planos · ○ Unidad Comercial · ⬡ Negocio/Empresa · <span style={{ color: '#c9922b' }}>◇ Holding</span> · ▲ superficies de captura. Un nodo con <strong>borde punteado</strong> es una entidad <strong>no constituida</strong> (objetivo o propuesta), no una operación real.</p>
+            <p style={{ fontSize: 12, color: 'var(--bp-muted)', padding: '0 0.75rem 0.5rem' }}>
+              <span style={{ color: 'var(--bp-text)' }}>{t('proyecto.leyenda.planos')}</span> · SED = {t('nodo.sedes')} · <span style={{ color: '#b8860b' }}>MAP = {t('nodo.mapa')}</span> · <span style={{ color: '#8a4fbf' }}>👥 {t('nodo.personas')}</span> · <span style={{ color: '#a9720f' }}>📦 {t('nodo.recursos')}</span> · <span style={{ color: '#2f8f8f' }}>🚚 {t('nodo.logistica')}</span> · <span style={{ color: '#c95b7c' }}>📣 {t('nodo.marketing')}</span> · <span style={{ color: '#8a4fbf' }}>NEG = {t('nodo.negocio')}</span> · {t('proyecto.leyenda.uc')}.{' '}
+              <Frase texto={t('proyecto.leyenda.alimentan')} partes={{ alimentan: <strong>{t('enriquece.verbo')}</strong> }} /><br />
+              <span style={{ color: 'var(--bp-text)' }}>{t('proyecto.leyenda.formas')}</span>{' '}
+              <Frase texto={t('proyecto.leyenda.formasDetalle')} partes={{
+                punteado: <strong>{t('proyecto.leyenda.punteado')}</strong>,
+                noConstituida: <strong>{t('proyecto.leyenda.noConstituida')}</strong>,
+              }} />
+            </p>
           </div>
         </div>
       )}
