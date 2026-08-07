@@ -10,7 +10,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { t as traducir, LOCALE_BASE, esLocale, localeInfo } from '@/domain/i18n';
-import type { Locale } from '@/domain/i18n';
+import type { ClaveI18n, Locale } from '@/domain/i18n';
 import { guardarLocale } from '@/app/actions/i18n.actions';
 
 const CLAVE_LS = 'bp.locale';
@@ -18,7 +18,8 @@ const CLAVE_LS = 'bp.locale';
 interface Ctx {
   locale: Locale;
   setLocale: (l: Locale) => void;
-  t: (clave: string, params?: Record<string, string | number>) => string;
+  /** `clave` es `ClaveI18n`: una clave que no exista en `es.ts` NO compila. */
+  t: (clave: ClaveI18n, params?: Record<string, string | number>) => string;
 }
 
 const I18nCtx = createContext<Ctx | null>(null);
@@ -46,7 +47,7 @@ export function I18nProvider({ children, inicial }: { children: ReactNode; inici
   }, []);
 
   const t = useCallback(
-    (clave: string, params?: Record<string, string | number>) => traducir(locale, clave, params),
+    (clave: ClaveI18n, params?: Record<string, string | number>) => traducir(locale, clave, params),
     [locale],
   );
 

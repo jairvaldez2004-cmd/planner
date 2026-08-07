@@ -15,6 +15,7 @@ import { cargarConversacionWorkspace } from '@/app/actions/contexto.actions';
 import { ChatArquitecto } from './chat-arquitecto';
 import { useEsMovil } from './use-movil';
 import { useT } from './i18n';
+import { useTx } from './traduccion';
 
 const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 14 };
 
@@ -33,6 +34,7 @@ interface Props {
 
 export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
   const { t } = useT();
+  const { tx } = useTx();
   const [nodos, setNodos] = useState<ProyectoNodo[]>([]);
   const [relaciones, setRelaciones] = useState<RelacionGrafo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +64,7 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>{workspace.nombre} <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· {t('grafo.headerSub')}</span></h2>
+        <h2 style={{ margin: 0 }}>{tx(workspace.nombre)} <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· {t('grafo.headerSub')}</span></h2>
         <button style={btn} onClick={onVolver}>{t('grafo.volverWorkspaces')}</button>
       </div>
 
@@ -101,13 +103,13 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
                   return (
                     <g key={r.id}>
                       <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#b06be0" strokeWidth={1.5} strokeDasharray="5 4" />
-                      {r.etiqueta && <text x={mx} y={my - 4} textAnchor="middle" fontSize={10} fill="#8a4cb8">{r.etiqueta}</text>}
+                      {r.etiqueta && <text x={mx} y={my - 4} textAnchor="middle" fontSize={10} fill="#8a4cb8">{tx(r.etiqueta)}</text>}
                     </g>
                   );
                 })}
                 {/* workspace central */}
                 <circle cx={cx} cy={cy} r={44} fill="#1E1E25" stroke="#E8A93C" strokeWidth={2} />
-                <text x={cx} y={cy + 4} textAnchor="middle" fill="#fff" fontSize={13} fontWeight="bold">{workspace.nombre.slice(0, 14)}</text>
+                <text x={cx} y={cy + 4} textAnchor="middle" fill="#fff" fontSize={13} fontWeight="bold">{tx(workspace.nombre).slice(0, 14)}</text>
                 {/* proyectos */}
                 {nodos.map((n) => {
                   const p = posById.get(n.proyectoId)!;
@@ -120,7 +122,7 @@ export function VistaGrafo({ workspace, onAbrirProyecto, onVolver }: Props) {
                       <circle cx={p.x} cy={p.y} r={activo ? 38 : 32} fill={c} opacity={activo ? 1 : 0.9} stroke="#fff" strokeWidth={2} />
                       {n.comExp && <text x={p.x} y={p.y - 42} textAnchor="middle" fontSize={11} fill="#a60">COM-EXP</text>}
                       <text x={p.x} y={p.y + 4} textAnchor="middle" fill="#fff" fontSize={11} fontWeight="bold">{n.totalPlanos}p</text>
-                      <text x={p.x} y={p.y + 52} textAnchor="middle" fill="#EDEDED" fontSize={12}>{n.nombre.slice(0, 18)}</text>
+                      <text x={p.x} y={p.y + 52} textAnchor="middle" fill="#EDEDED" fontSize={12}>{tx(n.nombre).slice(0, 18)}</text>
                     </g>
                   );
                 })}

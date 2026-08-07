@@ -14,6 +14,7 @@ import { VistaRecursos } from './vista-recursos';
 import { VistaLogistica } from './vista-logistica';
 import { useEsMovil } from './use-movil';
 import { useT } from './i18n';
+import { useTx } from './traduccion';
 
 const btn: CSSProperties = { padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid #999', background: 'var(--bp-panel)', cursor: 'pointer', fontSize: 14 };
 const inp: CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--bp-border)', fontSize: 14, width: '100%' };
@@ -26,6 +27,7 @@ type Superficie = 'mapa' | 'personas' | 'recursos' | 'logistica';
 
 export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
   const { t } = useT();
+  const { tx } = useTx();
   const [espacios, setEspacios] = useState<{ id: string; nombre: string; tipo: string; sedeNombre: string }[]>([]);
   const [superficie, setSuperficie] = useState<Superficie | null>(null);
   const movil = useEsMovil();
@@ -40,19 +42,19 @@ export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
   );
   if (superficie === 'personas') return (
     <section>
-      <button style={btn} onClick={() => setSuperficie(null)}>← {uc.nombre}</button>
+      <button style={btn} onClick={() => setSuperficie(null)}>← {tx(uc.nombre)}</button>
       <div style={{ marginTop: '0.5rem' }}><VistaPersonas proyectoId={proyectoId} nombreProyecto={uc.nombre} ucId={uc.id} ucNombre={uc.nombre} /></div>
     </section>
   );
   if (superficie === 'recursos') return (
     <section>
-      <button style={btn} onClick={() => setSuperficie(null)}>← {uc.nombre}</button>
+      <button style={btn} onClick={() => setSuperficie(null)}>← {tx(uc.nombre)}</button>
       <div style={{ marginTop: '0.5rem' }}><VistaRecursos proyectoId={proyectoId} ucId={uc.id} ucNombre={uc.nombre} /></div>
     </section>
   );
   if (superficie === 'logistica') return (
     <section>
-      <button style={btn} onClick={() => setSuperficie(null)}>← {uc.nombre}</button>
+      <button style={btn} onClick={() => setSuperficie(null)}>← {tx(uc.nombre)}</button>
       <div style={{ marginTop: '0.5rem' }}><VistaLogistica proyectoId={proyectoId} ucId={uc.id} ucNombre={uc.nombre} /></div>
     </section>
   );
@@ -60,7 +62,7 @@ export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
   return (
     <section>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ margin: 0 }}>🟢 {uc.nombre} <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· {t('uc.subtitulo')}</span></h2>
+        <h2 style={{ margin: 0 }}>🟢 {tx(uc.nombre)} <span style={{ fontSize: 13, color: 'var(--bp-muted)' }}>· {t('uc.subtitulo')}</span></h2>
         <button style={btn} onClick={onVolver}>← {t('nav.proyecto')}</button>
       </div>
 
@@ -80,7 +82,7 @@ export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
         <div>
           <div style={{ ...card, background: 'var(--bp-panel-alt)', borderColor: '#cdd8ef' }}>
             <strong style={{ fontSize: 14 }}>{t('uc.superficies')}</strong>
-            <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.25rem 0 0.5rem' }}>{t('uc.superficiesAyuda', { uc: uc.nombre })}</p>
+            <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.25rem 0 0.5rem' }}>{t('uc.superficiesAyuda', { uc: tx(uc.nombre) })}</p>
             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
               <button style={btn} onClick={() => setSuperficie('mapa')}>🗺️ {t('nodo.mapa')}</button>
               <button style={btn} onClick={() => setSuperficie('personas')}>👥 {t('nodo.personas')}</button>
@@ -91,10 +93,10 @@ export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
 
           <div style={{ ...card, background: 'var(--bp-panel-alt)', borderColor: '#cdd8ef' }}>
             <strong style={{ fontSize: 14 }}>{t('uc.espacios')}</strong>
-            <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.25rem 0' }}>{t('uc.espaciosAyuda', { uc: uc.nombre })}</p>
+            <p style={{ fontSize: 12, color: 'var(--bp-muted)', margin: '0.25rem 0' }}>{t('uc.espaciosAyuda', { uc: tx(uc.nombre) })}</p>
             {espacios.length === 0 && <p style={{ fontSize: 13, color: 'var(--bp-muted)' }}>{t('uc.espaciosVacio')}</p>}
             {espacios.map((e) => (
-              <div key={e.id} style={{ fontSize: 13, padding: '0.2rem 0' }}>· <strong>{e.nombre}</strong> <span style={{ color: 'var(--bp-muted)' }}>({e.tipo} · {e.sedeNombre})</span></div>
+              <div key={e.id} style={{ fontSize: 13, padding: '0.2rem 0' }}>· <strong>{tx(e.nombre)}</strong> <span style={{ color: 'var(--bp-muted)' }}>({e.tipo} · {tx(e.sedeNombre)})</span></div>
             ))}
             <button style={{ ...btn, marginTop: '0.5rem' }} onClick={onIrSedes}>{t('uc.irSedes')}</button>
           </div>

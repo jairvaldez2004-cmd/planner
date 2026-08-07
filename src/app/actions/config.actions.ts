@@ -7,7 +7,7 @@ import { prisma } from '@/adapters/persistence/prisma-client';
 import { modeloDe, MODELOS, MODELOS_DISPONIBLES } from '@/config/modelos';
 import type { ModeloClaude, RolAgente } from '@/config/modelos';
 
-const ROLES: RolAgente[] = ['curador', 'coordinador', 'especialista'];
+const ROLES: RolAgente[] = ['curador', 'coordinador', 'especialista', 'traductor'];
 const clave = (rol: RolAgente) => `modelo.${rol}`;
 
 export async function obtenerModelosAgentes(): Promise<Record<RolAgente, ModeloClaude>> {

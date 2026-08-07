@@ -5,6 +5,7 @@
   "description": "Business Planner BUILD_ALPHA — MVP local, 1 vertical (Comercial+COM-EXP), agente mock, persistencia local.",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "i18n:check": "node scripts/i18n-check.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

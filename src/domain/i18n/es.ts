@@ -4,7 +4,9 @@
 // Convención de claves: `<ambito>.<cosa>`. Los emojis NO van en el diccionario cuando
 // acompañan a un texto traducible — se dejan en el JSX, para no duplicarlos por idioma.
 
-export const es: Record<string, string> = {
+// `satisfies` (en vez de anotar `Record<string, string>`) conserva las claves literales:
+// de ahí sale `ClaveI18n`, y con eso `t('clave.inventada')` deja de compilar.
+export const es = {
   // ---------- navegación / shell ----------
   'nav.workspaces': 'Workspaces',
   'nav.proyecto': 'Proyecto',
@@ -209,4 +211,24 @@ export const es: Record<string, string> = {
   'estadoEntidad.objetivo': 'Objetivo (no constituida)',
   'estadoEntidad.inactiva': 'Inactiva',
   'estadoEntidad.historica': 'Histórica',
-};
+
+  // ---------- traducción de datos del usuario (aviso de costo) ----------
+  'traducir.titulo': 'Traducir tus datos',
+  'traducir.explicacion': 'Las pantallas ya cambiaron de idioma (eso es gratis e instantáneo). Lo que tú escribiste —nombres, respuestas de los planos, catálogo, procesos— sigue en español: traducirlo usa la API de Claude y tiene un costo.',
+  'traducir.pendientes': '{n} textos por traducir · {chars} caracteres',
+  'traducir.yaPagado': '{n} ya traducidos antes · sin costo',
+  'traducir.costo': 'Costo estimado: hasta {usd} USD',
+  'traducir.unaVez': 'Se paga UNA sola vez. Cada texto queda guardado para siempre, así que volver a cambiar de idioma es gratis.',
+  'traducir.original': 'Tu original nunca se sobrescribe: la traducción es una vista. Al volver a español ves exactamente lo que escribiste.',
+  'traducir.modelo': 'Modelo: {modelo} · se cambia en ⚙ Configuración',
+  'traducir.confirmar': 'Traducir ahora',
+  'traducir.ahoraNo': 'Ahora no',
+  'traducir.trabajando': 'Traduciendo {n} textos… no cierres esta pestaña.',
+  'traducir.listo': '✅ {n} textos traducidos · costo real {usd} USD',
+  'traducir.fallidos': '⚠ {n} texto(s) se quedaron en español.',
+  'traducir.error': 'No se pudo traducir: {msg}',
+  'traducir.reintentar': 'Traducir mis datos',
+} satisfies Record<string, string>;
+
+/** Lista canónica de claves de UI. Cualquier clave fuera de esta lista es un error de compilación. */
+export type ClaveI18n = keyof typeof es;

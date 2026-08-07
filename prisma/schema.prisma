@@ -130,6 +130,27 @@ model Ajuste {
   valor String
 }
 
+// Caché PERMANENTE de traducciones (ADITIVO, tabla nueva — no migra ningún dato existente).
+//
+// Se indexa por el HASH DEL TEXTO ORIGEN, no por el registro que lo contiene. Dos
+// consecuencias buscadas:
+//   · El original NUNCA se sobrescribe. La traducción es una vista, no un reemplazo.
+//   · Un mismo texto repetido en 40 sitios se traduce UNA vez, y renombrar o mover el
+//     registro que lo contiene no invalida nada. Cambiar el texto crea una entrada nueva
+//     y la vieja simplemente deja de consultarse.
+//
+// Es lo que hace que cambiar de idioma cueste dinero una sola vez y después sea gratis.
+model TraduccionCache {
+  hash     String // sha256(origen) — el texto origen es la identidad
+  locale   String // idioma DESTINO ('en'); el origen siempre es el idioma base
+  origen   String
+  destino  String
+  creadoEn String
+
+  @@id([hash, locale])
+  @@index([locale])
+}
+
 // Memoria del Curador (ADITIVO): historial de conversación persistido por alcance.
 // clave = "WS:<workspaceId>" (Curador del workspace) | "PROJ:<proyectoId>" (Curador del proyecto).
 model Conversacion {

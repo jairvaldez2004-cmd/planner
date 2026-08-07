@@ -1,7 +1,11 @@
 // ENGLISH dictionary. Keys mirror `es.ts` (the canonical list). Any key missing here falls
 // back to Spanish, so a partial translation degrades cleanly instead of showing raw keys.
 
-export const en: Record<string, string> = {
+import type { ClaveI18n } from './es';
+
+// `Partial<Record<ClaveI18n, …>>`: una clave inventada no compila, pero una traducción
+// pendiente sí — cae al español. Es `npm run i18n:check` quien reporta los huecos.
+export const en: Partial<Record<ClaveI18n, string>> = {
   // ---------- navigation / shell ----------
   'nav.workspaces': 'Workspaces',
   'nav.proyecto': 'Project',
@@ -206,4 +210,21 @@ export const en: Record<string, string> = {
   'estadoEntidad.objetivo': 'Target (not incorporated)',
   'estadoEntidad.inactiva': 'Inactive',
   'estadoEntidad.historica': 'Historical',
+
+  // ---------- translating user data (cost warning) ----------
+  'traducir.titulo': 'Translate your data',
+  'traducir.explicacion': 'The screens already switched language (that part is free and instant). What you wrote — names, blueprint answers, catalogue, processes — is still in Spanish: translating it calls the Claude API and costs money.',
+  'traducir.pendientes': '{n} texts to translate · {chars} characters',
+  'traducir.yaPagado': '{n} already translated · no charge',
+  'traducir.costo': 'Estimated cost: up to {usd} USD',
+  'traducir.unaVez': 'You pay ONCE. Every text is stored permanently, so switching language again is free.',
+  'traducir.original': 'Your original is never overwritten — the translation is a view. Switch back to Spanish and you see exactly what you wrote.',
+  'traducir.modelo': 'Model: {modelo} · change it in ⚙ Settings',
+  'traducir.confirmar': 'Translate now',
+  'traducir.ahoraNo': 'Not now',
+  'traducir.trabajando': 'Translating {n} texts… keep this tab open.',
+  'traducir.listo': '✅ {n} texts translated · actual cost {usd} USD',
+  'traducir.fallidos': '⚠ {n} text(s) stayed in Spanish.',
+  'traducir.error': 'Translation failed: {msg}',
+  'traducir.reintentar': 'Translate my data',
 };

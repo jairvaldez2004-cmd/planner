@@ -13,6 +13,7 @@ import { VistaGrafo } from './vista-grafo';
 import { VistaProyecto } from './vista-proyecto';
 import { VistaConfig } from './vista-config';
 import { I18nProvider, useT } from './i18n';
+import { TraduccionProvider, useTx } from './traduccion';
 import { LOCALES } from '@/domain/i18n';
 import type { Locale } from '@/domain/i18n';
 
@@ -44,6 +45,25 @@ function SelectorIdioma() {
   );
 }
 
+// Aparece solo si quedan datos tuyos sin traducir. Es la vía para volver al aviso de costo
+// después de haber dicho "ahora no": el aviso no insiste, pero la puerta queda abierta.
+function BotonTraducir() {
+  const { t } = useT();
+  const { pendientes, abrirAviso, traduciendo } = useTx();
+  if (pendientes === 0) return null;
+  return (
+    <button
+      onClick={abrirAviso}
+      disabled={traduciendo}
+      title={t('traducir.titulo')}
+      style={{
+        cursor: 'pointer', fontSize: 12, padding: '0.1rem 0.5rem', borderRadius: 6,
+        border: '1px dashed var(--bp-gold)', background: 'transparent', color: 'var(--bp-gold)',
+      }}
+    >🌐 {t('traducir.reintentar')} ({pendientes})</button>
+  );
+}
+
 function Shell() {
   const { t } = useT();
   const [vista, setVista] = useState<Vista>('workspaces');
@@ -58,6 +78,7 @@ function Shell() {
   function abrirConfig() { setVistaPrevia(vista === 'config' ? 'workspaces' : vista); setVista('config'); }
 
   return (
+    <TraduccionProvider proyectoId={vista === 'proyecto' ? proyectoId : null}>
     <div>
       {/* Breadcrumbs + idioma + acceso a Configuración */}
       <nav style={{ fontSize: 14, marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid var(--bp-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -83,6 +104,7 @@ function Shell() {
           )}
         </span>
         <span style={{ display: 'inline-flex', gap: '0.75rem', alignItems: 'center' }}>
+          <BotonTraducir />
           <SelectorIdioma />
           <span style={crumb} onClick={abrirConfig} title={t('nav.configuracionTitle')}>⚙ {t('nav.configuracion')}</span>
         </span>
@@ -97,6 +119,7 @@ function Shell() {
       )}
       {vista === 'config' && <VistaConfig onVolver={() => setVista(vistaPrevia)} />}
     </div>
+    </TraduccionProvider>
   );
 }
 

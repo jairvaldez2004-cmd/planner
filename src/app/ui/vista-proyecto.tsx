@@ -18,6 +18,7 @@ import { listarHijosDeProyecto, crearNegocioHijo, obtenerProyectoBase, fijarEtap
 import { TIPOS_ENTIDAD, ESTADOS_ENTIDAD, infoTipoEntidad, infoEstadoEntidad, validarJerarquia, esEntidadReal } from '@/domain/taxonomia-entidad';
 import type { TipoEntidad, EstadoEntidad } from '@/domain/taxonomia-entidad';
 import { useT } from './i18n';
+import { useTx } from './traduccion';
 import { etiqueta } from '@/domain/i18n';
 import type { GrafoPlanos } from '@/app/actions/especialista.actions';
 import type { ProyectoNodo } from '@/app/actions/workspace.actions';
@@ -56,6 +57,7 @@ function Frase({ texto, partes }: { texto: string; partes: Record<string, ReactN
 
 function BannerEnriquece({ superficie }: { superficie: Superficie }) {
   const { t, locale } = useT();
+  const { tx } = useTx();
   // La frase lleva markup en medio, así que se parte en dos claves en vez de concatenar
   // fragmentos traducidos (que rompería el orden en otros idiomas).
   const [antes, despues] = t('enriquece.prefijo').split('{enriquece}');
@@ -81,6 +83,7 @@ type NodoGrafo = {
 
 export function VistaProyecto({ proyectoId, onVolver, volverLabel }: { proyectoId: string; onVolver: () => void; volverLabel?: string }) {
   const { t, locale } = useT();
+  const { tx } = useTx();
   const [nombre, setNombre] = useState('');
   const [etapa, setEtapa] = useState<EtapaObjetivo | ''>('');
   const [tipoEnt, setTipoEnt] = useState<TipoEntidad | ''>('');
@@ -175,12 +178,12 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel }: { proyectoI
     { key: 'logistica', tipo: 'logistica', label: t('nodo.logistica'), color: '#2f8f8f' },
     { key: 'marketing', tipo: 'marketing', label: t('nodo.marketing'), color: '#c95b7c' },
     ...hijos.map((h): NodoGrafo => ({
-      key: h.proyectoId, tipo: 'negocio', id: h.proyectoId, label: h.nombre,
+      key: h.proyectoId, tipo: 'negocio', id: h.proyectoId, label: tx(h.nombre),
       // Los holdings se pintan en dorado; el resto conserva el morado de negocio.
       color: h.tipoEntidad === 'holding_matriz' || h.tipoEntidad === 'holding_sectorial' ? '#c9922b' : '#b06be0',
       tipoEntidad: h.tipoEntidad, estadoEntidad: h.estadoEntidad,
     })),
-    ...ucs.map((u): NodoGrafo => ({ key: u.id, tipo: 'uc', id: u.id, label: u.nombre, color: '#3b9e63' })),
+    ...ucs.map((u): NodoGrafo => ({ key: u.id, tipo: 'uc', id: u.id, label: tx(u.nombre), color: '#3b9e63' })),
   ];
 
   const W = 780, H = 560, cx = W / 2, cy = H / 2;
@@ -239,7 +242,7 @@ export function VistaProyecto({ proyectoId, onVolver, volverLabel }: { proyectoI
   // Hace visible el error antes de que se propague al grafo del cerebro.
   const conflictos = hijos
     .filter((h) => h.tipoEntidad && tipoEnt)
-    .map((h) => ({ key: h.proyectoId, label: h.nombre, ...validarJerarquia(tipoEnt, h.tipoEntidad) }))
+    .map((h) => ({ key: h.proyectoId, label: tx(h.nombre), ...validarJerarquia(tipoEnt, h.tipoEntidad) }))
     .filter((v) => !v.valido);
 
   const seleccionados = grafo?.nodos.filter((n) => n.seleccionado).length ?? 0;

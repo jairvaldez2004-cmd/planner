@@ -8,11 +8,16 @@ import { es } from './es';
 import { en } from './en';
 import { LOCALE_BASE } from './locales';
 import type { Locale } from './locales';
+import type { ClaveI18n } from './es';
 
 export type { Locale } from './locales';
+export type { ClaveI18n } from './es';
 export { LOCALES, LOCALE_BASE, esLocale, localeInfo } from './locales';
 
-const DICCIONARIOS: Record<Locale, Record<string, string>> = { es, en };
+// Tipado laxo hacia adentro (las claves de dominio se arman en runtime: `columna.${id}`),
+// estricto hacia afuera (la firma de `t` exige ClaveI18n).
+type Diccionario = Record<string, string | undefined>;
+const DICCIONARIOS: Record<Locale, Diccionario> = { es, en };
 
 /** Todas las traducciones conocidas de una clave (para emparejar encabezados CSV en cualquier idioma). */
 export function todasLasTraducciones(clave: string): string[] {
@@ -25,7 +30,7 @@ export function todasLasTraducciones(clave: string): string[] {
  * Traduce `clave` al `locale`, interpolando `{param}`.
  * Los parámetros ausentes se dejan como `{param}` en vez de imprimir "undefined".
  */
-export function t(locale: Locale, clave: string, params?: Record<string, string | number>): string {
+export function t(locale: Locale, clave: ClaveI18n, params?: Record<string, string | number>): string {
   const base = DICCIONARIOS[locale]?.[clave] ?? DICCIONARIOS[LOCALE_BASE][clave] ?? clave;
   if (!params) return base;
   return base.replace(/\{(\w+)\}/g, (m, k: string) => (k in params ? String(params[k]) : m));

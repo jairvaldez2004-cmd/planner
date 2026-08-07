@@ -11,13 +11,27 @@ export type ModeloClaude =
   | 'claude-opus-4-8'
   | 'claude-fable-5'; // NOTA: Fable está SUSPENDIDO en la consola (jun 2026); requiere manejo aparte (thinking siempre activo, refusal). No usar aún.
 
-export type RolAgente = 'curador' | 'coordinador' | 'especialista';
+export type RolAgente = 'curador' | 'coordinador' | 'especialista' | 'traductor';
 
 // Modelo por rol. Cambia aquí para subir/bajar de tier por agente.
 export const MODELOS: Record<RolAgente, ModeloClaude> = {
   curador: 'claude-sonnet-4-6',
   coordinador: 'claude-haiku-4-5',
   especialista: 'claude-sonnet-4-6',
+  // Traducir el contenido del usuario (nombres de negocio, respuestas de planos, catálogo)
+  // se hace UNA vez por texto y queda en caché para siempre, así que el costo total es de
+  // unos pocos dólares — y a cambio la calidad se congela en la base de datos. Por eso va
+  // en el tier alto por defecto; el panel permite bajarlo si se prefiere.
+  traductor: 'claude-opus-4-8',
+};
+
+// Precio por 1M de tokens (tarifa primera parte de Anthropic, catálogo de jun-2026).
+// Vive aquí para que el estimador de costo y el panel lean el MISMO número.
+export const PRECIO_POR_MTOK: Record<ModeloClaude, { entrada: number; salida: number }> = {
+  'claude-haiku-4-5': { entrada: 1, salida: 5 },
+  'claude-sonnet-4-6': { entrada: 3, salida: 15 },
+  'claude-opus-4-8': { entrada: 5, salida: 25 },
+  'claude-fable-5': { entrada: 10, salida: 50 },
 };
 
 // Override por variable de entorno (opcional): BP_MODELO_CURADOR, BP_MODELO_COORDINADOR, BP_MODELO_ESPECIALISTA.
@@ -44,4 +58,5 @@ export const ETIQUETA_ROL: Record<RolAgente, { nombre: string; nota: string }> =
   curador: { nombre: 'Curador (workspace)', nota: 'entiende la idea y diagnostica proyectos' },
   coordinador: { nombre: 'Coordinador (proyecto)', nota: 'resume avance; la lógica es por reglas' },
   especialista: { nombre: 'Especialistas (planos)', nota: 'capturan y traducen a campos; alto volumen' },
+  traductor: { nombre: 'Traductor (idioma)', nota: 'traduce TUS datos al cambiar de idioma; cada texto se paga una sola vez' },
 };
