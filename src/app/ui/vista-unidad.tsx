@@ -8,6 +8,7 @@ import type { CSSProperties } from 'react';
 import { actualizarUnidad, espaciosDeUnidad } from '@/app/actions/espacios.actions';
 import type { UnidadComercial } from '@/domain/espacios';
 import { CatalogoUC } from './catalogo-uc';
+import { FichaUC } from './ficha-uc';
 import { MapaOperativo } from './mapa-operativo';
 import { VistaPersonas } from './vista-personas';
 import { VistaRecursos } from './vista-recursos';
@@ -99,6 +100,10 @@ export function VistaUnidad({ proyectoId, uc, onVolver, onIrSedes }: Props) {
               <div key={e.id} style={{ fontSize: 13, padding: '0.2rem 0' }}>· <strong>{tx(e.nombre)}</strong> <span style={{ color: 'var(--bp-muted)' }}>({e.tipo} · {tx(e.sedeNombre)})</span></div>
             ))}
             <button style={{ ...btn, marginTop: '0.5rem' }} onClick={onIrSedes}>{t('uc.irSedes')}</button>
+          </div>
+
+          <div style={{ ...card }}>
+            <FichaUC proyectoId={proyectoId} ucId={uc.id} ucNombre={uc.nombre} />
           </div>
 
           <div style={{ ...card }}>
