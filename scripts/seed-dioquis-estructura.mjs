@@ -50,9 +50,14 @@ const ESTRUCTURA = [
   },
 
   // ---------- DIOQUIS TECHNOLOGIES ----------
+  // Transición ALV TECH → Dioquis Software EJECUTADA 2026-08-08 (aprobada por el propietario).
+  // No hay entidad "ALV-TECH" separada: Dioquis Software hereda su operación real.
   { id: P('HOLDING-TECHNOLOGIES'), nombre: 'Dioquis Technologies', tipo: 'holding_sectorial', estado: 'existente', padre: P('GRUPO-DIOQUIS') },
-  { id: P('ALV-TECH'), nombre: 'ALV TECH', tipo: 'empresa_operativa', estado: 'existente', padre: P('HOLDING-TECHNOLOGIES'), nota: 'EN TRANSICIÓN hacia Dioquis Software. Pendiente de aprobación del propietario.' },
-  { id: P('DIOQUIS-SOFTWARE'), nombre: 'Dioquis Software', tipo: 'empresa_operativa', estado: 'objetivo', padre: P('HOLDING-TECHNOLOGIES') },
+  {
+    id: P('DIOQUIS-SOFTWARE'), nombre: 'Dioquis Software', tipo: 'empresa_operativa', estado: 'existente', padre: P('HOLDING-TECHNOLOGIES'),
+    nombreAnterior: 'ALV Technologies', alias: 'ALV TECH',
+    nota: 'Transición ejecutada 2026-08-08: hereda operación real, diagnóstico y blueprint de ALV Technologies.',
+  },
   // Productos de software: pertenecen a quien los DESARROLLA, no a quien los usa.
   { id: P('PROD-BUSINESS-PLANNER'), nombre: 'Business Planner', tipo: 'producto_tecnologico', estado: 'existente', padre: P('DIOQUIS-SOFTWARE') },
   { id: P('PROD-SICA'), nombre: 'SICA', tipo: 'producto_tecnologico', estado: 'en_construccion', padre: P('DIOQUIS-SOFTWARE') },
